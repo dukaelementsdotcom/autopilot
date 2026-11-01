@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np
-from . import config as C, fetch, features, ideas, report
+from . import config as C, fetch, features, ideas, report, account
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -136,6 +136,8 @@ def run(budget=None, log=print):
     if os.environ.get("GROQ_API_KEY") and (not mem.get("lessonsAt") or (dt.datetime.utcnow() - dt.datetime.strptime(mem["lessonsAt"], "%Y-%m-%d %H:%M")).days >= 7):
         L = ideas.ai_lessons(mem)
         if L: mem["lessons"] = L; mem["lessonsAt"] = now_iso()
+    try: account.step(mem, J, now_iso(), log=log)
+    except Exception as e: log(f"account step failed: {e}")
     dropped = compact(mem)
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],
