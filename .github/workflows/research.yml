@@ -1,0 +1,92 @@
+name: research
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      RM_PAGE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: restore market data
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: rawdata-${{ github.run_id }}
+          restore-keys: rawdata-
+
+      - name: restore memory
+        run: |
+          mkdir -p state
+          if git ls-remote --exit-code --heads origin state >/dev/null 2>&1; then
+            git fetch --depth 1 origin state
+            git --work-tree=state checkout FETCH_HEAD -- .
+            git reset -q
+          fi
+          ls -la state
+
+      - name: research day
+        run: python -m rm.run
+
+      - name: save market data
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw
+          key: rawdata-${{ github.run_id }}
+
+      - name: save memory (single commit, force-pushed)
+        if: always()
+        run: |
+          [ -f state/memory.json ] || exit 0
+          cp -r docs state/ 2>/dev/null || true
+          cd state
+          rm -rf .git && git init -q -b state
+          git config user.name "research-machine" && git config user.email "research-machine@users.noreply.github.com"
+          git add -A && git commit -qm "memory $(date -u +%F)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" state
+
+      - name: monthly heartbeat
+        run: |
+          if [ "$(date -u +%d)" = "01" ]; then
+            date -u > .heartbeat
+            git config user.name "research-machine" && git config user.email "research-machine@users.noreply.github.com"
+            git add .heartbeat && git commit -qm "heartbeat" && git push -q || true
+          fi
+
+      - uses: actions/configure-pages@v5
+        continue-on-error: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
