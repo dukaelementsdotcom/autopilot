@@ -1,0 +1,14 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in \
+            "https://api.alternative.me/fng/?limit=3&format=json" \
+            "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600&start=2021-01-01T00:00:00Z&end=2021-01-02T00:00:00Z" \
+            "https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&start_timestamp=1609459200000&end_timestamp=1609545600000&resolution=3600" \
+            "https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=1" \
+            "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=2" ; do
+            code=$(curl -s -o /tmp/o -w "%{http_code}" -m 25 -A "research-machine/1.0" "$u"); echo "$code  $u  $(head -c 160 /tmp/o)"; done
