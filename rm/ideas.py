@@ -80,6 +80,8 @@ def structural_space():
 
 def mutate(h, cols, rng):
     h = json.loads(json.dumps(h))
+    if h["kind"] == "union":
+        i = rng.randrange(len(h["parts"])); h["parts"][i] = mutate(h["parts"][i], cols, rng); return h
     if h["kind"] == "pair":
         op = rng.choice(["z", "look", "hold"])
         if op == "z": h["z"] = rng.choice([1.5, 2.0, 2.5, 3.0, 3.5])
@@ -134,6 +136,8 @@ EVENT: {"kind":"event","uni":"BTC"|"MAJ"|"ALL","when":[{"f":FEATURE,"lo":0-1,"hi
   - "with" = trade in the direction of the last hour's move, "against" = opposite.
   - Raw classic indicators can also be used directly (not percentiles): rsi14 (0-100), bbz (Bollinger z, +/-2 = band), macdh, emax, emat (% gaps), don20 (0-1 Donchian channel position), adx14 (0-100), cross (+1/-1 EMA cross).
 CROSS-SECTION: {"kind":"xsec","rank":FEATURE,"order":"low_long"|"high_long","frac":0.2-0.5,"rebal":24|84|168}
+UNION / TEAM ("X OR Y", 2-3 event rules traded as one; a regime switch = rule A with a condition in one half + rule B with the same condition in the other half): {"kind":"union","parts":[EVENT,EVENT],"cool":24}
+MARKET-WIDE features (same for all coins, use p_ versions): p_fg (Fear&Greed), p_fg7, p_cbp/p_cbp24 (Coinbase premium), p_dvol/p_dvol24/p_dvole (options fear gauge), p_stab7/p_stab30 (stablecoin inflow); per coin: streak (+n/-n hours in a row up/down).
 PAIR (market-neutral): {"kind":"pair","a":COIN,"b":COIN,"z":1-4,"look":168|336|720|1440,"hold":24|72|168,"mode":"revert"|"trend"}
 CARRY (hedged funding): {"kind":"carry","uni":"BTC"|"MAJ"|"ALL","enter":annual funding e.g. 0.2,"leave":lower e.g. 0.05}
 EXITS: """ + ", ".join(f"{k}={'hold %dh' % v[1] if v[0] == 'ret' else 'target +%g%%, stop -%g%%, max %dh' % (v[0] * 100, v[1] * 100, v[2])}" for k, v in C.EXITS.items()) + "\nCOINS: " + " ".join(C.COINS)
@@ -212,3 +216,38 @@ def ai_plain(text):
     txt, model = _groq([{"role": "user", "content": prompt}], 400)
     try: return str(json.loads(re.search(r"\{.*\}", txt, re.S).group(0))["plain"])[:400]
     except Exception: return None
+
+def ai_analyst(mem, cols):
+    """the analyst: explains WHY the winners might win, and proposes merges only where the mechanisms fit together;
+    plus a few 'wild' ideas (gambling concepts, sentiment extremes). Returns (hypotheses, notes)"""
+    win = sorted([t for t in mem["tests"].values() if t["status"] in ("champion", "validated", "twin")], key=lambda t: -((t.get("hold") or t.get("val") or {}).get("t", 0)))[:10]
+    if len(win) < 2: return [], None
+    lines = "\n".join(f"- [{t['status']}{' #' + str(t['no']) if t.get('no') else ''}] {t['text']} | validation {t.get('val')} | final exam {t.get('hold')} | live {(t.get('live') or {}).get('n', 0)} trades, avg {(t.get('live') or {}).get('mean')}%" for t in win)
+    prompt = ("You are the senior analyst of an autonomous crypto research machine (paper only). Below are the rules that survived strict out-of-sample testing.\n" + lines +
+              "\n\nMEASUREMENTS:\n" + "\n".join(f"- {k}: {v}" for k, v in DESC.items()) + "\n\n" + GRAMMAR +
+              "\n\nTasks: (1) For up to 5 winners, explain in one plain sentence WHY it might work (who is forced to buy/sell, who is trapped). "
+              "(2) Propose up to 4 MERGES, only where it makes sense: an AND-merge when one rule's condition confirms the other's mechanism; a UNION (OR) when two rules catch DIFFERENT situations of the same mechanism; a regime switch when each rule works in a different market state. Explain why each merge makes sense. If no merge makes sense, propose none. "
+              "(3) Propose 3 WILD out-of-the-box ideas, e.g. gambling concepts (hot hand vs gambler's fallacy using streak, betting against extreme crowd sentiment like Fear&Greed extremes), Coinbase premium, options fear gauge, stablecoin inflows. "
+              'Answer ONLY JSON: {"why":[{"rule":"#n or short name","reason":"..."}],"merges":[{"why":"...","h":{...}}],"wild":[{"why":"...","h":{...}}]}')
+    txt, model = _groq([{"role": "user", "content": prompt}], 3500)
+    if not txt: return [], None
+    try: data = json.loads(re.search(r"\{.*\}", txt, re.S).group(0))
+    except Exception: return [], None
+    out, merges, wild = [], [], []
+    def fix(h):
+        if not isinstance(h, dict): return None
+        if h.get("kind") == "union": h["parts"] = [fix(q) for q in h.get("parts", []) if isinstance(q, dict)]; h.setdefault("cool", 24); return h
+        if h.get("kind") == "event":
+            h.setdefault("cool", 24)
+            for c in h.get("when", []) if isinstance(h.get("when"), list) else []:
+                if isinstance(c, dict): c["lo"], c["hi"] = float(c.get("lo", 0)), float(c.get("hi", 1))
+        return h
+    for key, bucket in (("merges", merges), ("wild", wild)):
+        for it in (data.get(key) or [])[:6]:
+            h = fix(it.get("h")) if isinstance(it, dict) else None
+            ok = h is not None and valid(h, cols)
+            bucket.append({"why": str(it.get("why", ""))[:300] if isinstance(it, dict) else "", "valid": bool(ok)})
+            if ok: out.append((h, ("merge: " if key == "merges" else "wild idea: ") + str(it.get("why", ""))[:220]))
+    notes = {"model": model, "why": [{"rule": str(x.get("rule", ""))[:40], "reason": str(x.get("reason", ""))[:300]} for x in (data.get("why") or [])[:6] if isinstance(x, dict)],
+             "merges": merges, "wild": wild}
+    return out, notes

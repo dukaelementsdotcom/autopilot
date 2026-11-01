@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np
-from . import config as C, fetch, features, ideas, report, account
+from . import config as C, fetch, fetch_ext, features, ideas, report, account
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -41,6 +41,19 @@ def compact(mem):
     mem["seen"] = mem["seen"][-150000:]                       # fingerprints of tested ideas (≈2.5 MB max)
     return len(drop)
 
+def dedupe(mem, J, log=print, limit=0.6):
+    """near-copies of the same idea are merged: the best one stays champion, the others become its 'twin'"""
+    from .account import _score
+    champs = sorted(((_score(J, t)[0], k) for k, t in mem["tests"].items() if t["status"] == "champion"), reverse=True)
+    kept = []; n = 0
+    for sc, k in champs:
+        t = mem["tests"][k]; fp = J.fingerprint(t["h"])
+        twin = next((kk for kk, f in kept if len(fp & f) / max(1, min(len(fp), len(f))) > limit), None)
+        if twin: t["status"] = "twin"; t["twinOf"] = mem["tests"][twin].get("no"); n += 1
+        else: kept.append((k, fp))
+    if n: log(f"   merged {n} near-duplicate champions into their best twin")
+    return n
+
 def record(mem, h, res, src, gen, why=""):
     k = hid(h); fam = family(h)
     rec = {"h": h, "text": describe(h, DESC), "src": src, "gen": gen, "at": now_iso(), **res}
@@ -54,7 +67,7 @@ def record(mem, h, res, src, gen, why=""):
 def run(budget=None, log=print):
     load_env(); t0 = time.time(); budget = budget or C.TESTS_PER_RUN
     mem = load_memory(); seen = set(mem["seen"]); events = []; certified_now = []
-    log("── 1/6 data"); fetch.update(log=log)
+    log("── 1/6 data"); fetch.update(log=log); fetch_ext.update(log=log)
     P = features.build(log=log); J = Judge(P); cols = J.cols
     log(f"windows: discovery < {dt.datetime.utcfromtimestamp(J.val0).date()} ≤ validation < {dt.datetime.utcfromtimestamp(J.hold0).date()} ≤ holdout ≤ {dt.datetime.utcfromtimestamp(J.t_end).date()}")
 
@@ -84,7 +97,7 @@ def run(budget=None, log=print):
                 mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
             elif hs["n"] < min_h: t["status"] = "validated"; t["waitHold"] = True       # not enough holdout trades yet — wait for more data
             else: t["status"] = "dead_hold"
-    log("── 3/6 promotions"); promote()
+    log("── 3/6 promotions"); promote(); dedupe(mem, J, log)
 
     log("── 4/6 new ideas"); rng = random.Random(int(time.time())); queue = []
     def add(h, src, gen=0, why=""):
@@ -92,7 +105,15 @@ def run(budget=None, log=print):
     if os.environ.get("GROQ_API_KEY"):
         got, model = ideas.ai_ideas(mem, cols); mem["ai"] = {"at": now_iso(), "model": model, "ideas": len(got)}
         for h, why in got: add(h, "ai", 0, why)
+    if os.environ.get("GROQ_API_KEY"):
+        got, notes = ideas.ai_analyst(mem, cols)
+        if notes is not None: mem["analyst"] = {"at": now_iso(), **notes}
+        for h, why in got: add(h, "analyst", 1, why)
     good = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated")]
+    ev = [t for t in good if t["h"]["kind"] == "event"]
+    for i, a in enumerate(ev[:12]):                                   # "X OR Y": two winners that trade different situations
+        for b in ev[i + 1:12]:
+            if a["h"]["exit"] == b["h"]["exit"]: add({"kind": "union", "parts": [a["h"], b["h"]], "cool": 24}, "merge", 2, "two winners that fire in different situations, traded together")
     near = [t for t in mem["tests"].values() if t["status"] == "near"]
     for a, b in list(zip(good, good[1:] + good[:1]))[:40]: add(ideas.combine(a["h"], b["h"]), "combine", max(a["gen"], b["gen"]) + 1)
     parents = [p for p in good + near if p["gen"] < C.MAX_GENERATION]; kids = {}
@@ -118,7 +139,7 @@ def run(budget=None, log=print):
         counts[res["status"]] = counts.get(res["status"], 0) + 1
         if res["status"] == "validated": new_valid += 1
     log(f"   tested {sum(counts.values())}: {counts}")
-    promote()
+    promote(); dedupe(mem, J, log)
 
     for t in sorted((t for t in mem["tests"].values() if t["status"] == "champion" and not t.get("no")), key=lambda t: t.get("promotedOn", "")):
         mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
@@ -138,6 +159,8 @@ def run(budget=None, log=print):
         if L: mem["lessons"] = L; mem["lessonsAt"] = now_iso()
     try: account.step(mem, J, now_iso(), log=log)
     except Exception as e: log(f"account step failed: {e}")
+    try: account.step(mem, J, now_iso(), log=log, key="team", team=True)
+    except Exception as e: log(f"team account step failed: {e}")
     dropped = compact(mem)
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],

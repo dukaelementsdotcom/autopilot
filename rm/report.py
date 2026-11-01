@@ -11,7 +11,7 @@ def _summary(mem):
     status = {}
     for r in mem["runs"]:
         for k, v in r["counts"].items(): status[k] = status.get(k, 0) + v
-    slim = lambda t: {k: t.get(k) for k in ("text", "src", "gen", "why", "disc", "val", "hold", "live", "signals", "promotedOn", "proven", "certified", "certChecks", "status", "no", "plain")}
+    slim = lambda t: {k: t.get(k) for k in ("text", "src", "gen", "why", "disc", "val", "hold", "live", "signals", "promotedOn", "proven", "certified", "certChecks", "status", "no", "plain", "twinOf")}
     return {"born": mem["born"], "total": mem["total_tests"], "runs": mem["runs"][:30], "events": mem["events"][:30], "lessons": mem.get("lessons", []),
             "ai": mem.get("ai", {}), "champions": [slim(t) for t in pick("champion")], "validated": [slim(t) for t in pick("validated")][:40],
             "near": [slim(t) for t in pick("near")][:40], "died_live": [slim(t) for t in pick("dead_live")][:20],
@@ -33,8 +33,15 @@ main{max-width:980px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;marg
 </style></head><body><main>
 <h1>Research Machine</h1><div class="mute" id="sub"></div>
 <div class="grid" style="margin-top:16px" id="kpi"></div>
+<div id="health"></div>
 <h2>$500 account: trades only the champion of champions</h2>
 <div id="box"></div>
+<h2>$500 team account: up to 5 different champions, more money when they agree</h2>
+<div id="tbox"></div>
+<h2>The analyst: why the winners win, and which merges make sense</h2>
+<div id="analyst"></div>
+<h2>Gambling lab: same trades, different betting systems</h2>
+<div id="lab"></div>
 <h2>Research trades (all champion rules, separate from the $500 account)</h2>
 <p class="mute" id="acctnote"></p>
 <div class="grid" id="acct"></div>
@@ -46,6 +53,7 @@ main{max-width:980px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;marg
 <h2>Validated — passed discovery + validation, waiting for the final exam</h2><div id="val"></div>
 <details><summary>Near misses (good in discovery, not yet convincing in validation)</summary><div id="near"></div></details>
 <details><summary>Champions that failed live and were dropped</summary><div id="died"></div></details>
+<details><summary>Twins (near-copies merged into a better champion)</summary><div id="twins"></div></details>
 <h2>What it has learned</h2><div id="lessons"></div>
 <h2>Idea families explored</h2><div class="scroll"><table id="fam"></table></div>
 <h2>Daily runs</h2><div class="scroll"><table id="runs"></table></div>
@@ -75,7 +83,7 @@ const stats=a=>{const c=a.filter(r=>r.usd!=null);const w=c.filter(r=>r.usd>0),l=
  return c.length?`<b>${c.length} trades</b> · ${w.length} won · ${l.length} lost · ${Math.round(100*w.length/c.length)}% win · total ${money(tot)} · avg ${money(tot/c.length)} · best ${money(best)} · worst ${money(worst)}`:"no trades yet"};
 $("rsum").innerHTML=`Show / hide trades: `+stats(T.filter(r=>r.type!="open"));
 // ── the $500 account ─────────────────────────────────────────────
-(()=>{const A=D.account;if(!A){$("box").innerHTML='<p class="mute">The account starts on the next run.</p>';return}
+const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The account starts on the next run.</p>';return}
  const ret=100*(A.equity/A.start-1);const C=A.closed;
  const svg=(()=>{const p=A.curve;if(p.length<2)return'<p class="mute">The equity chart appears after the first closed trade.</p>';
   const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
@@ -85,13 +93,33 @@ $("rsum").innerHTML=`Show / hide trades: `+stats(T.filter(r=>r.type!="open"));
  const openRows=A.open.map(r=>row(r)+`<td>${r.livePx?"live "+fmt(r.livePx):"–"}</td><td>${money(r.unreal||0)}</td></tr>`).join("");
  const closedRows=C.map(r=>row(r)+`<td>${fmt(r.exitPx)}<br><span class=mute>${when(r.exitT)}</span></td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td>$${fmt(r.after)}</td></tr>`).join("");
  const H1="<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>margin</th>";
- $("box").innerHTML=`<div class="grid">${[["Account value",`$${A.equity.toFixed(2)}`],["Since start",`<span style="color:var(--${ret>=0?"good":"bad"})">${ret>=0?"+":""}${ret.toFixed(1)}%</span>`],["Closed trades",C.length?`${C.length} · ${C.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>
- <div class="card" style="margin-top:10px"><div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
- <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each trade uses 10% of the account as margin at ${D.lev}x leverage, max 3 trades at once, profits compound. The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div></div>
+ $(box).innerHTML=`<div class="grid">${[["Account value",`$${A.equity.toFixed(2)}`],["Since start",`<span style="color:var(--${ret>=0?"good":"bad"})">${ret>=0?"+":""}${ret.toFixed(1)}%</span>`],["Closed trades",C.length?`${C.length} · ${C.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>
+ <div class="card" style="margin-top:10px">${isTeam?`<div class="mute">Team now: ${A.teamRules.length?A.teamRules.map(r=>`<div style="margin-top:4px"><b>Rule #${r.no}</b>: ${esc(r.text)}</div>`).join(""):"no team yet"}</div>
+ <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each signal uses 5% of the account as margin at ${D.lev}x; when 2-3 team rules agree on the same trade, the position grows (up to 15%). Max 6 trades at once, profits compound. The team is re-picked every run.</div>`:
+ `<div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
+ <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each trade uses 10% of the account as margin at ${D.lev}x leverage, max 3 trades at once, profits compound. The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
  <div class="card" style="margin-top:10px">${svg}</div>
  <details class="card" style="margin-top:10px" ${A.open.length?"open":""}><summary>Open positions: <b>${A.open.length}</b> · unrealised ${money(A.open.reduce((x,r)=>x+(r.unreal||0),0))}</summary><div class="scroll"><table>${A.open.length?H1+"<th>now</th><th>$ so far</th></tr>"+openRows:'<tr><td class="mute">None.</td></tr>'}</table></div></details>
  <details class="card" style="margin-top:10px"><summary>Closed trades: ${stats(C)}</summary><div class="scroll"><table>${C.length?H1+"<th>exit</th><th>how it ended</th><th>move</th><th>$ result</th><th>account after</th></tr>"+closedRows:'<tr><td class="mute">None yet.</td></tr>'}</table></div></details>
- <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>Rule #${l.rule}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`})();
+ <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
+renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);
+// health
+(()=>{const h=(Date.now()-Date.parse(D.built.replace(" UTC","Z").replace(" ","T")))/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
+ $("health").innerHTML=h>9?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:14px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every 4 hours). Something may be stuck: tell Claude.</div>`:
+ dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:14px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
+ `<div class="card" style="border-color:var(--good);margin-top:14px"><span style="color:var(--good)">●</span> Healthy: last run ${Math.max(0,Math.round(h*60))} min ago, runs every 4 hours. Market data up to ${esc(de||"?")} UTC.</div>`})();
+// analyst
+(()=>{const A=D.analyst;if(!A){$("analyst").innerHTML='<p class="mute">The analyst starts once there are at least 2 winning rules.</p>';return}
+ $("analyst").innerHTML=`<div class="card"><div class="mute">Written ${esc(A.at)} UTC by ${esc(A.model)}</div>
+ ${A.why?.length?"<h3 style='font-size:15px;margin:10px 0 4px'>Why the winners might win</h3><ul>"+A.why.map(w=>`<li><b>${esc(w.rule)}</b>: ${esc(w.reason)}</li>`).join("")+"</ul>":""}
+ ${A.merges?.length?"<h3 style='font-size:15px;margin:10px 0 4px'>Merges it proposed (each is tested like any other idea)</h3><ul>"+A.merges.map(m=>`<li>${esc(m.why)}${m.valid?"":" <span class=mute>(could not be built, skipped)</span>"}</li>`).join("")+"</ul>":"<p class=mute>No merge made sense this time.</p>"}
+ ${A.wild?.length?"<h3 style='font-size:15px;margin:10px 0 4px'>Wild ideas (gambling concepts, sentiment extremes)</h3><ul>"+A.wild.map(m=>`<li>${esc(m.why)}${m.valid?"":" <span class=mute>(could not be built, skipped)</span>"}</li>`).join("")+"</ul>":""}</div>`})();
+// gambling lab
+(()=>{const L=D.lab;if(!L){$("lab").innerHTML='<p class="mute">Appears once the best rule has 20+ finished trades.</p>';return}
+ $("lab").innerHTML=`<p class="mute">Rule #${L.rule}'s ${L.n} trades (final exam + live), replayed with different betting systems: $500 start, ${D.lev}x leverage, one trade at a time. "Shuffled" = the same trades in 500 random orders, because the order of wins and losses is luck. A betting system can never change the odds of each trade; it only changes the ride.</p>
+ <div class="scroll"><table><tr><th>betting system</th><th>real order: final $</th><th>worst drop</th><th>shuffled: typical final $</th><th>bad luck (5%)</th><th>good luck (95%)</th><th>chance of going broke</th></tr>
+ ${L.rows.map(r=>`<tr><td>${esc(r.system)}</td><td>$${r.real} (${money(r.real-500)})</td><td>${r.realDD}%</td><td>$${r.median}</td><td>$${r.bad5}</td><td>$${r.good95}</td><td style="color:var(--${r.ruin>5?"bad":"ink"})">${r.ruin}%</td></tr>`).join("")}</table></div>`})();
+$("twins").innerHTML=(D.twins||[]).map(t=>`<div class="rule"><span class="tag">twin of #${t.of}</span> ${esc(t.text)}</div>`).join("")||'<p class="mute">None.</p>';
 let F="all";const draw=()=>{const a=T.filter(r=>F=="all"||r.type==F).slice(0,200);
 $("trades").innerHTML=a.length?"<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>exit</th><th>how it ended</th><th>move</th><th>$ at "+D.lev+"x</th><th></th></tr>"+a.map(r=>`<tr><td>#${String(r.no??"?").replace(/,/g,", #")}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>${r.how=="open"?"now "+fmt(r.exitPx):fmt(r.exitPx)+"<br><span class=mute>"+when(r.exitT)+"</span>"}</td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td><span class="tag ${r.type=="live"?"champion":r.type=="open"?"validated":""}">${r.type}</span></td></tr>`).join(""):'<tr><td class="mute">No trades yet. Trades appear here as soon as a rule becomes a champion.</td></tr>'};
 $("filt").innerHTML=["all","live","open","exam"].map(f=>`<button data-f="${f}" style="margin-right:6px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer">${f}</button>`).join("");
@@ -130,12 +158,28 @@ def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     d["trades"] = _trades(mem, J, log) if J is not None else []; d["margin"] = C.PAPER_MARGIN; d["lev"] = C.LEVERAGE
-    A = mem.get("account")
-    if A:
+    for key in ("account", "team"):
+        A = mem.get(key)
+        if not A: continue
         lead = mem["tests"].get(A.get("leader") or "", {})
-        d["account"] = {"born": A["born"], "t0": A["t0"], "cash": A["cash"], "equity": A.get("equity", A["cash"]), "start": 500.0,
+        tm = [mem["tests"][k] for k in (A.get("team") or []) if k in mem["tests"]]
+        d[key] = {"teamRules": [{"no": t.get("no"), "text": t.get("plain") or t["text"]} for t in tm],"born": A["born"], "t0": A["t0"], "cash": A["cash"], "equity": A.get("equity", A["cash"]), "start": 500.0,
                         "open": [{k: v for k, v in p.items() if k not in ("sd", "_w")} for p in A["open"]], "closed": A["closed"][::-1][:300],
                         "curve": A["curve"], "leaders": A["leaders"][::-1], "leaderNo": lead.get("no"), "leaderText": lead.get("plain") or lead.get("text")}
+    d["analyst"] = mem.get("analyst")
+    d["twins"] = [{"text": t.get("plain") or t["text"], "of": t.get("twinOf")} for t in mem["tests"].values() if t["status"] == "twin"][:40]
+    d["lab"] = None
+    try:
+        from . import lab
+        lead = mem["tests"].get((mem.get("account") or {}).get("leader") or "")
+        if lead and J is not None:
+            tl = sorted([x for x in J.trade_log(lead["h"], J.hold0, limit=2000) if x["how"] != "open"], key=lambda x: x["t"])
+            seq, free = [], -1                     # one trade at a time: the next trade must start after the previous one ended
+            for x in tl:
+                if x["t"] >= free: seq.append(x["ret"]); free = x["exitT"]
+            res = lab.run(seq)
+            if res: d["lab"] = {**res, "rule": lead.get("no")}
+    except Exception as e: log(f"lab failed: {e}")
     blob = json.dumps(d, separators=(",", ":")).replace("</", "<\\/")
     with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(PAGE.replace("__DATA__", blob))
     with open(f"{C.DOCS_DIR}/summary.json", "w", encoding="utf-8") as f: json.dump(d, f)

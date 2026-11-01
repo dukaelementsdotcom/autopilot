@@ -17,13 +17,26 @@ def _score(J, t):
     s = J.stats(tt, rr)
     return (s.get("t", 0) if s.get("n", 0) >= MIN_TRADES and s.get("mean", 0) > 0 else -99), s
 
-def pick_leader(mem, J):
-    best = None
+def ranked(mem, J):
+    """champions ranked by their record after their exams; near-duplicates (twins) are skipped"""
+    out = []
     for k, t in mem["tests"].items():
-        if t["status"] != "champion" or t["h"]["kind"] != "event": continue
+        if t["status"] != "champion" or t["h"]["kind"] not in ("event", "union"): continue
         sc, s = _score(J, t)
-        if best is None or sc > best[0]: best = (sc, k, s)
-    return best if best and best[0] > -99 else None
+        if sc > -99: out.append((sc, k, s))
+    return sorted(out, reverse=True)
+
+def pick_leader(mem, J):
+    r = ranked(mem, J); return r[0] if r else None
+
+def pick_team(mem, J, size=5, max_overlap=0.35):
+    """up to 5 champions that trade DIFFERENT situations (little overlap), best first"""
+    team, fps = [], []
+    for sc, k, s in ranked(mem, J):
+        fp = J.fingerprint(mem["tests"][k]["h"])
+        if all(len(fp & f) / max(1, min(len(fp), len(f))) <= max_overlap for f in fps): team.append((sc, k, s)); fps.append(fp)
+        if len(team) >= size: break
+    return team
 
 def live_prices(coins):
     try:
@@ -32,12 +45,13 @@ def live_prices(coins):
         return {c: px.get(f"{c}USDT") for c in coins}
     except Exception: return {}
 
-def step(mem, J, now_iso, log=print):
-    A = mem.get("account")
+def step(mem, J, now_iso, log=print, key="account", team=False):
+    A = mem.get(key)
     if A is None:                                                   # birth: starts at the newest hour of data, trades only what comes after
-        A = mem["account"] = {"born": now_iso, "t0": int(J.t.max()), "lastT": int(J.t.max()), "cash": START, "open": [], "closed": [],
+        A = mem[key] = {"born": now_iso, "t0": int(J.t.max()), "lastT": int(J.t.max()), "cash": START, "open": [], "closed": [],
                               "leader": None, "leaders": [], "curve": [[int(J.t.max()), START]]}
     tests = mem["tests"]; lead = A.get("leader")
+    rules = [k for k in (A.get("team") or ([lead] if lead else [])) if k in tests and tests[k]["status"] == "champion"]
     newest = int(J.t.max())
     # 1) replay the hours that arrived since the last run, in time order, with the leader chosen BEFORE they arrived
     def walk(p):
@@ -50,24 +64,29 @@ def step(mem, J, now_iso, log=print):
             w = p.get("_w") or walk(p)
             if w and w["how"] != "open" and w["exitT"] <= t_now:
                 pnl = max(-p["margin"], p["margin"] * LEV * w["ret"]); A["cash"] = round(A["cash"] + pnl, 2)
-                A["closed"].append({**{k: v for k, v in p.items() if k not in ("sd", "_w")}, "exitT": w["exitT"], "exitPx": w["exitPx"], "how": w["how"],
+                A["closed"].append({**{k: v for k, v in p.items() if k not in ("sd", "_w", "votes")}, "exitT": w["exitT"], "exitPx": w["exitPx"], "how": w["how"],
                                     "pct": round(w["ret"] * 100, 2), "usd": round(pnl, 2), "after": A["cash"]})
                 A["curve"].append([w["exitT"], A["cash"]])
             else: keep.append(p)
         A["open"] = keep
     for p in A["open"]: walk(p)
-    if lead and lead in tests and tests[lead]["status"] == "champion" and newest > A["lastT"]:
-        h = tests[lead]["h"]; P = J.P
-        m = J._mask(h) & (J.t > A["lastT"]) & (J.t <= newest)
-        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(J.r1), "against": -np.sign(J.r1)}[h["dir"]]
-        for i in sorted(np.flatnonzero(m), key=lambda i: J.t[i]):
-            c, t0, sd = str(J.coin[i]), int(J.t[i]), int(side[i])
-            close_until(t0)
-            if sd == 0 or len(A["open"]) >= SLOTS or any(p["coin"] == c for p in A["open"]): continue
+    if rules and newest > A["lastT"]:
+        ent = []
+        for k in rules:
+            for i, sd, ex in J.raw_entries(tests[k]["h"], t_lo=A["lastT"], t_hi=newest): ent.append((int(J.t[i]), i, sd, ex, k))
+        ent.sort()
+        slots = SLOTS * (2 if team else 1); frac = MARGIN_FRAC / (2 if team else 1)
+        for t0, i, sd, ex, k in ent:
+            c = str(J.coin[i]); close_until(t0)
+            same = [p for p in A["open"] if p["coin"] == c and p["sd"] == sd]
+            if team and same and t0 == same[0]["t"] and k not in same[0].get("votes", []):     # another team rule agrees -> add to the position
+                p = same[0]; p["votes"] = p.get("votes", []) + [k]; p["rule"] = f'{p["rule"]},{tests[k].get("no")}'
+                extra = round(A["cash"] * frac, 2) if len(p["votes"]) <= 3 else 0; p["margin"] = round(p["margin"] + extra, 2); continue
+            if len(A["open"]) >= slots or any(p["coin"] == c for p in A["open"]): continue
             last_same = max([p["t"] for p in A["closed"] if p["coin"] == c] or [-1e18])
-            if t0 - last_same < h.get("cool", 24) * HOUR: continue
-            p = {"coin": c, "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": t0, "exit": h["exit"], "rule": tests[lead].get("no"),
-                 "margin": round(A["cash"] * MARGIN_FRAC, 2)}
+            if t0 - last_same < tests[k]["h"].get("cool", 24) * HOUR: continue
+            p = {"coin": c, "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": t0, "exit": ex, "rule": str(tests[k].get("no")), "votes": [k],
+                 "margin": round(A["cash"] * frac, 2)}
             walk(p); A["open"].append(p)
     close_until(newest + HOUR)
     for p in A["open"]:
@@ -83,7 +102,14 @@ def step(mem, J, now_iso, log=print):
         p["unreal"] = round(max(-p["margin"], p["margin"] * LEV * r), 2); unreal += p["unreal"]
     A["equity"] = round(A["cash"] + unreal, 2)
     # 4) re-pick the champion of champions for the NEXT hours (re-tested every run on the newest data)
-    best = pick_leader(mem, J)
+    if team:
+        tm = pick_team(mem, J); new = [k for _, k, _ in tm]
+        if new != A.get("team"):
+            A["leaders"].append({"at": now_iso, "rule": ", ".join(f"#{tests[k].get('no')}" for k in new), "text": " | ".join((tests[k].get("plain") or tests[k]["text"])[:140] for k in new),
+                                 "score": round(sum(sc for sc, _, _ in tm) / max(1, len(tm)), 2), "why": f"{len(new)} champions that trade different situations, best records first"})
+            A["team"] = new
+        best = None
+    else: best = pick_leader(mem, J)
     if best:
         sc, k, s = best
         if k != lead:
@@ -92,5 +118,5 @@ def step(mem, J, now_iso, log=print):
             A["leader"] = k
     elif lead and (lead not in tests or tests[lead]["status"] != "champion"): A["leader"] = None
     A["closed"] = A["closed"][-400:]; A["curve"] = A["curve"][-1000:]; A["leaders"] = A["leaders"][-50:]
-    log(f"account: ${A['equity']} (cash ${A['cash']}, {len(A['open'])} open, {len(A['closed'])} closed), leader rule #{tests[A['leader']].get('no') if A.get('leader') else '-'}")
+    log(f"{key}: ${A['equity']} (cash ${A['cash']}, {len(A['open'])} open, {len(A['closed'])} closed), rules {[tests[k].get('no') for k in (A.get('team') or ([A['leader']] if A.get('leader') else []))]}")
     return A

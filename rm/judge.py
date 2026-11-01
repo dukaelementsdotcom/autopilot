@@ -16,6 +16,7 @@ def family(h):
     if h["kind"] == "xsec": return f"xsec|{h['rank']}|{h['order']}"
     if h["kind"] == "pair": return f"pair|{h['a']}-{h['b']}|{h['mode']}"
     if h["kind"] == "carry": return f"carry|{h['uni']}"
+    if h["kind"] == "union": return "union|" + "|".join(sorted(family(q) for q in h["parts"]))
     return f"event|{h['uni']}|{h['dir']}|{h['exit']}|" + "+".join(sorted(c["f"] for c in h["when"]))
 
 def describe(h, desc=None):
@@ -29,6 +30,8 @@ def describe(h, desc=None):
         return f"{name} between {lo:g} and {hi:g}"
     if h["kind"] == "xsec":
         return f"Every {h['rebal']}h: rank coins by {d.get(h['rank'].removeprefix('x_'), h['rank'])}; BUY the {'lowest' if h['order'] == 'low_long' else 'highest'} {round(h['frac'] * 100)}%, SHORT the opposite end"
+    if h["kind"] == "union":
+        return "TEAM of " + str(len(h["parts"])) + " rules (trade when ANY fires): " + "  ‖  ".join(f"({describe(q, desc)})" for q in h["parts"])
     if h["kind"] == "pair":
         act = "bet the gap CLOSES (short the stretched coin, buy the other)" if h["mode"] == "revert" else "bet the gap keeps WIDENING"
         return f"Pair {h['a']}/{h['b']}: when their price ratio is {h['z']:g}+ standard deviations from its {h['look'] // 24}-day normal → {act}; hold {h['hold']}h (market-neutral)"
@@ -46,6 +49,8 @@ def valid(h, cols):
             return h["rank"] in cols and h["order"] in ("low_long", "high_long") and 0.1 <= h["frac"] <= 0.5 and h["rebal"] in (24, 84, 168)
         if h["kind"] == "pair":
             return h["a"] != h["b"] and h["a"] in C.COINS and h["b"] in C.COINS and 1.0 <= h["z"] <= 4.0 and h["look"] in (168, 336, 720, 1440) and h["hold"] in (24, 72, 168) and h["mode"] in ("revert", "trend")
+        if h["kind"] == "union":
+            return isinstance(h.get("parts"), list) and 2 <= len(h["parts"]) <= 3 and all(isinstance(q, dict) and q.get("kind") == "event" and valid(q, cols) for q in h["parts"])
         if h["kind"] == "carry":
             return h["uni"] in UNI and 0 <= h["leave"] < h["enter"] <= 2.0
         if h["kind"] != "event" or h["uni"] not in UNI or h["dir"] not in DIRS or h["exit"] not in C.EXITS: return False
@@ -124,6 +129,7 @@ class Judge:
         if k == "xsec": return self.xsec_returns(h, t_from)
         if k == "pair": return self.pair_returns(h, t_from)
         if k == "carry": return self.carry_returns(h, t_from)
+        if k == "union": return self.union_trades(h, t_from)
         return self.trades(h, t_from)
 
     def _pxwide(self):
@@ -195,6 +201,17 @@ class Judge:
                 tt, rr = self.pair_returns(h, z_override=0.5, rand=R); m = (tt >= lo) & (tt < hi)
                 if m.sum() and rr[m].mean() >= r.mean(): beats += 1
             return round((beats + 1) / (min(reps, 60) + 1), 3)
+        if h["kind"] == "union":
+            pools = []
+            for q in h["parts"]:
+                P = self.P; m = (self.t >= lo) & (self.t < hi); u = UNI[q["uni"]]
+                if u: m &= P.coin.isin(u).values
+                sd = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[q["dir"]]
+                pl = np.where(sd > 0, P["L_" + q["exit"]].values, np.where(sd < 0, P["S_" + q["exit"]].values, np.nan))[m]; pools.append(pl[~np.isnan(pl)])
+            pool = np.concatenate(pools) if pools else np.array([])
+            if len(pool) < len(r) * 2: return 1.0
+            rng = np.random.default_rng(seed); sims = np.array([rng.choice(pool, len(r), replace=False).mean() for _ in range(reps)])
+            return round(float(((sims >= r.mean()).sum() + 1) / (reps + 1)), 3)
         if h["kind"] == "carry":                     # vs. simply always holding the carry on the same coins
             tt, rr = self.carry_returns(h, always=True); m = (tt >= lo) & (tt < hi)
             if not m.sum(): return 1.0
@@ -232,7 +249,7 @@ class Judge:
         d = t < self.val0; v = (t >= self.val0) & (t < self.hold0)
         disc, val = self.stats(t[d], r[d]), self.stats(t[v], r[v])
         rec = {"disc": disc, "val": val}
-        min_d, min_v = {"event": (C.MIN_DISC_TRADES, C.MIN_VAL_TRADES), "pair": (30, 12), "carry": (90, 45)}.get(h["kind"], (60, 30))
+        min_d, min_v = {"event": (C.MIN_DISC_TRADES, C.MIN_VAL_TRADES), "union": (C.MIN_DISC_TRADES, C.MIN_VAL_TRADES), "pair": (30, 12), "carry": (90, 45)}.get(h["kind"], (60, 30))
         if disc["n"] < min_d or disc["mean"] <= 0 or disc["t"] < C.DISC_T: rec["status"] = "dead_disc"; return rec
         if val["n"] < min_v or val["mean"] <= 0 or val["t"] < C.VAL_T:
             rec["status"] = "near" if val.get("mean", -1) > 0 else "dead_val"; return rec
@@ -251,7 +268,10 @@ class Judge:
 
     def signals_now(self, h, hours=36):
         """entries that fired in the newest data (their outcome may still be pending)"""
-        if h["kind"] == "xsec": return []
+        if h["kind"] in ("xsec", "pair", "carry"): return []
+        if h["kind"] == "union":
+            return [{"coin": str(self.coin[i]), "t": int(self.t[i]), "side": "LONG" if sd > 0 else "SHORT", "px": float(self.P.px.values[i])}
+                    for i, sd, _ in self.raw_entries(h, t_lo=self.t.max() - hours * HOUR)][-10:]
         P = self.P; m = self._mask(h) & (self.t > self.P.t.max() - hours * HOUR)
         side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
         idx = np.flatnonzero(m)
@@ -285,6 +305,14 @@ class Judge:
 
     def trade_log(self, h, t_from, limit=60):
         """the actual trades a rule took since t_from, with entry, TP/SL, exit and $ result on the paper account"""
+        if h["kind"] == "union":
+            cool = h.get("cool", 24) * HOUR; last = {}; out = []
+            for i, sd, ex in self.raw_entries(h, t_lo=t_from - 1):
+                c = str(self.coin[i])
+                if self.t[i] - last.get(c, -1e18) < cool: continue
+                last[c] = self.t[i]; w = self._walk(c, int(self.t[i]), sd, ex)
+                if w: out.append({"coin": c, "side": "LONG" if sd > 0 else "SHORT", "t": int(self.t[i]), **w})
+            return out[-limit:]
         if h["kind"] == "event":
             P = self.P; idx = self._entry_index(h); idx = idx[self.t[idx] >= t_from]
             # newest entries whose outcome is not in the data yet (still open)
@@ -350,3 +378,33 @@ class Judge:
             if self.coin[i] != lc: lc, lt = self.coin[i], -1e18
             if self.t[i] - lt >= cool: keep.append(i); lt = self.t[i]
         keep = np.array(keep, dtype=int); return keep[np.argsort(self.t[keep], kind="stable")]
+
+    # ── unions: "X OR Y" — several event rules traded as one strategy (the analyst's merges, the team) ──────────
+    def raw_entries(self, h, t_lo=None, t_hi=None):
+        """every row where an event / union rule fires (no cooldown): (row index, side, exit name)"""
+        parts = h["parts"] if h["kind"] == "union" else [h]
+        P = self.P; out = []
+        for q in parts:
+            m = self._mask(q)
+            if t_lo is not None: m &= self.t > t_lo
+            if t_hi is not None: m &= self.t <= t_hi
+            side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[q["dir"]]
+            for i in np.flatnonzero(m):
+                if side[i] != 0: out.append((int(i), int(side[i]), q["exit"]))
+        out.sort(key=lambda x: (self.t[x[0]], x[0])); return out
+
+    def union_trades(self, h, t_from=None):
+        cool = h.get("cool", 24) * HOUR; last = {}; ts, rs = [], []
+        for i, sd, ex in self.raw_entries(h):
+            if t_from is not None and self.t[i] < t_from: continue
+            r = self.P["L_" + ex].values[i] if sd > 0 else self.P["S_" + ex].values[i]
+            if np.isnan(r): continue
+            c = self.coin[i]
+            if self.t[i] - last.get(c, -1e18) < cool: continue
+            last[c] = self.t[i]; ts.append(self.t[i]); rs.append(r)
+        return np.array(ts, dtype=np.int64), np.array(rs)
+
+    def fingerprint(self, h):
+        """the set of (coin, day) a rule trades — used to spot near-duplicate champions"""
+        if h["kind"] in ("event", "union"): return {(str(self.coin[i]), int(self.t[i] // 86400)) for i, _, _ in self.raw_entries(h, t_lo=self.val0)}
+        t, _ = self.series(h, t_from=self.val0); return {(h.get("a", h.get("uni", "")), int(x // 86400)) for x in t}

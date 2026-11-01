@@ -22,8 +22,15 @@ DESC = {  # feature dictionary (also shown to the AI researcher)
     "macdh": "MACD histogram (12/26/9) as % of price", "emax": "EMA12 vs EMA26 gap (%)", "emat": "EMA50 vs EMA200 gap (%) (long-term trend)",
     "don20": "position inside the 20-day high/low channel (Donchian; 1 = at the 20-day high)", "adx14": "ADX(14) trend strength (above 25 = trending)",
     "cross": "EMA12/26 crossed in the last hour: +1 golden cross, -1 death cross, 0 none",
+    "streak": "how many hours in a row price moved the same way (+ up, - down) - the gambler's 'hot hand / due for a reversal' question",
+    # market-wide (same for every coin), from other free sources
+    "fg": "Crypto Fear & Greed index (0 extreme fear - 100 extreme greed)", "fg7": "change of Fear & Greed over 7 days",
+    "cbp": "Coinbase premium: BTC price on Coinbase vs Binance (%), positive = US buyers paying up", "cbp24": "Coinbase premium averaged over 24h",
+    "dvol": "BTC options 'fear gauge' (Deribit DVOL, expected volatility)", "dvol24": "change of the BTC options fear gauge over 24h", "dvole": "ETH options fear gauge (DVOL)",
+    "stab7": "stablecoin supply change over 7 days (%) = new money arriving", "stab30": "stablecoin supply change over 30 days (%)",
 }
-PCT = [f for f in DESC if not f.startswith("x_") and f not in ("hour", "dow", "cross")]
+MARKET = ("fg", "fg7", "cbp", "cbp24", "dvol", "dvol24", "dvole", "stab7", "stab30")
+PCT = [f for f in DESC if not f.startswith("x_") and f not in ("hour", "dow", "cross") and f not in MARKET]
 
 def _ema(x, n): return x.ewm(span=n, adjust=False).mean()
 def _rma(x, n): return x.ewm(alpha=1 / n, adjust=False).mean()
@@ -55,6 +62,7 @@ def _coin(coin):
     e12, e26 = _ema(c, 12), _ema(c, 26); macd = e12 - e26; f["macdh"] = (macd - _ema(macd, 9)) / c * 100
     f["emax"] = (e12 / e26 - 1) * 100; f["emat"] = (_ema(c, 50) / _ema(c, 200) - 1) * 100
     s_ = np.sign(e12 - e26); f["cross"] = ((s_ > 0) & (s_.shift(1) <= 0)).astype(float) - ((s_ < 0) & (s_.shift(1) >= 0)).astype(float)
+    sg = np.sign(lr).fillna(0); grp = (sg != sg.shift()).cumsum(); f["streak"] = sg * sg.groupby(grp).cumcount().add(1)
     dh, dl = k.h.rolling(480).max(), k.l.rolling(480).min(); f["don20"] = (c - dl) / (dh - dl).replace(0, np.nan)
     up, dn = k.h.diff(), -k.l.diff(); pdm = up.where((up > dn) & (up > 0), 0.0); mdm = dn.where((dn > up) & (dn > 0), 0.0)
     trr = pd.concat([k.h - k.l, (k.h - c.shift()).abs(), (k.l - c.shift()).abs()], axis=1).max(axis=1); atr = _rma(trr, 14)
@@ -100,6 +108,12 @@ def build(coins=None, log=print):
         P["x_" + col] = P.groupby("t")[col].rank(pct=True)
     for col in ("btc_r1", "btc_r24"):
         if col in P: P["p_" + col] = P.groupby("coin")[col].transform(lambda s: s.rolling(2160, min_periods=500).rank(pct=True))
+    try:                                               # market-wide extras (Fear & Greed, Coinbase premium, options fear, stablecoins)
+        from .fetch_ext import market_frame
+        btc = pd.read_parquet(f"{C.DATA_DIR}/raw/BTC_k.parquet").set_index("t").c if "BTC" in parts else None
+        M = market_frame(np.sort(P.t.unique()), btc)
+        if len(M.columns): P = P.merge(M, left_on="t", right_index=True, how="left")
+    except Exception as e: log(f"extra features skipped: {e}")
     num = P.select_dtypes("float64").columns; P[num] = P[num].astype("float32")
     os.makedirs(C.DATA_DIR, exist_ok=True); P.reset_index(drop=True).to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)
     log(f"panel: {len(P):,} coin-hours, {P.coin.nunique()} coins, {pd.to_datetime(P.t.min(), unit='s').date()} → {pd.to_datetime(P.t.max(), unit='s')}")
