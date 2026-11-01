@@ -138,11 +138,23 @@ PAIR (market-neutral): {"kind":"pair","a":COIN,"b":COIN,"z":1-4,"look":168|336|7
 CARRY (hedged funding): {"kind":"carry","uni":"BTC"|"MAJ"|"ALL","enter":annual funding e.g. 0.2,"leave":lower e.g. 0.05}
 EXITS: """ + ", ".join(f"{k}={'hold %dh' % v[1] if v[0] == 'ret' else 'target +%g%%, stop -%g%%, max %dh' % (v[0] * 100, v[1] * 100, v[2])}" for k, v in C.EXITS.items()) + "\nCOINS: " + " ".join(C.COINS)
 
+PREFER = ("gpt-oss-120b", "qwen", "llama-3.3-70b", "kimi", "deepseek", "llama-4", "gpt-oss-20b")
+def _groq_models(key):
+    """ask Groq which models exist today (they change), best first; fall back to a fixed list"""
+    try:
+        r = requests.get("https://api.groq.com/openai/v1/models", timeout=30, headers={"Authorization": f"Bearer {key}"})
+        names = [m["id"] for m in r.json().get("data", []) if not any(x in m["id"] for x in ("whisper", "tts", "guard", "embed", "playai", "compound"))]
+        rank = lambda n: next((i for i, p in enumerate(PREFER) if p in n), len(PREFER))
+        names = sorted(names, key=rank)[:6]
+        if names: return names
+    except Exception: pass
+    return ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]
+
 def _groq(messages, max_tokens=2500):
     key = os.environ.get("GROQ_API_KEY")
     if not key: return None, "no GROQ_API_KEY"
     last = ""
-    for model in ("openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3-32b", "openai/gpt-oss-20b"):
+    for model in _groq_models(key):
         try:
             r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=90, headers={"Authorization": f"Bearer {key}"},
                               json={"model": model, "messages": messages, "temperature": 0.8, "max_tokens": max_tokens, "response_format": {"type": "json_object"}})
