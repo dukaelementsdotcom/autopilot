@@ -24,3 +24,7 @@ EXITS = {                       # exit menu: name -> (target, stop, max hours) ;
     "b2_1_24": (0.02, 0.01, 24), "b05_15_24": (0.005, 0.015, 24), "b3_3_72": (0.03, 0.03, 72),
     "r4": ("ret", 4), "r24": ("ret", 24), "r72": ("ret", 72),
 }
+
+# paper account shown on the dashboard: every trade uses the same margin and leverage
+PAPER_MARGIN = 50.0             # $ margin per trade
+LEVERAGE = 10                   # 10x  -> a $50 margin controls a $500 position

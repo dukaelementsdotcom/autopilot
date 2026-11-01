@@ -81,6 +81,7 @@ def run(budget=None, log=print):
             min_h = {"event": C.MIN_HOLD_TRADES, "pair": 5, "carry": 20}.get(t["h"]["kind"], 12)
             if hs["n"] >= min_h and hs["mean"] > 0 and champs < 30:
                 t["status"] = "champion"; t["promotedAt"] = J.t_end; t["promotedOn"] = now_iso(); champs += 1; events.append(("promoted", k))
+                mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
             elif hs["n"] < min_h: t["status"] = "validated"; t["waitHold"] = True       # not enough holdout trades yet — wait for more data
             else: t["status"] = "dead_hold"
     log("── 3/6 promotions"); promote()
@@ -119,6 +120,13 @@ def run(budget=None, log=print):
     log(f"   tested {sum(counts.values())}: {counts}")
     promote()
 
+    for t in sorted((t for t in mem["tests"].values() if t["status"] == "champion" and not t.get("no")), key=lambda t: t.get("promotedOn", "")):
+        mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
+    if os.environ.get("GROQ_API_KEY"):                       # plain-English explanations for the dashboard
+        todo = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated") and not t.get("plain")][:12]
+        for t in todo:
+            p = ideas.ai_plain(t["text"])
+            if p: t["plain"] = p
     log("── 5/6 machine portfolio + lessons")
     champs = {k: t for k, t in mem["tests"].items() if t["status"] == "champion"}
     port = []

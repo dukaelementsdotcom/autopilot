@@ -257,6 +257,54 @@ class Judge:
         idx = np.flatnonzero(m)
         return [{"coin": str(self.coin[i]), "t": int(self.t[i]), "side": "LONG" if side[i] > 0 else "SHORT", "px": float(P.px.values[i])} for i in idx[-10:] if side[i] != 0]
 
+    # ── individual paper trades (for the dashboard) ─────────────────────────────────────────────
+    def _bars(self, coin):
+        if not hasattr(self, "_K"): self._K = {}
+        if coin not in self._K:
+            k = pd.read_parquet(f"{C.DATA_DIR}/raw/{coin}_k.parquet").sort_values("t").drop_duplicates("t")
+            self._K[coin] = (k.t.values, k.o.values, k.h.values, k.l.values, k.c.values)
+        return self._K[coin]
+
+    def _walk(self, coin, t0, side, exit_):
+        """replay one trade bar by bar: returns exit time, exit price, how it ended, return after fees ('open' if not finished)"""
+        T, O, Hh, Ll, Cc = self._bars(coin); i = int(np.searchsorted(T, t0))
+        if i >= len(T) or T[i] != t0: return None
+        e = O[i]; ex = C.EXITS[exit_]
+        if ex[0] == "ret":
+            j = i + ex[1] - 1
+            if j >= len(T): return {"entry": e, "exitT": None, "exitPx": float(Cc[-1]), "how": "open", "ret": side * (Cc[-1] / e - 1) - C.FEE}
+            return {"entry": e, "exitT": int(T[j]) + HOUR, "exitPx": float(Cc[j]), "how": f"time ({ex[1]}h)", "ret": side * (Cc[j] / e - 1) - C.FEE}
+        tp, sl, hh = ex; tgt = e * (1 + side * tp); stp = e * (1 - side * sl)
+        for j in range(i, min(i + hh, len(T))):
+            hit_s = Ll[j] <= stp if side > 0 else Hh[j] >= stp; hit_t = Hh[j] >= tgt if side > 0 else Ll[j] <= tgt
+            if hit_s: return {"entry": e, "tp": tgt, "sl": stp, "exitT": int(T[j]) + HOUR, "exitPx": float(stp), "how": "stop-loss", "ret": -sl - C.FEE}
+            if hit_t: return {"entry": e, "tp": tgt, "sl": stp, "exitT": int(T[j]) + HOUR, "exitPx": float(tgt), "how": "take-profit", "ret": tp - C.FEE}
+        j = i + hh - 1
+        if j >= len(T): return {"entry": e, "tp": tgt, "sl": stp, "exitT": None, "exitPx": float(Cc[-1]), "how": "open", "ret": side * (Cc[-1] / e - 1) - C.FEE}
+        return {"entry": e, "tp": tgt, "sl": stp, "exitT": int(T[j]) + HOUR, "exitPx": float(Cc[j]), "how": f"time ({hh}h)", "ret": side * (Cc[j] / e - 1) - C.FEE}
+
+    def trade_log(self, h, t_from, limit=60):
+        """the actual trades a rule took since t_from, with entry, TP/SL, exit and $ result on the paper account"""
+        if h["kind"] == "event":
+            P = self.P; idx = self._entry_index(h); idx = idx[self.t[idx] >= t_from]
+            # newest entries whose outcome is not in the data yet (still open)
+            m = self._mask(h) & (self.t >= max(t_from, self.t.max() - 96 * HOUR)); extra = [i for i in np.flatnonzero(m) if i not in set(idx)]
+            last = {}
+            for i in idx: last[self.coin[i]] = max(last.get(self.coin[i], 0), self.t[i])
+            for i in extra:
+                if self.t[i] - last.get(self.coin[i], -1e18) >= h.get("cool", 24) * HOUR: idx = np.append(idx, i); last[self.coin[i]] = self.t[i]
+            side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
+            out = []
+            for i in sorted(idx, key=lambda i: self.t[i])[-limit:]:
+                if side[i] == 0: continue
+                w = self._walk(self.coin[i], int(self.t[i]), int(side[i]), h["exit"])
+                if w: out.append({"coin": str(self.coin[i]), "side": "LONG" if side[i] > 0 else "SHORT", "t": int(self.t[i]), **{k: (float(v) if isinstance(v, (np.floating, float)) else v) for k, v in w.items()}})
+            return out
+        if h["kind"] == "pair":
+            t, r = self.pair_returns(h, t_from)
+            return [{"coin": f"{h['a']}/{h['b']}", "side": "PAIR", "t": int(a), "exitT": int(a) + h["hold"] * HOUR, "how": f"time ({h['hold']}h)", "ret": float(b)} for a, b in zip(t[-limit:], r[-limit:])]
+        return []
+
     # ── the "undeniable" bar: only rules that pass ALL of this ever trigger a message ─────────────
     def certify(self, h, since, n_tested, cols, mutate=None):
         """stress test under every condition we can measure. returns (passed, checks)"""

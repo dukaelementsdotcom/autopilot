@@ -11,7 +11,7 @@ def _summary(mem):
     status = {}
     for r in mem["runs"]:
         for k, v in r["counts"].items(): status[k] = status.get(k, 0) + v
-    slim = lambda t: {k: t.get(k) for k in ("text", "src", "gen", "why", "disc", "val", "hold", "live", "signals", "promotedOn", "proven", "certified", "certChecks", "status")}
+    slim = lambda t: {k: t.get(k) for k in ("text", "src", "gen", "why", "disc", "val", "hold", "live", "signals", "promotedOn", "proven", "certified", "certChecks", "status", "no", "plain")}
     return {"born": mem["born"], "total": mem["total_tests"], "runs": mem["runs"][:30], "events": mem["events"][:30], "lessons": mem.get("lessons", []),
             "ai": mem.get("ai", {}), "champions": [slim(t) for t in pick("champion")], "validated": [slim(t) for t in pick("validated")][:40],
             "near": [slim(t) for t in pick("near")][:40], "died_live": [slim(t) for t in pick("dead_live")][:20],
@@ -33,6 +33,11 @@ main{max-width:980px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;marg
 </style></head><body><main>
 <h1>Research Machine</h1><div class="mute" id="sub"></div>
 <div class="grid" style="margin-top:16px" id="kpi"></div>
+<h2>Paper trades</h2>
+<p class="mute" id="acctnote"></p>
+<div class="grid" id="acct"></div>
+<div style="margin:10px 0" id="filt"></div>
+<div class="scroll"><table id="trades"></table></div>
 <h2>What happened recently</h2><div id="events"></div>
 <h2>Champions — rules that passed every exam and are now being paper-traded</h2><div id="champs"></div>
 <h2>Validated — passed discovery + validation, waiting for the final exam</h2><div id="val"></div>
@@ -49,11 +54,23 @@ $("sub").textContent=`Running since ${D.born} UTC · data up to ${D.runs[0]?.dat
 const k=[["Ideas tested",D.total.toLocaleString()],["Champions",D.champions.length],["Validated",D.validated.length],["Near misses",D.near.length],["Idea families",D.nfam],["Systematic scan",D.runs[0]?.scanDone||"–"]];
 $("kpi").innerHTML=k.map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big">${b}</div></div>`).join("");
 $("events").innerHTML=D.events.length?"<ul>"+D.events.map(e=>`<li><span class="tag ${e[0]=="demoted"?"dead":"champion"}">${esc(e[0])}</span>${esc(e[1])}</li>`).join("")+"</ul>":'<p class="mute">Nothing promoted or dropped yet. Early on this is normal: the bar is high on purpose.</p>';
-const rule=t=>`<div class="rule"><span class="tag ${t.status.startsWith("dead")?"dead":t.status}">${esc(t.status)}</span><span class="tag">${esc(t.src)}${t.gen?" · gen "+t.gen:""}</span>${t.proven?'<span class="tag champion">proven live</span>':""}${t.certified?'<span class="tag champion">★ CERTIFIED</span>':""}
-<div style="margin-top:6px"><b>${esc(t.text)}</b></div>${t.why?`<div class="mute">${esc(t.why)}</div>`:""}
+const rule=t=>`<div class="rule">${t.no?`<span class="tag champion">Rule #${t.no}</span>`:""}<span class="tag ${t.status.startsWith("dead")?"dead":t.status}">${esc(t.status)}</span><span class="tag">${esc(t.src)}${t.gen?" · gen "+t.gen:""}</span>${t.proven?'<span class="tag champion">proven live</span>':""}${t.certified?'<span class="tag champion">★ CERTIFIED</span>':""}
+<div style="margin-top:6px;font-size:16px"><b>${esc(t.plain||t.text)}</b></div>${t.plain?`<details><summary>exact rule</summary><div class="mute">${esc(t.text)}</div></details>`:""}${t.why?`<div class="mute">${esc(t.why)}</div>`:""}
 <div class="nums">discovery: ${st(t.disc)}<br>validation: ${st(t.val)}${t.val?.p_random!=null?` · random entries beat it ${Math.round(t.val.p_random*100)}% of the time`:""}${t.hold?`<br>final exam: ${st(t.hold)}`:""}${t.live?`<br><b>live paper since ${esc(t.promotedOn)}: ${st(t.live)}</b>`:""}</div>
 ${t.certChecks?`<details><summary>undeniable-edge checklist</summary><ul>${Object.entries(t.certChecks).map(([a,b])=>`<li>${b?"✔":"✘"} ${esc(a)}</li>`).join("")}</ul></details>`:""}
 ${t.signals?.length?`<div class="nums">recent signals: ${t.signals.map(s=>`${s.side} ${s.coin} @ ${s.px} (${new Date(s.t*1000).toISOString().slice(5,16).replace("T"," ")})`).join(" · ")}</div>`:""}</div>`;
+const T=D.trades||[];const fmt=x=>x==null?"–":(x>=100?x.toLocaleString(undefined,{maximumFractionDigits:2}):Number(x.toPrecision(5)));
+const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"–";
+const sum=a=>a.reduce((x,r)=>x+r.usd,0);
+const grp=ty=>{const a=T.filter(r=>r.type==ty);const w=a.filter(r=>r.usd>0).length;return [a.length,w,sum(a)]};
+const [ln,lw,lu]=grp("live"),[en,ew,eu]=grp("exam"),[on,,ou]=grp("open");
+$("acctnote").innerHTML=`Every trade uses <b>$${D.margin} margin at ${D.lev}x leverage</b> (a $${D.margin*D.lev} position); a loss can never be more than the $${D.margin} margin. Fees included. <b>Live</b> = trades after a rule was promoted. <b>Exam</b> = the last 4 months before promotion, data the rule never saw while being chosen. Prices come from Binance's public archive, about 1 day behind.`;
+const money=x=>`<span style="color:var(--${x>=0?"good":"bad"})">${x>=0?"+":"−"}$${Math.abs(x).toFixed(2)}</span>`;
+$("acct").innerHTML=[["Live trades",ln?`${ln} · ${lw} won`:"none yet"],["Live result",ln?money(lu):"–"],["Open now",on?`${on} · ${money(ou)} so far`:"none"],["Exam trades",en?`${en} · ${en?Math.round(100*ew/en):0}% won`:"–"],["Exam result",en?money(eu):"–"]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("");
+let F="all";const draw=()=>{const a=T.filter(r=>F=="all"||r.type==F).slice(0,200);
+$("trades").innerHTML=a.length?"<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>exit</th><th>how it ended</th><th>move</th><th>$ at "+D.lev+"x</th><th></th></tr>"+a.map(r=>`<tr><td>#${String(r.no??"?").replace(/,/g,", #")}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>${r.how=="open"?"now "+fmt(r.exitPx):fmt(r.exitPx)+"<br><span class=mute>"+when(r.exitT)+"</span>"}</td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td><span class="tag ${r.type=="live"?"champion":r.type=="open"?"validated":""}">${r.type}</span></td></tr>`).join(""):'<tr><td class="mute">No trades yet. Trades appear here as soon as a rule becomes a champion.</td></tr>'};
+$("filt").innerHTML=["all","live","open","exam"].map(f=>`<button data-f="${f}" style="margin-right:6px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer">${f}</button>`).join("");
+document.querySelectorAll("#filt button").forEach(b=>b.onclick=()=>{F=b.dataset.f;draw()});draw();
 $("champs").innerHTML=D.champions.length?D.champions.map(rule).join(""):'<p class="mute">None yet.</p>';
 $("val").innerHTML=D.validated.length?D.validated.map(rule).join(""):'<p class="mute">None yet.</p>';
 $("near").innerHTML=D.near.map(rule).join("")||'<p class="mute">None.</p>';
@@ -63,9 +80,31 @@ $("fam").innerHTML="<tr><th>family</th><th>tests</th><th>best t</th><th>survivor
 $("runs").innerHTML="<tr><th>run (UTC)</th><th>tested</th><th>result</th><th>new validated</th><th>secs</th></tr>"+D.runs.map(r=>`<tr><td>${esc(r.at)}</td><td>${r.tested}</td><td>${esc(Object.entries(r.counts).map(([a,b])=>a+" "+b).join(", "))}</td><td>${r.validated}</td><td>${r.secs}</td></tr>`).join("");
 </script></body></html>"""
 
+def _trades(mem, J, log=print):
+    """every trade each champion took: 'exam' = the last 4 months before it was promoted (data it never saw while being chosen),
+       'live' = after promotion. Paper account: $MARGIN per trade at LEVERAGE x; a loss can never exceed the margin (liquidation)."""
+    rows = []
+    for t in mem["tests"].values():
+        if t["status"] != "champion": continue
+        try: log_ = J.trade_log(t["h"], J.hold0, limit=80)
+        except Exception as e: log(f"trade log failed: {e}"); continue
+        for x in log_:
+            usd = max(-C.PAPER_MARGIN, C.PAPER_MARGIN * C.LEVERAGE * x["ret"])
+            rows.append({**x, "no": t.get("no"), "type": "open" if x["how"] == "open" else ("live" if x["t"] > t.get("promotedAt", 0) else "exam"),
+                         "pct": round(x["ret"] * 100, 2), "usd": round(usd, 2)})
+    # several champions are often near-copies of one idea and fire the same trade: count it once, list all its rules
+    merged = {}
+    for r in rows:
+        key = (r["coin"], r["t"], r["side"], r.get("exitT"), round(r["ret"], 6))
+        if key in merged: merged[key]["no"] = f'{merged[key]["no"]},{r["no"]}'
+        else: merged[key] = dict(r)
+    rows = sorted(merged.values(), key=lambda r: -r["t"])
+    return rows[:500]
+
 def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    d["trades"] = _trades(mem, J, log) if J is not None else []; d["margin"] = C.PAPER_MARGIN; d["lev"] = C.LEVERAGE
     blob = json.dumps(d, separators=(",", ":")).replace("</", "<\\/")
     with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(PAGE.replace("__DATA__", blob))
     with open(f"{C.DOCS_DIR}/summary.json", "w", encoding="utf-8") as f: json.dump(d, f)

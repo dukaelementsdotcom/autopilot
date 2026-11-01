@@ -203,3 +203,12 @@ def ai_lessons(mem):
     txt, model = _groq([{"role": "user", "content": prompt}], 1200)
     try: return [str(x)[:220] for x in json.loads(re.search(r"\{.*\}", txt, re.S).group(0))["lessons"]][:8]
     except Exception: return None
+
+def ai_plain(text):
+    """turn a technical rule into 2 plain sentences for a beginner (optional; falls back to the rule text)"""
+    prompt = ("Explain this crypto trading rule to a complete beginner in at most 2 short sentences: first what situation it waits for, then what trade it makes and when it gets out. "
+              "No jargon: say 'open interest' as 'the total amount of leveraged bets', 'crowd long/short ratio' as 'how many traders are betting up vs down', RSI as 'how oversold/overbought price is', "
+              "'percentile vs last 90 days' as 'compared with the last 3 months'. Rule: " + text + '\nAnswer ONLY JSON: {"plain":"..."}')
+    txt, model = _groq([{"role": "user", "content": prompt}], 400)
+    try: return str(json.loads(re.search(r"\{.*\}", txt, re.S).group(0))["plain"])[:400]
+    except Exception: return None
