@@ -78,7 +78,7 @@ def run(budget=None, log=print):
         for k, t in list(mem["tests"].items()):
             if t["status"] != "validated": continue
             hs = J.holdout(t["h"]); t["hold"] = hs
-            min_h = C.MIN_HOLD_TRADES if t["h"]["kind"] == "event" else 12
+            min_h = {"event": C.MIN_HOLD_TRADES, "pair": 5, "carry": 20}.get(t["h"]["kind"], 12)
             if hs["n"] >= min_h and hs["mean"] > 0 and champs < 30:
                 t["status"] = "champion"; t["promotedAt"] = J.t_end; t["promotedOn"] = now_iso(); champs += 1; events.append(("promoted", k))
             elif hs["n"] < min_h: t["status"] = "validated"; t["waitHold"] = True       # not enough holdout trades yet — wait for more data
@@ -101,6 +101,10 @@ def run(budget=None, log=print):
         if kids.get(pk, 0) >= 6: continue
         n0 = len(queue); add(ideas.mutate(p["h"], cols, rng), "evolve", p["gen"] + 1)
         if len(queue) > n0: kids[pk] = kids.get(pk, 0) + 1
+    for name, sp, cap in (("ccur", ideas.classic_space(cols), 0.12), ("scur", ideas.structural_space(), 0.10)):   # open-source classics + market-neutral ideas
+        n0 = len(queue); mem.setdefault(name, 0)
+        while len(queue) - n0 < budget * cap and mem[name] < len(sp):
+            h, why = sp[mem[name]]; add(h, "classic" if name == "ccur" else "structural", 0, why); mem[name] += 1
     space = ideas.scan_space(cols)
     while len(queue) < budget * 0.9 and mem["cursor"] < len(space):
         add(space[mem["cursor"]], "scan"); mem["cursor"] += 1
@@ -127,7 +131,7 @@ def run(budget=None, log=print):
     dropped = compact(mem)
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],
-               "dataEnd": dt.datetime.utcfromtimestamp(int(P.t.max())).strftime("%Y-%m-%d %H:%M"), "secs": round(time.time() - t0), "scanDone": f"{mem['cursor']}/{len(space)}", "compacted": dropped}
+               "dataEnd": dt.datetime.utcfromtimestamp(int(P.t.max())).strftime("%Y-%m-%d %H:%M"), "secs": round(time.time() - t0), "scanDone": f"{mem['cursor']}/{len(space)}", "classicDone": mem["ccur"], "structuralDone": mem["scur"], "compacted": dropped}
     mem["runs"] = [run_rec] + mem["runs"][:60]
     mem["events"] = (run_rec["events"] + mem["events"])[:60]
     log("── 6/6 report"); save_memory(mem); report.write(mem, J, log=log); report.alert(certified_now, log=log)

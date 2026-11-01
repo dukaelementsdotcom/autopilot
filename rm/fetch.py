@@ -43,15 +43,20 @@ def _met(blob):
                         "topPos": g.sum_toptrader_long_short_ratio.last(), "tk": g.sum_taker_long_short_vol_ratio.mean()})
     out.index.name = "t"; return out.reset_index()
 
+def _fund(blob):
+    x = _csv(blob)
+    return pd.DataFrame({"t": (x.calc_time.astype("int64") // 1000).astype("int64"), "fr": x.last_funding_rate.astype(float)})
+
 def _job(coin, kind, key):
     sym = f"{coin}USDT"
     if kind == "km": url = f"{C.ARCHIVE}/monthly/klines/{sym}/1h/{sym}-1h-{key}.zip"
     elif kind == "kd": url = f"{C.ARCHIVE}/daily/klines/{sym}/1h/{sym}-1h-{key}.zip"
+    elif kind == "f": url = f"{C.ARCHIVE}/monthly/fundingRate/{sym}/{sym}-fundingRate-{key}.zip"
     else: url = f"{C.ARCHIVE}/daily/metrics/{sym}/{sym}-metrics-{key}.zip"
     try:
         b = _get(url)
         if b is None: return coin, kind, key, "missing", None
-        return coin, kind, key, "ok", (_kl(b) if kind != "m" else _met(b))
+        return coin, kind, key, "ok", (_met(b) if kind == "m" else _fund(b) if kind == "f" else _kl(b))
     except Exception as e:
         return coin, kind, key, "error", str(e)[:120]
 
@@ -68,6 +73,7 @@ def update(coins=None, today=None, log=print):
         for m in _months(start, last_full_month):          # complete months as monthly files
             key = m.strftime("%Y-%m")
             if "km" + key not in done: jobs.append((coin, "km", key))
+            if "f" + key not in done: jobs.append((coin, "f", key))      # funding rates (monthly files)
         d = today - dt.timedelta(days=45)                   # recent days as daily files (fills months not yet published)
         while d < today:
             k = d.isoformat()
@@ -83,10 +89,10 @@ def update(coins=None, today=None, log=print):
     with ThreadPoolExecutor(32) as ex:
         for coin, kind, key, st, df in ex.map(lambda j: _job(*j), jobs):
             M = man[coin]
-            if st == "ok": got.setdefault((coin, "k" if kind != "m" else "m"), []).append(df); M["done"].append(kind + key)
+            if st == "ok": got.setdefault((coin, {"m": "m", "f": "f"}.get(kind, "k")), []).append(df); M["done"].append(kind + key)
             elif st == "missing":
                 day = dt.date.fromisoformat(key if len(key) == 10 else key + "-01")
-                if (today - day).days > (70 if kind == "km" else 7): M["done"].append(kind + key)   # give up on old gaps (e.g. coin not listed yet)
+                if (today - day).days > (70 if kind in ("km", "f") else 7): M["done"].append(kind + key)   # give up on old gaps (e.g. coin not listed yet)
                 else: M["miss"][kind + key] = M["miss"].get(kind + key, 0) + 1
     for (coin, part), dfs in got.items():
         path = f"{C.DATA_DIR}/raw/{coin}_{part}.parquet"

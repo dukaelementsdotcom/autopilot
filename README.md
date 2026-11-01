@@ -9,6 +9,8 @@ An autonomous, free, paper-only research lab for crypto. Every day it:
    - **combine**: two survivors that must agree (the "confirmation" idea)
    - **AI researcher**: a free Groq model reads the machine's own notes and proposes new hypotheses, each with a market mechanism
    - **explore**: random rules, so it also tries things nobody would think of
+   - **open-source classics**: the signals free trading bots use (RSI, Bollinger bands, MACD, EMA crosses, Donchian breakouts, ADX), each tested properly
+   - **market-neutral ideas**: pairs trading (long one coin, short a related one when their price ratio is stretched) and funding carry (spot long + perp short, collecting funding while price risk cancels)
 3. **Judges each idea honestly** on three separate stretches of time:
    - **discovery**: the old years
    - **validation**: the next year. The idea must hold up there and beat random entries.

@@ -32,8 +32,64 @@ def scan_space(cols):
     random.Random(7).shuffle(out)                          # mixed order, fixed forever (the cursor walks through it)
     return out
 
+# ── ideas borrowed from open-source bots (freqtrade-style classics), on hourly bars ──────────────
+CLASSIC_RULES = [
+    ("RSI oversold", [{"f": "rsi14", "lo": 0, "hi": 30}], "long"), ("RSI deep oversold", [{"f": "rsi14", "lo": 0, "hi": 20}], "long"),
+    ("RSI overbought", [{"f": "rsi14", "lo": 70, "hi": 100}], "short"), ("RSI extreme overbought", [{"f": "rsi14", "lo": 80, "hi": 100}], "short"),
+    ("RSI oversold in uptrend", [{"f": "rsi14", "lo": 0, "hi": 30}, {"f": "emat", "lo": 0, "hi": 100}], "long"),
+    ("RSI overbought in downtrend", [{"f": "rsi14", "lo": 70, "hi": 100}, {"f": "emat", "lo": -100, "hi": 0}], "short"),
+    ("Below lower Bollinger band", [{"f": "bbz", "lo": -20, "hi": -2}], "long"), ("Above upper Bollinger band", [{"f": "bbz", "lo": 2, "hi": 20}], "short"),
+    ("Bollinger breakout up", [{"f": "bbz", "lo": 2, "hi": 20}], "long"), ("Bollinger breakdown", [{"f": "bbz", "lo": -20, "hi": -2}], "short"),
+    ("EMA golden cross", [{"f": "cross", "lo": 0.5, "hi": 1.5}], "long"), ("EMA death cross", [{"f": "cross", "lo": -1.5, "hi": -0.5}], "short"),
+    ("Golden cross in uptrend", [{"f": "cross", "lo": 0.5, "hi": 1.5}, {"f": "emat", "lo": 0, "hi": 100}], "long"),
+    ("Death cross in downtrend", [{"f": "cross", "lo": -1.5, "hi": -0.5}, {"f": "emat", "lo": -100, "hi": 0}], "short"),
+    ("Donchian 20-day breakout", [{"f": "don20", "lo": 0.98, "hi": 1.0}], "long"), ("Donchian 20-day breakdown", [{"f": "don20", "lo": 0.0, "hi": 0.02}], "short"),
+    ("Fade 20-day high", [{"f": "don20", "lo": 0.98, "hi": 1.0}], "short"), ("Buy 20-day low", [{"f": "don20", "lo": 0.0, "hi": 0.02}], "long"),
+    ("Strong trend up (ADX>25)", [{"f": "adx14", "lo": 25, "hi": 100}, {"f": "emax", "lo": 0, "hi": 100}], "long"),
+    ("Strong trend down (ADX>25)", [{"f": "adx14", "lo": 25, "hi": 100}, {"f": "emax", "lo": -100, "hi": 0}], "short"),
+    ("MACD turns up below zero", [{"f": "macdh", "lo": 0, "hi": 100}, {"f": "emax", "lo": -100, "hi": 0}], "long"),
+    ("MACD turns down above zero", [{"f": "macdh", "lo": -100, "hi": 0}, {"f": "emax", "lo": 0, "hi": 100}], "short"),
+    ("Oversold while the crowd is short", [{"f": "rsi14", "lo": 0, "hi": 30}, {"f": "p_glob", "lo": 0, "hi": 0.2}], "long"),
+    ("Overbought while the crowd is long", [{"f": "rsi14", "lo": 70, "hi": 100}, {"f": "p_glob", "lo": 0.8, "hi": 1}], "short"),
+]
+def classic_space(cols):
+    out = []
+    for name, when, d in CLASSIC_RULES:
+        for uni in ("BTC", "MAJ", "ALL"):
+            for ex in ("b1_1_24", "b2_2_48", "b1_2_24", "b3_3_72", "r24", "r72"):
+                h = {"kind": "event", "uni": uni, "when": when, "dir": d, "exit": ex, "cool": 24}
+                if valid(h, cols): out.append((h, f"open-source classic: {name}"))
+    return out
+
+# ── market-neutral / structural ideas (no price prediction) ─────────────────────────────────────
+PAIRS = [("ETH", "BTC"), ("SOL", "ETH"), ("SOL", "BTC"), ("BNB", "BTC"), ("LTC", "BCH"), ("ADA", "XRP"), ("DOGE", "BTC"), ("AVAX", "SOL"),
+         ("LINK", "ETH"), ("DOT", "ATOM"), ("UNI", "AAVE"), ("ARB", "OP"), ("ETC", "ETH"), ("NEAR", "SOL"), ("FIL", "DOT"), ("TRX", "XRP")]
+def structural_space():
+    out = []
+    for uni in ("BTC", "MAJ", "ALL"):
+        for enter, leave in ((0.05, 0.0), (0.10, 0.0), (0.10, 0.05), (0.20, 0.05), (0.30, 0.10), (0.50, 0.10)):
+            out.append(({"kind": "carry", "uni": uni, "enter": enter, "leave": leave}, "funding carry (hedged: spot long + perp short)"))
+    for a, b in PAIRS:
+        for z in (2.0, 2.5, 3.0):
+            for look in (336, 720):
+                for hold in (24, 72, 168):
+                    for mode in ("revert", "trend"):
+                        out.append(({"kind": "pair", "a": a, "b": b, "z": z, "look": look, "hold": hold, "mode": mode}, "pairs trading (market-neutral)"))
+    random.Random(11).shuffle(out)
+    return out
+
 def mutate(h, cols, rng):
     h = json.loads(json.dumps(h))
+    if h["kind"] == "pair":
+        op = rng.choice(["z", "look", "hold"])
+        if op == "z": h["z"] = rng.choice([1.5, 2.0, 2.5, 3.0, 3.5])
+        elif op == "look": h["look"] = rng.choice([168, 336, 720, 1440])
+        else: h["hold"] = rng.choice([24, 72, 168])
+        return h
+    if h["kind"] == "carry":
+        h["enter"] = rng.choice([0.05, 0.08, 0.10, 0.15, 0.20, 0.30, 0.50]); h["leave"] = min(h["leave"], h["enter"] / 2)
+        if rng.random() < 0.3: h["uni"] = rng.choice(["BTC", "MAJ", "ALL"])
+        return h
     if h["kind"] == "xsec":
         op = rng.choice(["frac", "rebal", "order"])
         if op == "frac": h["frac"] = rng.choice([0.2, 0.25, 0.33, 0.5])
@@ -44,6 +100,10 @@ def mutate(h, cols, rng):
     if op == "shift":
         c = rng.choice(h["when"]); w = rng.choice([-0.05, 0.05])
         if c["f"].startswith(("p_", "x_")): c["lo"] = round(min(max(0.0, c["lo"] + w), 0.95), 2); c["hi"] = round(min(max(c["lo"] + 0.05, c["hi"] + w), 1.0), 2)
+        elif c["f"] in ("rsi14", "adx14"):
+            d = rng.choice([-5, 5]); c["lo"], c["hi"] = (max(0, c["lo"] + d) if c["lo"] > 0 else 0), (min(100, c["hi"] + d) if c["hi"] < 100 else 100)
+        elif c["f"] == "bbz":
+            d = rng.choice([-0.5, 0.5]); c["lo"], c["hi"] = (c["lo"] + d if c["lo"] > -20 else c["lo"]), (c["hi"] + d if c["hi"] < 20 else c["hi"])
     elif op == "add" and len(h["when"]) < 3:
         f = rng.choice(sorted(x for x in cols if x.startswith("p_") and x not in [c["f"] for c in h["when"]]))
         lo, hi = rng.choice([(0.0, 0.3), (0.7, 1.0), (0.0, 0.5), (0.5, 1.0)]); h["when"].append({"f": f, "lo": lo, "hi": hi})
@@ -53,6 +113,7 @@ def mutate(h, cols, rng):
     return h
 
 def combine(a, b):
+    if a["kind"] != "event" or b["kind"] != "event": return None
     if a["kind"] != "event" or b["kind"] != "event" or a["uni"] != b["uni"] or a["dir"] != b["dir"]: return None
     fs = {c["f"] for c in a["when"]}
     when = a["when"] + [c for c in b["when"] if c["f"] not in fs]
@@ -71,8 +132,11 @@ GRAMMAR = """A hypothesis is JSON. Two kinds:
 EVENT: {"kind":"event","uni":"BTC"|"MAJ"|"ALL","when":[{"f":FEATURE,"lo":0-1,"hi":0-1}, ... up to 3],"dir":"long"|"short"|"with"|"against","exit":EXIT,"cool":24}
   - FEATURE "p_<name>" = that measurement's percentile vs the coin's own last 90 days (0 lowest, 1 highest); "x_<name>" = rank vs the other coins right now; "hour" (0-23 UTC, lo/hi in hours); "dow" (0=Mon).
   - "with" = trade in the direction of the last hour's move, "against" = opposite.
+  - Raw classic indicators can also be used directly (not percentiles): rsi14 (0-100), bbz (Bollinger z, +/-2 = band), macdh, emax, emat (% gaps), don20 (0-1 Donchian channel position), adx14 (0-100), cross (+1/-1 EMA cross).
 CROSS-SECTION: {"kind":"xsec","rank":FEATURE,"order":"low_long"|"high_long","frac":0.2-0.5,"rebal":24|84|168}
-EXITS: """ + ", ".join(f"{k}={'hold %dh' % v[1] if v[0] == 'ret' else 'target +%g%%, stop -%g%%, max %dh' % (v[0] * 100, v[1] * 100, v[2])}" for k, v in C.EXITS.items())
+PAIR (market-neutral): {"kind":"pair","a":COIN,"b":COIN,"z":1-4,"look":168|336|720|1440,"hold":24|72|168,"mode":"revert"|"trend"}
+CARRY (hedged funding): {"kind":"carry","uni":"BTC"|"MAJ"|"ALL","enter":annual funding e.g. 0.2,"leave":lower e.g. 0.05}
+EXITS: """ + ", ".join(f"{k}={'hold %dh' % v[1] if v[0] == 'ret' else 'target +%g%%, stop -%g%%, max %dh' % (v[0] * 100, v[1] * 100, v[2])}" for k, v in C.EXITS.items()) + "\nCOINS: " + " ".join(C.COINS)
 
 def _groq(messages, max_tokens=2500):
     key = os.environ.get("GROQ_API_KEY")
@@ -96,7 +160,8 @@ def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
               "\n\nWHAT SURVIVED OR NEARLY SURVIVED SO FAR:\n" + ("\n".join(f"- [{t['status']}] {t['text']} | discovery {t['disc']} | validation {t.get('val')}" for t in good) or "- nothing yet") +
               "\n\nIDEA FAMILIES ALREADY TESTED (count, best discovery t):\n" + "\n".join(f"- {k}: {v['n']} tests, best t {v.get('best', 0)}, survivors {v.get('ok', 0)}" for k, v in fam) +
               "\n\nLESSONS SO FAR:\n" + "\n".join("- " + l for l in mem.get("lessons", [])[:8]) +
-              f"\n\nPropose {n} NEW hypotheses that are different from what was tested. Each must have a market MECHANISM (who is forced to buy or sell, who is trapped, where liquidity is). Prefer combining positioning (crowd, top traders, open interest, taker flow) with price action. "
+              f"\n\nPropose {n} NEW hypotheses that are different from what was tested. Think outside the box, like people who build profitable open-source bots and prediction-market arbitrage bots: structural, market-neutral and flow-based ideas (pairs, carry, cross-coin lead/lag, trapped leverage, forced liquidations, funding extremes) as well as classic indicator rules combined with positioning. "
+              "Each must have a market MECHANISM (who is forced to buy or sell, who is trapped, where liquidity is). Mix the kinds: at least 2 pair or carry ideas. "
               'Answer ONLY JSON: {"ideas":[{"why":"one-sentence mechanism","h":{...hypothesis...}}]}')
     txt, model = _groq([{"role": "user", "content": prompt}])
     if not txt: return [], model
@@ -107,6 +172,10 @@ def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
         h = it.get("h") if isinstance(it, dict) else None
         if not isinstance(h, dict): continue
         if h.get("kind") == "event": h.setdefault("cool", 24)
+        for key in ("z", "enter", "leave"):
+            if key in h: h[key] = float(h[key])
+        for key in ("look", "hold"):
+            if key in h: h[key] = int(h[key])
         for c in h.get("when", []) if isinstance(h.get("when"), list) else []:
             if isinstance(c, dict) and c.get("f", "").startswith(("p_", "x_")): c["lo"], c["hi"] = float(c.get("lo", 0)), float(c.get("hi", 1))
         if valid(h, cols): out.append((h, str(it.get("why", ""))[:240]))
