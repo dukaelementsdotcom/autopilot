@@ -12,61 +12,137 @@ def _summary(mem):
     for r in mem["runs"]:
         for k, v in r["counts"].items(): status[k] = status.get(k, 0) + v
     slim = lambda t: {k: t.get(k) for k in ("text", "src", "gen", "why", "disc", "val", "hold", "live", "signals", "promotedOn", "proven", "certified", "certChecks", "status", "no", "plain", "twinOf")}
-    return {"born": mem["born"], "total": mem["total_tests"], "runs": mem["runs"][:30], "events": mem["events"][:30], "lessons": mem.get("lessons", []),
+    by_text = {t["text"]: t for t in mem["tests"].values()}
+    ev = [[e, (by_text.get(x) or {}).get("plain") or x, (by_text.get(x) or {}).get("no")] for e, x in mem["events"][:12]]
+    return {"born": mem["born"], "total": mem["total_tests"], "runs": mem["runs"][:30], "events": ev, "lessons": mem.get("lessons", []),
             "ai": mem.get("ai", {}), "champions": [slim(t) for t in pick("champion")], "validated": [slim(t) for t in pick("validated")][:40],
             "near": [slim(t) for t in pick("near")][:40], "died_live": [slim(t) for t in pick("dead_live")][:20],
             "families": [[k, v["n"], round(v["best"], 2), v["ok"]] for k, v in fam[:80]], "nfam": len(fam), "status": status}
 
 PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Research Machine</title><style>
-:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#6b6a64;--line:#e4e2da;--good:#1f7a4d;--bad:#b23b2e;--warn:#9a6a00;--acc:#2f5fd0}
-@media (prefers-color-scheme:dark){:root{--bg:#121211;--card:#1c1c1a;--ink:#ecebe6;--mute:#9b9a93;--line:#2c2c29;--good:#4cc28a;--bad:#ff7a6b;--warn:#e0b04a;--acc:#7ea2ff}}
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#6b6a64;--line:#e4e2da;--good:#1f7a4d;--bad:#b23b2e;--warn:#9a6a00;--acc:#2f5fd0;--soft:#efede6}
+@media (prefers-color-scheme:dark){:root{--bg:#121211;--card:#1c1c1a;--ink:#ecebe6;--mute:#9b9a93;--line:#2c2c29;--good:#4cc28a;--bad:#ff7a6b;--warn:#e0b04a;--acc:#7ea2ff;--soft:#242422}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:980px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 10px}
+main{max-width:1000px;margin:0 auto;padding:18px 16px 60px}h1{font-size:24px;margin:0}h2{font-size:17px;margin:26px 0 8px}h3{font-size:15px;margin:14px 0 6px}
 .mute{color:var(--mute)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.big{font-size:24px;font-weight:650}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.big{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
 .rule{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}.rule b{font-weight:600}
 .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);margin-right:6px}
 .champion{color:var(--good);border-color:var(--good)}.validated{color:var(--acc);border-color:var(--acc)}.near{color:var(--warn);border-color:var(--warn)}.dead{color:var(--bad);border-color:var(--bad)}
-.nums{font-size:13px;color:var(--mute);margin-top:4px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
-.scroll{overflow-x:auto}details{margin:8px 0}summary{cursor:pointer;color:var(--acc)}ul{padding-left:20px}
+.nums{font-size:13px;color:var(--mute);margin-top:4px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.scroll{overflow-x:auto}details{margin:8px 0}summary{cursor:pointer;color:var(--acc)}ul{padding-left:20px}code{font-size:12px}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.pill{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--good)}.cd{font-variant-numeric:tabular-nums;font-weight:650}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 4px;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:5;border-bottom:1px solid var(--line)}
+.tabs button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:99px;cursor:pointer;font:inherit;font-size:14px}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+section[data-tab]{display:none}section[data-tab].on{display:block}
+.story{font-size:17px;line-height:1.6}.story b{font-weight:650}
+.help{font-size:13px;color:var(--mute);margin:-4px 0 10px}
+.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 </style></head><body><main>
-<h1>Research Machine</h1><div class="mute" id="sub"></div>
-<div class="grid" style="margin-top:16px" id="kpi"></div>
+<div class="top"><div><h1>Research Machine</h1><div class="mute" id="sub" style="font-size:13px"></div></div>
+<div class="pill" id="statuspill"><span class="dot" id="sdot"></span><span id="stext"></span><span class="mute">·</span><span>next run in <span class="cd" id="cd">–</span></span></div></div>
 <div id="health"></div>
-<h2>$500 account: trades only the champion of champions</h2>
+<nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="help">Help</button></nav>
+
+<section data-tab="home">
+<div class="card story" id="story" style="margin-top:12px"></div>
+<div class="grid" style="margin-top:12px" id="kpi"></div>
+<h2>The two paper accounts</h2>
+<div class="mini" id="minis"></div>
+<h2>What happened recently</h2><div id="events"></div>
+</section>
+
+<section data-tab="accounts">
+<h2>$500 account: trades only the best rule</h2>
+<p class="help">It always trades the single rule with the best record on data it never saw while being chosen. It switches when a better one appears.</p>
 <div id="box"></div>
-<h2>$500 team account: up to 5 different champions, more money when they agree</h2>
+<h2>$500 team account: several different rules together</h2>
+<p class="help">Up to 5 rules that trade <i>different</i> situations. When two or three agree on the same trade, it puts in more money.</p>
 <div id="tbox"></div>
-<h2>The analyst: why the winners win, and which merges make sense</h2>
-<div id="analyst"></div>
-<h2>Invented building blocks: measurements the AI designed itself</h2>
-<div id="blocks"></div>
-<h2>Gambling lab: same trades, different betting systems</h2>
-<div id="lab"></div>
-<h2>Research trades (all champion rules, separate from the $500 account)</h2>
+</section>
+
+<section data-tab="rules">
+<h2>Champions</h2><p class="help">Rules that passed every exam. They are paper-traded and must keep earning to stay.</p><div id="champs"></div>
+<h2>Waiting for the final exam</h2><p class="help">Passed the first two exams; they still need to pass the newest 4 months.</p><div id="val"></div>
+<details><summary>Near misses (looked good on old data, not yet on newer data)</summary><div id="near"></div></details>
+<details><summary>Twins (near-copies merged into a better champion)</summary><div id="twins"></div></details>
+<details><summary>Dropped champions (failed with live trades)</summary><div id="died"></div></details>
+</section>
+
+<section data-tab="research">
+<h2>The analyst: why winners win, and which merges make sense</h2><div id="analyst"></div>
+<h2>Invented building blocks</h2><div id="blocks"></div>
+<h2>What it has learned</h2><div id="lessons"></div>
+<h2>Gambling lab: same trades, different betting systems</h2><div id="lab"></div>
+</section>
+
+<section data-tab="data">
+<h2>Research trades (every champion rule, separate from the accounts)</h2>
 <p class="mute" id="acctnote"></p>
 <div class="grid" id="acct"></div>
 <details class="card" style="margin-top:10px"><summary id="rsum"></summary>
 <div style="margin:10px 0" id="filt"></div>
 <div class="scroll"><table id="trades"></table></div></details>
-<h2>What happened recently</h2><div id="events"></div>
-<h2>Champions — rules that passed every exam and are now being paper-traded</h2><div id="champs"></div>
-<h2>Validated — passed discovery + validation, waiting for the final exam</h2><div id="val"></div>
-<details><summary>Near misses (good in discovery, not yet convincing in validation)</summary><div id="near"></div></details>
-<details><summary>Champions that failed live and were dropped</summary><div id="died"></div></details>
-<details><summary>Twins (near-copies merged into a better champion)</summary><div id="twins"></div></details>
-<h2>What it has learned</h2><div id="lessons"></div>
-<h2>Idea families explored</h2><div class="scroll"><table id="fam"></table></div>
-<h2>Daily runs</h2><div class="scroll"><table id="runs"></table></div>
-<p class="mute" style="margin-top:30px">Paper only. Not financial advice. Every rule here is judged on data it was not found on; most ideas die, and that is the machine working honestly.</p>
+<h2>Runs</h2><div class="scroll"><table id="runs"></table></div>
+<details><summary>Idea families explored</summary><div class="scroll"><table id="fam"></table></div></details>
+</section>
+
+<section data-tab="help">
+<h2>How to read this page</h2>
+<div class="card">
+<p><b>What the machine does:</b> every hour it invents and tests trading ideas on 6 years of hourly data for 21 coins. Nearly all of them fail. The few that pass become <b>champions</b> and are traded with <b>paper money</b> (never real money).</p>
+<p><b>The three exams:</b> (1) <i>discovery</i>: the older years, where ideas may be found; (2) <i>validation</i>: the next year, which the idea must also win, and beat random trading; (3) <i>final exam</i>: the newest 4 months, used once. Only then is a rule a champion.</p>
+<p><b>Live vs exam trades:</b> <i>exam</i> trades happened before a rule was promoted (a test). <i>Live</i> trades happened after: the real proof.</p>
+<p><b>"t" numbers:</b> how far a result is from luck. Around 2 is "probably not luck", 3+ is strong. Win rate alone can fool you.</p>
+<p><b>Why trades appear a day late:</b> the data comes from Binance's free archive, published once a day. Each trade still uses the real price of the hour it fired, so the results are exact; they just show up later.</p>
+<p><b>Twins:</b> two rules that trade almost the same moments; only the better one is kept.</p>
+<p><b>Invented building blocks:</b> new measurements and exits the AI designed itself. They're tested like everything else and retired if useless.</p>
+<p><b>When to worry:</b> the status at the top turns red if the machine hasn't run for more than 4 hours.</p>
+<p class="mute">Paper only. Not financial advice. Most ideas die: that is the machine working honestly.</p></div>
+</section>
 </main><script>
 const D=__DATA__;const $=id=>document.getElementById(id);const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const st=s=>s&&s.n?`${s.n} trades · avg ${s.mean>0?"+":""}${s.mean}% · win ${s.hit}% · t ${s.t}`:"no trades yet";
-$("sub").textContent=`Running since ${D.born} UTC · data up to ${D.runs[0]?.dataEnd||"?"} · page built ${D.built}`;
-const k=[["Ideas tested",D.total.toLocaleString()],["Champions",D.champions.length],["Validated",D.validated.length],["Near misses",D.near.length],["Idea families",D.nfam],["Systematic scan",D.runs[0]?.scanDone||"–"]];
-$("kpi").innerHTML=k.map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big">${b}</div></div>`).join("");
-$("events").innerHTML=D.events.length?"<ul>"+D.events.map(e=>`<li><span class="tag ${e[0]=="demoted"?"dead":"champion"}">${esc(e[0])}</span>${esc(e[1])}</li>`).join("")+"</ul>":'<p class="mute">Nothing promoted or dropped yet. Early on this is normal: the bar is high on purpose.</p>';
+$("sub").textContent=`Paper-trading research lab · running since ${D.born} UTC · market data up to ${D.runs[0]?.dataEnd||"?"} UTC`;
+const A1=D.account,A2=D.team,fmtUsd=x=>"$"+(x??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=A=>A?100*(A.equity/A.start-1):0, sgn=x=>(x>=0?"+":"")+x.toFixed(1)+"%";
+const k=[["Ideas tested",D.total.toLocaleString(),"since the start"],["Champions",D.champions.length,"rules good enough to paper-trade"],
+ ["Best-rule account",A1?fmtUsd(A1.equity):"–",A1?sgn(pct(A1))+" since start":""],["Team account",A2?fmtUsd(A2.equity):"–",A2?sgn(pct(A2))+" since start":""]];
+$("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</div><div class="big">${b}</div><div class="mute" style="font-size:13px">${c}</div></div>`).join("");
+(()=>{const c1=A1?A1.closed.length:0,w1=A1?A1.closed.filter(r=>r.usd>0).length:0,o1=A1?A1.open.length:0;
+ const lead=A1&&A1.leaderNo?`It is currently trading <b>Rule #${A1.leaderNo}</b>: ${esc(A1.leaderText||"")}`:"It is waiting for a rule with enough of a track record.";
+ const lastRun=D.runs[0];
+ $("story").innerHTML=`So far the machine has tested <b>${D.total.toLocaleString()} ideas</b>; <b>${D.champions.length}</b> passed every exam.
+ The best-rule account is at <b>${A1?fmtUsd(A1.equity):"$500"}</b> (${sgn(pct(A1))}) after <b>${c1}</b> closed trade${c1==1?"":"s"}${c1?` (${w1} won)`:""}${o1?`, with ${o1} open now`:""}.
+ The team account is at <b>${A2?fmtUsd(A2.equity):"$500"}</b> (${sgn(pct(A2))}).<br><span style="font-size:15px">${lead}</span>
+ <div class="mute" style="font-size:13px;margin-top:8px">Last run tested ${lastRun?lastRun.tested.toLocaleString():0} ideas${lastRun&&lastRun.validated?`, ${lastRun.validated} passed validation`:""}. ${c1<30?"Judge the accounts only after 30+ closed trades; early results are mostly luck.":""}</div>`;
+ const mini=(A,title)=>{if(!A)return`<div class="card"><b>${title}</b><p class="mute">Starts on the next run.</p></div>`;
+  const p=A.curve,W=300,H=60;let path="";if(p.length>1){const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start),y1=Math.max(...ys,A.start);
+   path=p.map((q,i)=>(i?"L":"M")+((q[0]-x0)/(x1-x0||1)*W).toFixed(1)+","+(H-(q[1]-y0)/(y1-y0||1)*H).toFixed(1)).join("")}
+  const cl=A.closed,w=cl.filter(r=>r.usd>0).length;
+  return `<div class="card"><div style="display:flex;justify-content:space-between"><b>${title}</b><span style="color:var(--${A.equity>=A.start?"good":"bad"})">${sgn(pct(A))}</span></div>
+  <div class="big">${fmtUsd(A.equity)}</div><div class="mute" style="font-size:13px">${cl.length} closed · ${w} won · ${cl.length-w} lost · ${A.open.length} open</div>
+  ${path?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;margin-top:6px"><path d="${path}" fill="none" stroke="var(--${p[p.length-1][1]>=A.start?"good":"bad"})" stroke-width="2"/></svg><div class="mute" style="font-size:12px">closed trades only${A.open.length?"; open trades are counted in the value above":""}</div>`:'<div class="mute" style="font-size:13px;margin-top:6px">Chart appears after the first closed trade.</div>'}
+  <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">See trades →</a></div>`};
+ $("minis").innerHTML=mini(A1,"Best-rule account")+mini(A2,"Team account")})();
+// tabs (remembered per browser)
+const tabs=[...document.querySelectorAll("#tabs button")];const show=t=>{tabs.forEach(b=>b.classList.toggle("on",b.dataset.t==t));document.querySelectorAll("section[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab==t));try{localStorage.setItem("tab",t)}catch(e){}};
+tabs.forEach(b=>b.onclick=()=>{show(b.dataset.t);history.replaceState(null,"","#"+b.dataset.t)});
+document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){e.preventDefault();show(g.dataset.go);window.scrollTo(0,0)}});
+let first=location.hash.slice(1);try{first=first||localStorage.getItem("tab")}catch(e){};show(tabs.some(b=>b.dataset.t==first)?first:"home");
+// status + countdown to the next run (runs at minute 17 of every hour, UTC; GitHub may start a few minutes late)
+const builtMs=Date.parse(D.built.replace(" UTC","Z").replace(" ","T"));
+const tick=()=>{const now=Date.now(),ago=(now-builtMs)/6e4;const n=new Date(now);const nx=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate(),n.getUTCHours(),17,0));if(nx<=n)nx.setUTCHours(nx.getUTCHours()+1);
+ const sec=Math.round((nx-n)/1000),late=ago>70;
+ $("cd").textContent=sec>3300&&ago>8?"running now…":`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;
+ $("stext").innerHTML=late?`<b style="color:var(--bad)">Late</b>: last run ${Math.round(ago/60*10)/10} h ago`:`Healthy · last run ${ago<1?"just now":Math.round(ago)+" min ago"}`;
+ $("sdot").style.background=`var(--${ago>240?"bad":late?"warn":"good"})`};tick();setInterval(tick,1000);
+const EV={promoted:["became a champion","champion"],demoted:["dropped: lost money live","dead"],proven:["proven with live trades","champion"],certified:["passed the undeniable-edge checklist","champion"]};
+$("events").innerHTML=D.events.length?D.events.map(e=>`<div class="rule"><span class="tag ${(EV[e[0]]||["",""])[1]}">${esc((EV[e[0]]||[e[0]])[0])}</span>${e[2]?`<b>Rule #${e[2]}</b> · `:""}${esc(e[1])}</div>`).join(""):'<p class="mute">Nothing promoted or dropped yet. Early on this is normal: the bar is high on purpose.</p>';
 const rule=t=>`<div class="rule">${t.no?`<span class="tag champion">Rule #${t.no}</span>`:""}<span class="tag ${t.status.startsWith("dead")?"dead":t.status}">${esc(t.status)}</span><span class="tag">${esc(t.src)}${t.gen?" · gen "+t.gen:""}</span>${t.proven?'<span class="tag champion">proven live</span>':""}${t.certified?'<span class="tag champion">★ CERTIFIED</span>':""}
 <div style="margin-top:6px;font-size:16px"><b>${esc(t.plain||t.text)}</b></div>${t.plain?`<details><summary>exact rule</summary><div class="mute">${esc(t.text)}</div></details>`:""}${t.why?`<div class="mute">${esc(t.why)}</div>`:""}
 <div class="nums">discovery: ${st(t.disc)}<br>validation: ${st(t.val)}${t.val?.p_random!=null?` · random entries beat it ${Math.round(t.val.p_random*100)}% of the time`:""}${t.hold?`<br>final exam: ${st(t.hold)}`:""}${t.live?`<br><b>live paper since ${esc(t.promotedOn)}: ${st(t.live)}</b>`:""}</div>
@@ -105,11 +181,10 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  <details class="card" style="margin-top:10px"><summary>Closed trades: ${stats(C)}</summary><div class="scroll"><table>${C.length?H1+"<th>exit</th><th>how it ended</th><th>move</th><th>$ result</th><th>account after</th></tr>"+closedRows:'<tr><td class="mute">None yet.</td></tr>'}</table></div></details>
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
 renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);
-// health
-(()=>{const h=(Date.now()-Date.parse(D.built.replace(" UTC","Z").replace(" ","T")))/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
- $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:14px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
- dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:14px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
- `<div class="card" style="border-color:var(--good);margin-top:14px"><span style="color:var(--good)">●</span> Healthy: last run ${Math.max(0,Math.round(h*60))} min ago, runs every hour. Market data up to ${esc(de||"?")} UTC.</div>`})();
+// health warnings (only shown when something is wrong)
+(()=>{const h=(Date.now()-builtMs)/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
+ $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
+ dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:""})();
 // analyst
 (()=>{const A=D.analyst;if(!A){$("analyst").innerHTML='<p class="mute">The analyst starts once there are at least 2 winning rules.</p>';return}
  $("analyst").innerHTML=`<div class="card"><div class="mute">Written ${esc(A.at)} UTC by ${esc(A.model)}</div>
