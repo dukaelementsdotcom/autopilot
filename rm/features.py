@@ -35,7 +35,7 @@ PCT = [f for f in DESC if not f.startswith("x_") and f not in ("hour", "dow", "c
 def _ema(x, n): return x.ewm(span=n, adjust=False).mean()
 def _rma(x, n): return x.ewm(alpha=1 / n, adjust=False).mean()
 
-def _coin(coin):
+def _coin(coin, blocks=()):
     k = pd.read_parquet(f"{C.DATA_DIR}/raw/{coin}_k.parquet").set_index("t")
     mp = f"{C.DATA_DIR}/raw/{coin}_m.parquet"
     m = pd.read_parquet(mp).set_index("t") if os.path.exists(mp) else pd.DataFrame(index=k.index, columns=["oi", "glob", "topAcc", "topPos", "tk"])
@@ -68,10 +68,18 @@ def _coin(coin):
     trr = pd.concat([k.h - k.l, (k.h - c.shift()).abs(), (k.l - c.shift()).abs()], axis=1).max(axis=1); atr = _rma(trr, 14)
     pdi, mdi = 100 * _rma(pdm, 14) / atr, 100 * _rma(mdm, 14) / atr
     f["adx14"] = _rma(100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan), 14)
+    if blocks:                         # measurements invented by the AI (safe formulas, see blocks.py)
+        from .blocks import compute
+        env = {"o": k.o, "h": k.h, "l": k.l, "c": k.c, "v": k.v, "tb": k.tb}
+        for col in ("oi", "glob", "topPos", "topAcc", "tk"): env[col] = m[col].astype(float) if col in m else pd.Series(np.nan, index=idx)
+        env.update({col: f[col] for col in f.columns})
+        for b in blocks:
+            try: f[b["id"]] = compute(b["expr"], env)
+            except Exception: f[b["id"]] = np.nan
     f = f.shift(1)                     # decision at the start of hour t uses hours ≤ t-1 only
     f["hour"] = (idx // H) % 24; f["dow"] = ((idx // 86400) + 3) % 7
     f = f.replace([np.inf, -np.inf], np.nan)
-    for col in PCT:
+    for col in PCT + [b["id"] for b in blocks]:
         if col in f: f["p_" + col] = f[col].rolling(2160, min_periods=500).rank(pct=True)
     # labels: entry at the open of hour t
     o, h, l, cl = k.o.values, k.h.values, k.l.values, k.c.values; n = len(o)
@@ -92,11 +100,12 @@ def _coin(coin):
             res[n - hh:] = np.nan
             f[pre + name] = res - C.FEE
     f["coin"] = coin; f["t"] = idx; f["px"] = k.o.values
+    f["_hi"], f["_lo"], f["_cl"] = k.h.values, k.l.values, k.c.values      # this hour's bar: ONLY for replaying exits, never a feature
     return f
 
-def build(coins=None, log=print):
+def build(coins=None, log=print, blocks=()):
     coins = [c for c in (coins or C.COINS) if os.path.exists(f"{C.DATA_DIR}/raw/{c}_k.parquet")]
-    parts = {c: _coin(c) for c in coins}
+    parts = {c: _coin(c, blocks) for c in coins}
     btc = parts.get("BTC")
     for c, f in parts.items():
         if btc is not None:
@@ -114,7 +123,7 @@ def build(coins=None, log=print):
         M = market_frame(np.sort(P.t.unique()), btc)
         if len(M.columns): P = P.merge(M, left_on="t", right_index=True, how="left")
     except Exception as e: log(f"extra features skipped: {e}")
-    num = P.select_dtypes("float64").columns; P[num] = P[num].astype("float32")
+    num = [c for c in P.select_dtypes("float64").columns if c not in ("px", "_hi", "_lo", "_cl")]; P[num] = P[num].astype("float32")
     os.makedirs(C.DATA_DIR, exist_ok=True); P.reset_index(drop=True).to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)
     log(f"panel: {len(P):,} coin-hours, {P.coin.nunique()} coins, {pd.to_datetime(P.t.min(), unit='s').date()} → {pd.to_datetime(P.t.max(), unit='s')}")
     return P

@@ -40,6 +40,8 @@ main{max-width:980px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;marg
 <div id="tbox"></div>
 <h2>The analyst: why the winners win, and which merges make sense</h2>
 <div id="analyst"></div>
+<h2>Invented building blocks: measurements the AI designed itself</h2>
+<div id="blocks"></div>
 <h2>Gambling lab: same trades, different betting systems</h2>
 <div id="lab"></div>
 <h2>Research trades (all champion rules, separate from the $500 account)</h2>
@@ -119,6 +121,10 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);
  $("lab").innerHTML=`<p class="mute">Rule #${L.rule}'s ${L.n} trades (final exam + live), replayed with different betting systems: $500 start, ${D.lev}x leverage, one trade at a time. "Shuffled" = the same trades in 500 random orders, because the order of wins and losses is luck. A betting system can never change the odds of each trade; it only changes the ride.</p>
  <div class="scroll"><table><tr><th>betting system</th><th>real order: final $</th><th>worst drop</th><th>shuffled: typical final $</th><th>bad luck (5%)</th><th>good luck (95%)</th><th>chance of going broke</th></tr>
  ${L.rows.map(r=>`<tr><td>${esc(r.system)}</td><td>$${r.real} (${money(r.real-500)})</td><td>${r.realDD}%</td><td>$${r.median}</td><td>$${r.bad5}</td><td>$${r.good95}</td><td style="color:var(--${r.ruin>5?"bad":"ink"})">${r.ruin}%</td></tr>`).join("")}</table></div>`})();
+(()=>{const B=D.blocks||[],R=D.blocksRetired||[];
+ $("blocks").innerHTML=`<p class="mute">The AI writes new measurements as small formulas (it can't run code). The machine checks and computes each one, tests it in up to 40 standard ways, keeps the ones that produce good rules and retires the useless ones after 60 tests. Exits are invented the same way: take-profit, stop-loss, trailing stop and holding time are dials the machine sets itself.</p>
+ <details class="card" open><summary>In use: <b>${B.length}</b></summary>${B.length?"<div class=scroll><table><tr><th>name</th><th>formula</th><th>why</th><th>tests</th><th>best result</th></tr>"+B.map(b=>`<tr><td>${esc(b.name||b.id)}</td><td><code>${esc(b.expr)}</code></td><td>${esc(b.why)}</td><td>${b.tests||0}</td><td>${esc(b.best||"-")}</td></tr>`).join("")+"</table></div>":'<p class="mute">None yet: the first ones are invented at the next run.</p>'}</details>
+ <details class="card" style="margin-top:10px"><summary>Retired: ${R.length}</summary>${R.map(b=>`<div class="nums"><code>${esc(b.expr)}</code> · ${b.tests} tests · best: ${esc(b.best)}</div>`).join("")}</details>`})();
 $("twins").innerHTML=(D.twins||[]).map(t=>`<div class="rule"><span class="tag">twin of #${t.of}</span> ${esc(t.text)}</div>`).join("")||'<p class="mute">None.</p>';
 let F="all";const draw=()=>{const a=T.filter(r=>F=="all"||r.type==F).slice(0,200);
 $("trades").innerHTML=a.length?"<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>exit</th><th>how it ended</th><th>move</th><th>$ at "+D.lev+"x</th><th></th></tr>"+a.map(r=>`<tr><td>#${String(r.no??"?").replace(/,/g,", #")}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>${r.how=="open"?"now "+fmt(r.exitPx):fmt(r.exitPx)+"<br><span class=mute>"+when(r.exitT)+"</span>"}</td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td><span class="tag ${r.type=="live"?"champion":r.type=="open"?"validated":""}">${r.type}</span></td></tr>`).join(""):'<tr><td class="mute">No trades yet. Trades appear here as soon as a rule becomes a champion.</td></tr>'};
@@ -167,6 +173,8 @@ def write(mem, J=None, log=print):
                         "open": [{k: v for k, v in p.items() if k not in ("sd", "_w")} for p in A["open"]], "closed": A["closed"][::-1][:300],
                         "curve": A["curve"], "leaders": A["leaders"][::-1], "leaderNo": lead.get("no"), "leaderText": lead.get("plain") or lead.get("text")}
     d["analyst"] = mem.get("analyst")
+    d["blocks"] = [{k: b.get(k) for k in ("id", "name", "expr", "why", "tests", "best", "at", "by")} for b in mem.get("blocks", [])]
+    d["blocksRetired"] = (mem.get("blocks_retired") or [])[::-1][:40]
     d["twins"] = [{"text": t.get("plain") or t["text"], "of": t.get("twinOf")} for t in mem["tests"].values() if t["status"] == "twin"][:40]
     d["lab"] = None
     try:

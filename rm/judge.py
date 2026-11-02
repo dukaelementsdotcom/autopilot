@@ -11,13 +11,64 @@ DIRS = ("long", "short", "with", "against")
 HOUR = 3600
 
 def canon(h): return json.dumps(h, sort_keys=True, separators=(",", ":"))
+
+# ── exits: a menu name (precomputed) OR dials the machine can set itself ───────────────────────────
+DIALS = {"tp": (0.003, 0.2), "sl": (0.003, 0.2), "trail": (0.003, 0.1), "arm": (0.0, 0.1)}
+def exit_ok(ex):
+    if isinstance(ex, str): return ex in C.EXITS
+    if not isinstance(ex, dict) or set(ex) - set(DIALS) - {"hold"}: return False
+    if not (isinstance(ex.get("hold"), int) and 1 <= ex["hold"] <= 168): return False
+    for k, (lo, hi) in DIALS.items():
+        v = ex.get(k)
+        if v is not None and not (isinstance(v, (int, float)) and lo <= v <= hi): return False
+    return not (ex.get("arm") is not None and ex.get("trail") is None)
+def exit_key(ex): return ex if isinstance(ex, str) else "d" + "_".join(f"{k}{ex[k]:g}" for k in ("tp", "sl", "trail", "arm", "hold") if ex.get(k) is not None)
+def exit_text(ex):
+    if isinstance(ex, str):
+        e = C.EXITS[ex]; return f"hold {e[1]}h" if e[0] == "ret" else f"target +{e[0] * 100:g}% / stop −{e[1] * 100:g}% / max {e[2]}h"
+    parts = []
+    if ex.get("tp"): parts.append(f"target +{ex['tp'] * 100:g}%")
+    if ex.get("sl"): parts.append(f"stop −{ex['sl'] * 100:g}%")
+    if ex.get("trail"): parts.append(f"trailing stop {ex['trail'] * 100:g}%" + (f" once up {ex['arm'] * 100:g}%" if ex.get("arm") else ""))
+    parts.append(f"max {ex['hold']}h"); return " / ".join(parts)
+
+def simulate(entry, H, L, Cl, j0, j_last, side, ex):
+    """replay one trade bar by bar from bar j0 (entry at the open of j0). Stops are checked before targets inside a bar (pessimistic);
+    a trailing stop only uses highs/lows of bars that are already finished. returns (exit bar, exit price, how, return after fees) or None"""
+    if isinstance(ex, str):
+        e = C.EXITS[ex]
+        if e[0] == "ret": tp = sl = tr = arm = None; hold = e[1]
+        else: tp, sl, hold = e; tr = arm = None
+    else: tp, sl, tr, arm, hold = ex.get("tp"), ex.get("sl"), ex.get("trail"), ex.get("arm"), ex["hold"]
+    end = j0 + hold - 1
+    if end > j_last: return None
+    best = entry; armed = arm is None
+    for j in range(j0, end + 1):
+        hi, lo = H[j], L[j]
+        stops = []
+        if sl: stops.append(entry * (1 - side * sl))
+        if tr and armed: stops.append(best * (1 - side * tr))
+        if stops:
+            st = max(stops) if side > 0 else min(stops)
+            if (side > 0 and lo <= st) or (side < 0 and hi >= st):
+                return j, st, ("stop-loss" if sl and st == entry * (1 - side * sl) else "trailing stop"), side * (st / entry - 1) - C.FEE
+        if tp:
+            tg = entry * (1 + side * tp)
+            if (side > 0 and hi >= tg) or (side < 0 and lo <= tg): return j, tg, "take-profit", tp - C.FEE
+        best = max(best, hi) if side > 0 else min(best, lo)
+        if not armed and (side * (best / entry - 1) >= arm): armed = True
+    return end, Cl[end], f"time ({hold}h)", side * (Cl[end] / entry - 1) - C.FEE
+
+FORBIDDEN = ("L_", "S_", "_")
+def feature_ok(f, cols):
+    return f in cols and not f.startswith(FORBIDDEN) and f not in ("px", "t", "coin")
 def hid(h): return hashlib.sha1(canon(h).encode()).hexdigest()[:16]
 def family(h):
     if h["kind"] == "xsec": return f"xsec|{h['rank']}|{h['order']}"
     if h["kind"] == "pair": return f"pair|{h['a']}-{h['b']}|{h['mode']}"
     if h["kind"] == "carry": return f"carry|{h['uni']}"
     if h["kind"] == "union": return "union|" + "|".join(sorted(family(q) for q in h["parts"]))
-    return f"event|{h['uni']}|{h['dir']}|{h['exit']}|" + "+".join(sorted(c["f"] for c in h["when"]))
+    return f"event|{h['uni']}|{h['dir']}|{exit_key(h['exit'])}|" + "+".join(sorted(c["f"] for c in h["when"]))
 
 def describe(h, desc=None):
     d = desc or {}
@@ -38,7 +89,7 @@ def describe(h, desc=None):
     if h["kind"] == "carry":
         who = {"BTC": "BTC", "MAJ": "BTC, ETH, SOL", "ALL": "all coins"}[h["uni"]]
         return f"Funding carry on {who}: when the last 7 days' funding pays over {h['enter'] * 100:g}%/yr, hold spot LONG + perp SHORT (price risk cancels) and collect funding; leave when it drops below {h['leave'] * 100:g}%/yr"
-    ex = C.EXITS[h["exit"]]; exs = f"hold {ex[1]}h" if ex[0] == "ret" else f"target +{ex[0] * 100:g}% / stop −{ex[1] * 100:g}% / max {ex[2]}h"
+    exs = exit_text(h["exit"])
     who = {"BTC": "BTC", "MAJ": "BTC, ETH, SOL", "ALL": "all 21 coins"}[h["uni"]]
     side = {"long": "go LONG", "short": "go SHORT", "with": "follow the last hour's move", "against": "bet against the last hour's move"}[h["dir"]]
     return f"{who}: when " + " AND ".join(cond(c) for c in h["when"]) + f" → {side}; {exs}"
@@ -46,17 +97,17 @@ def describe(h, desc=None):
 def valid(h, cols):
     try:
         if h["kind"] == "xsec":
-            return h["rank"] in cols and h["order"] in ("low_long", "high_long") and 0.1 <= h["frac"] <= 0.5 and h["rebal"] in (24, 84, 168)
+            return feature_ok(h["rank"], cols) and h["order"] in ("low_long", "high_long") and 0.1 <= h["frac"] <= 0.5 and h["rebal"] in (24, 84, 168)
         if h["kind"] == "pair":
             return h["a"] != h["b"] and h["a"] in C.COINS and h["b"] in C.COINS and 1.0 <= h["z"] <= 4.0 and h["look"] in (168, 336, 720, 1440) and h["hold"] in (24, 72, 168) and h["mode"] in ("revert", "trend")
         if h["kind"] == "union":
             return isinstance(h.get("parts"), list) and 2 <= len(h["parts"]) <= 3 and all(isinstance(q, dict) and q.get("kind") == "event" and valid(q, cols) for q in h["parts"])
         if h["kind"] == "carry":
             return h["uni"] in UNI and 0 <= h["leave"] < h["enter"] <= 2.0
-        if h["kind"] != "event" or h["uni"] not in UNI or h["dir"] not in DIRS or h["exit"] not in C.EXITS: return False
+        if h["kind"] != "event" or h["uni"] not in UNI or h["dir"] not in DIRS or not exit_ok(h["exit"]): return False
         if not (1 <= len(h["when"]) <= 3): return False
         for c in h["when"]:
-            if c["f"] not in cols or not (c["lo"] < c["hi"]): return False
+            if not feature_ok(c["f"], cols) or not (c["lo"] < c["hi"]): return False
             if c["f"].startswith(("p_", "x_")) and not (0 <= c["lo"] < c["hi"] <= 1 and c["hi"] - c["lo"] >= 0.04): return False
         return True
     except Exception: return False
@@ -71,6 +122,18 @@ class Judge:
         self.cols = set(P.columns)
         self.coin = P.coin.values; self.t = P.t.values; self.r1 = P.r1.values
         self._fwd = {}
+        self.O = P.px.values.astype(float)
+        self.H = P["_hi"].values.astype(float) if "_hi" in P else self.O; self.L = P["_lo"].values.astype(float) if "_lo" in P else self.O
+        self.Cl = P["_cl"].values.astype(float) if "_cl" in P else self.O
+        blk = np.r_[np.flatnonzero(self.coin[1:] != self.coin[:-1]), len(P) - 1]       # last row of each coin's block
+        self.last = np.repeat(blk, np.diff(np.r_[-1, blk]))
+
+    def ret1(self, i, sd, ex):
+        """return of one entry (row i, side sd) with exit ex"""
+        if isinstance(ex, str):
+            return self.P["L_" + ex].values[i] if sd > 0 else self.P["S_" + ex].values[i]
+        s_ = simulate(self.O[i], self.H, self.L, self.Cl, i, self.last[i], sd, ex)
+        return np.nan if s_ is None else s_[3]
 
     def _mask(self, h):
         P = self.P; m = np.ones(len(P), bool)
@@ -82,14 +145,17 @@ class Judge:
 
     def trades(self, h, t_from=None):
         """event rule → (times, returns) after the per-coin cooldown"""
-        P = self.P; m = self._mask(h)
+        P = self.P; m = self._mask(h); ex = h["exit"]
         side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
-        L, S = P["L_" + h["exit"]].values, P["S_" + h["exit"]].values
-        r = np.where(side > 0, L, np.where(side < 0, S, np.nan))
-        m &= ~np.isnan(r)
+        if isinstance(ex, str):
+            L, S = P["L_" + ex].values, P["S_" + ex].values
+            r = np.where(side > 0, L, np.where(side < 0, S, np.nan))
+        else:
+            m &= (side != 0) & (np.arange(len(P)) + ex["hold"] - 1 <= self.last); r = None
+        if r is not None: m &= ~np.isnan(r)
         if t_from is not None: m &= self.t >= t_from
         idx = np.flatnonzero(m)
-        if len(idx) == 0: return np.array([]), np.array([])
+        if len(idx) == 0: self._last_keep = np.array([], dtype=int); return np.array([]), np.array([])
         cool = h.get("cool", 24) * HOUR; keep = []
         order = np.lexsort((self.t[idx], self.coin[idx])); idx = idx[order]
         last_coin, last_t = None, -1e18
@@ -98,6 +164,10 @@ class Judge:
             if c != last_coin: last_coin, last_t = c, -1e18
             if t - last_t >= cool: keep.append(i); last_t = t
         keep = np.array(keep); o = np.argsort(self.t[keep]); keep = keep[o]
+        if r is None:
+            rr = np.array([self.ret1(i, int(side[i]), ex) for i in keep]); ok = ~np.isnan(rr) if len(rr) else np.array([], bool)
+            self._last_keep = keep[ok] if len(rr) else keep; return self.t[keep][ok], rr[ok]
+        self._last_keep = keep
         return self.t[keep], r[keep]
 
     def xsec_returns(self, h, t_from=None):
@@ -193,6 +263,19 @@ class Judge:
         tt = float(d.mean() / (sd / np.sqrt(len(d)))) if sd > 0 else 0.0
         return {"n": int(n), "days": int(len(d)), "mean": round(float(r.mean()) * 100, 4), "hit": round(float((r > 0).mean()) * 100, 1), "t": round(tt, 2)}
 
+    def _pool(self, h, lo, hi, n):
+        """returns of RANDOM entries: same coins, same side rule, same exit, same period (dial exits: a random sample)"""
+        P = self.P; m = (self.t >= lo) & (self.t < hi)
+        u = UNI[h["uni"]]
+        if u: m &= P.coin.isin(u).values
+        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
+        ex = h["exit"]
+        if isinstance(ex, str):
+            pool = np.where(side > 0, P["L_" + ex].values, np.where(side < 0, P["S_" + ex].values, np.nan))[m]; return pool[~np.isnan(pool)]
+        idx = np.flatnonzero(m & (side != 0)); rng = np.random.default_rng(5)
+        idx = rng.choice(idx, min(len(idx), max(600, 4 * n)), replace=False) if len(idx) else idx
+        pool = np.array([self.ret1(i, int(side[i]), ex) for i in idx]); return pool[~np.isnan(pool)]
+
     def null_p(self, h, t, r, lo, hi, reps=200, seed=1):
         """how often do RANDOM entries (same coins, same side rule, same exit, same period) do as well?"""
         if h["kind"] == "pair":                      # same pair, random side, entries whenever |z| >= 0.5
@@ -202,12 +285,7 @@ class Judge:
                 if m.sum() and rr[m].mean() >= r.mean(): beats += 1
             return round((beats + 1) / (min(reps, 60) + 1), 3)
         if h["kind"] == "union":
-            pools = []
-            for q in h["parts"]:
-                P = self.P; m = (self.t >= lo) & (self.t < hi); u = UNI[q["uni"]]
-                if u: m &= P.coin.isin(u).values
-                sd = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[q["dir"]]
-                pl = np.where(sd > 0, P["L_" + q["exit"]].values, np.where(sd < 0, P["S_" + q["exit"]].values, np.nan))[m]; pools.append(pl[~np.isnan(pl)])
+            pools = [self._pool(q, lo, hi, len(r)) for q in h["parts"]]
             pool = np.concatenate(pools) if pools else np.array([])
             if len(pool) < len(r) * 2: return 1.0
             rng = np.random.default_rng(seed); sims = np.array([rng.choice(pool, len(r), replace=False).mean() for _ in range(reps)])
@@ -232,12 +310,7 @@ class Judge:
                     p = rng.permutation(g); k = max(1, int(len(g) * h["frac"])); vals.append(p[:k].mean() - p[-k:].mean() - 2 * C.FEE)
                 if np.mean(vals) >= obs: beats += 1
             return round((beats + 1) / (reps + 1), 3)
-        P = self.P; m = (self.t >= lo) & (self.t < hi)
-        u = UNI[h["uni"]]
-        if u: m &= P.coin.isin(u).values
-        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
-        L, S = P["L_" + h["exit"]].values, P["S_" + h["exit"]].values
-        pool = np.where(side > 0, L, np.where(side < 0, S, np.nan))[m]; pool = pool[~np.isnan(pool)]
+        pool = self._pool(h, lo, hi, len(r))
         if len(pool) < len(r) * 2: return 1.0
         rng = np.random.default_rng(seed); obs = r.mean()
         sims = np.array([rng.choice(pool, len(r), replace=False).mean() for _ in range(reps)])
@@ -286,22 +359,22 @@ class Judge:
         return self._K[coin]
 
     def _walk(self, coin, t0, side, exit_):
-        """replay one trade bar by bar: returns exit time, exit price, how it ended, return after fees ('open' if not finished)"""
+        """replay one trade on the raw hourly bars: entry, TP/SL levels, exit time/price, how it ended, return ('open' if not finished)"""
         T, O, Hh, Ll, Cc = self._bars(coin); i = int(np.searchsorted(T, t0))
         if i >= len(T) or T[i] != t0: return None
-        e = O[i]; ex = C.EXITS[exit_]
-        if ex[0] == "ret":
-            j = i + ex[1] - 1
-            if j >= len(T): return {"entry": e, "exitT": None, "exitPx": float(Cc[-1]), "how": "open", "ret": side * (Cc[-1] / e - 1) - C.FEE}
-            return {"entry": e, "exitT": int(T[j]) + HOUR, "exitPx": float(Cc[j]), "how": f"time ({ex[1]}h)", "ret": side * (Cc[j] / e - 1) - C.FEE}
-        tp, sl, hh = ex; tgt = e * (1 + side * tp); stp = e * (1 - side * sl)
-        for j in range(i, min(i + hh, len(T))):
-            hit_s = Ll[j] <= stp if side > 0 else Hh[j] >= stp; hit_t = Hh[j] >= tgt if side > 0 else Ll[j] <= tgt
-            if hit_s: return {"entry": e, "tp": tgt, "sl": stp, "exitT": int(T[j]) + HOUR, "exitPx": float(stp), "how": "stop-loss", "ret": -sl - C.FEE}
-            if hit_t: return {"entry": e, "tp": tgt, "sl": stp, "exitT": int(T[j]) + HOUR, "exitPx": float(tgt), "how": "take-profit", "ret": tp - C.FEE}
-        j = i + hh - 1
-        if j >= len(T): return {"entry": e, "tp": tgt, "sl": stp, "exitT": None, "exitPx": float(Cc[-1]), "how": "open", "ret": side * (Cc[-1] / e - 1) - C.FEE}
-        return {"entry": e, "tp": tgt, "sl": stp, "exitT": int(T[j]) + HOUR, "exitPx": float(Cc[j]), "how": f"time ({hh}h)", "ret": side * (Cc[j] / e - 1) - C.FEE}
+        e = float(O[i]); ex = exit_
+        d = ({"tp": None, "sl": None, "hold": C.EXITS[ex][1]} if C.EXITS[ex][0] == "ret" else {"tp": C.EXITS[ex][0], "sl": C.EXITS[ex][1], "hold": C.EXITS[ex][2]}) if isinstance(ex, str) else ex
+        lv = {"entry": e, "tp": e * (1 + side * d["tp"]) if d.get("tp") else None, "sl": e * (1 - side * d["sl"]) if d.get("sl") else None}
+        if d.get("trail"): lv["trail"] = d["trail"]
+        s_ = simulate(e, Hh, Ll, Cc, i, len(T) - 1, side, ex)
+        if s_ is None:
+            # not finished yet: has it already hit a stop/target in the bars we have?
+            s2 = simulate(e, Hh, Ll, Cc, i, len(T) - 1, side, {**({k: v for k, v in d.items() if k in ("tp", "sl", "trail", "arm") and v}), "hold": max(1, len(T) - i)})
+            if s2 and s2[2] not in ("time (%dh)" % max(1, len(T) - i),):
+                return {**lv, "exitT": int(T[s2[0]]) + HOUR, "exitPx": float(s2[1]), "how": s2[2], "ret": float(s2[3])}
+            return {**lv, "exitT": None, "exitPx": float(Cc[-1]), "how": "open", "ret": side * (Cc[-1] / e - 1) - C.FEE}
+        j, px, how, r = s_
+        return {**lv, "exitT": int(T[j]) + HOUR, "exitPx": float(px), "how": how, "ret": float(r)}
 
     def trade_log(self, h, t_from, limit=60):
         """the actual trades a rule took since t_from, with entry, TP/SL, exit and $ result on the paper account"""
@@ -368,18 +441,8 @@ class Judge:
 
     def _entry_index(self, h):
         """row indices of the trades returned by trades(h) (same order)"""
-        P = self.P; m = self._mask(h)
-        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
-        L, S = P["L_" + h["exit"]].values, P["S_" + h["exit"]].values
-        m &= ~np.isnan(np.where(side > 0, L, np.where(side < 0, S, np.nan)))
-        idx = np.flatnonzero(m); cool = h.get("cool", 24) * HOUR; keep = []
-        idx = idx[np.lexsort((self.t[idx], self.coin[idx]))]; lc, lt = None, -1e18
-        for i in idx:
-            if self.coin[i] != lc: lc, lt = self.coin[i], -1e18
-            if self.t[i] - lt >= cool: keep.append(i); lt = self.t[i]
-        keep = np.array(keep, dtype=int); return keep[np.argsort(self.t[keep], kind="stable")]
+        self.trades(h); return np.array(self._last_keep, dtype=int)
 
-    # ── unions: "X OR Y" — several event rules traded as one strategy (the analyst's merges, the team) ──────────
     def raw_entries(self, h, t_lo=None, t_hi=None):
         """every row where an event / union rule fires (no cooldown): (row index, side, exit name)"""
         parts = h["parts"] if h["kind"] == "union" else [h]
@@ -397,7 +460,7 @@ class Judge:
         cool = h.get("cool", 24) * HOUR; last = {}; ts, rs = [], []
         for i, sd, ex in self.raw_entries(h):
             if t_from is not None and self.t[i] < t_from: continue
-            r = self.P["L_" + ex].values[i] if sd > 0 else self.P["S_" + ex].values[i]
+            r = self.ret1(i, sd, ex)
             if np.isnan(r): continue
             c = self.coin[i]
             if self.t[i] - last.get(c, -1e18) < cool: continue

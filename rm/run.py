@@ -68,7 +68,9 @@ def run(budget=None, log=print):
     load_env(); t0 = time.time(); budget = budget or C.TESTS_PER_RUN
     mem = load_memory(); seen = set(mem["seen"]); events = []; certified_now = []
     log("── 1/6 data"); fetch.update(log=log); fetch_ext.update(log=log)
-    P = features.build(log=log); J = Judge(P); cols = J.cols
+    blocks = mem.setdefault("blocks", [])
+    for b in blocks: DESC[b["id"]] = f"invented measurement '{b.get('name') or b['id']}' = {b['expr']}"
+    P = features.build(log=log, blocks=blocks); J = Judge(P); cols = J.cols
     log(f"windows: discovery < {dt.datetime.utcfromtimestamp(J.val0).date()} ≤ validation < {dt.datetime.utcfromtimestamp(J.hold0).date()} ≤ holdout ≤ {dt.datetime.utcfromtimestamp(J.t_end).date()}")
 
     log("── 2/6 live review of champions")
@@ -102,6 +104,10 @@ def run(budget=None, log=print):
     log("── 4/6 new ideas"); rng = random.Random(int(time.time())); queue = []
     def add(h, src, gen=0, why=""):
         if h and valid(h, cols) and hid(h) not in seen and all(hid(h) != hid(q[0]) for q in queue): queue.append((h, src, gen, why))
+    for b in blocks:                                   # first tests for invented measurements that are now computed
+        if not b.get("scanned") and ("p_" + b["id"]) in cols:
+            for h in ideas.block_space(b["id"]): add(h, "invented", 0, f"first test of invented measurement {b['id']}")
+            b["scanned"] = now_iso()
     if os.environ.get("GROQ_API_KEY"):
         got, model = ideas.ai_ideas(mem, cols); mem["ai"] = {"at": now_iso(), "model": model, "ideas": len(got)}
         for h, why in got: add(h, "ai", 0, why)
@@ -139,6 +145,24 @@ def run(budget=None, log=print):
         counts[res["status"]] = counts.get(res["status"], 0) + 1
         if res["status"] == "validated": new_valid += 1
     log(f"   tested {sum(counts.values())}: {counts}")
+    # invented measurements: keep the useful ones, retire the useless, invent new ones (computed from the next run on)
+    rank_ = {"champion": 4, "validated": 3, "twin": 3, "near": 2, "dead_val": 1, "dead_disc": 0}
+    used = {}
+    for t in mem["tests"].values():
+        hs = t["h"]["parts"] if t["h"]["kind"] == "union" else [t["h"]]
+        for q in hs:
+            for c in q.get("when", []):
+                bid = c["f"].removeprefix("p_")
+                if bid.startswith("u_"): u = used.setdefault(bid, [0, -1]); u[0] += 1; u[1] = max(u[1], rank_.get(t["status"], 0))
+    keep = []
+    for b in blocks:
+        n_, best = used.get(b["id"], [0, -1]); b["tests"] = max(b.get("tests", 0), n_); b["best"] = {4: "champion", 3: "validated", 2: "near", 1: "failed validation", 0: "failed", -1: "-"}[best]
+        if b.get("scanned") and b["tests"] >= 60 and best < 2: mem.setdefault("blocks_retired", []).append({k: b[k] for k in ("id", "expr", "why", "tests", "best")}); log(f"   retired invented measurement {b['id']}")
+        else: keep.append(b)
+    mem["blocks"] = keep; mem["blocks_retired"] = mem.get("blocks_retired", [])[-200:]
+    if os.environ.get("GROQ_API_KEY") and len(keep) < 30:
+        for b in ideas.ai_blocks(mem):
+            if all(b["id"] != x["id"] for x in keep): b["at"] = now_iso(); keep.append(b); log(f"   invented measurement {b['id']} = {b['expr']}")
     promote(); dedupe(mem, J, log)
 
     for t in sorted((t for t in mem["tests"].values() if t["status"] == "champion" and not t.get("no")), key=lambda t: t.get("promotedOn", "")):

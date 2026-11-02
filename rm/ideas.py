@@ -98,7 +98,7 @@ def mutate(h, cols, rng):
         elif op == "rebal": h["rebal"] = rng.choice([24, 84, 168])
         else: h["order"] = "high_long" if h["order"] == "low_long" else "low_long"
         return h
-    op = rng.choice(["shift", "shift", "add", "exit", "uni", "drop"])
+    op = rng.choice(["shift", "shift", "add", "exit", "exit", "uni", "drop"])
     if op == "shift":
         c = rng.choice(h["when"]); w = rng.choice([-0.05, 0.05])
         if c["f"].startswith(("p_", "x_")): c["lo"] = round(min(max(0.0, c["lo"] + w), 0.95), 2); c["hi"] = round(min(max(c["lo"] + 0.05, c["hi"] + w), 1.0), 2)
@@ -109,7 +109,17 @@ def mutate(h, cols, rng):
     elif op == "add" and len(h["when"]) < 3:
         f = rng.choice(sorted(x for x in cols if x.startswith("p_") and x not in [c["f"] for c in h["when"]]))
         lo, hi = rng.choice([(0.0, 0.3), (0.7, 1.0), (0.0, 0.5), (0.5, 1.0)]); h["when"].append({"f": f, "lo": lo, "hi": hi})
-    elif op == "exit": h["exit"] = rng.choice(list(C.EXITS))
+    elif op == "exit":
+        ex = h["exit"]
+        if isinstance(ex, dict) or rng.random() < 0.5:          # design / tune exit dials (incl. trailing stops)
+            d = dict(ex) if isinstance(ex, dict) else ({"hold": C.EXITS[ex][1]} if C.EXITS[ex][0] == "ret" else {"tp": C.EXITS[ex][0], "sl": C.EXITS[ex][1], "hold": C.EXITS[ex][2]})
+            k = rng.choice(["tp", "sl", "trail", "hold", "arm"])
+            if k == "hold": d["hold"] = rng.choice([4, 8, 12, 24, 48, 72, 120])
+            elif k == "arm": d["trail"] = d.get("trail") or 0.01; d["arm"] = rng.choice([None, 0.005, 0.01, 0.02, 0.03])
+            else: d[k] = rng.choice([None, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05] if k != "trail" else [None, 0.005, 0.01, 0.015, 0.02, 0.03])
+            if d.get("arm") is not None and not d.get("trail"): d.pop("arm")
+            h["exit"] = {k2: v for k2, v in d.items() if v is not None}
+        else: h["exit"] = rng.choice(list(C.EXITS))
     elif op == "uni": h["uni"] = rng.choice(["BTC", "MAJ", "ALL"])
     elif op == "drop" and len(h["when"]) > 1: h["when"].pop(rng.randrange(len(h["when"])))
     return h
@@ -135,6 +145,9 @@ EVENT: {"kind":"event","uni":"BTC"|"MAJ"|"ALL","when":[{"f":FEATURE,"lo":0-1,"hi
   - FEATURE "p_<name>" = that measurement's percentile vs the coin's own last 90 days (0 lowest, 1 highest); "x_<name>" = rank vs the other coins right now; "hour" (0-23 UTC, lo/hi in hours); "dow" (0=Mon).
   - "with" = trade in the direction of the last hour's move, "against" = opposite.
   - Raw classic indicators can also be used directly (not percentiles): rsi14 (0-100), bbz (Bollinger z, +/-2 = band), macdh, emax, emat (% gaps), don20 (0-1 Donchian channel position), adx14 (0-100), cross (+1/-1 EMA cross).
+  - EXIT can also be DIALS you design: {"tp":0.003-0.2 or null,"sl":0.003-0.2 or null,"trail":0.003-0.1 or null,"arm":0-0.1 or null,"hold":1-168}
+    tp = take-profit, sl = stop-loss, trail = trailing stop distance, arm = only start trailing once up this much, hold = max hours. Example: {"tp":0.03,"sl":0.015,"trail":0.01,"arm":0.015,"hold":24}
+  - FEATURE can also be an INVENTED measurement u_... (and its p_u_... percentile) listed under INVENTED MEASUREMENTS.
 CROSS-SECTION: {"kind":"xsec","rank":FEATURE,"order":"low_long"|"high_long","frac":0.2-0.5,"rebal":24|84|168}
 UNION / TEAM ("X OR Y", 2-3 event rules traded as one; a regime switch = rule A with a condition in one half + rule B with the same condition in the other half): {"kind":"union","parts":[EVENT,EVENT],"cool":24}
 MARKET-WIDE features (same for all coins, use p_ versions): p_fg (Fear&Greed), p_fg7, p_cbp/p_cbp24 (Coinbase premium), p_dvol/p_dvol24/p_dvole (options fear gauge), p_stab7/p_stab30 (stablecoin inflow); per coin: streak (+n/-n hours in a row up/down).
@@ -175,7 +188,7 @@ def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
               f"MEASUREMENTS (each available as p_<name>; some as x_<name>):\n" + "\n".join(f"- {k}: {v}" for k, v in feats.items()) + "\n\n" + GRAMMAR +
               "\n\nWHAT SURVIVED OR NEARLY SURVIVED SO FAR:\n" + ("\n".join(f"- [{t['status']}] {t['text']} | discovery {t['disc']} | validation {t.get('val')}" for t in good) or "- nothing yet") +
               "\n\nIDEA FAMILIES ALREADY TESTED (count, best discovery t):\n" + "\n".join(f"- {k}: {v['n']} tests, best t {v.get('best', 0)}, survivors {v.get('ok', 0)}" for k, v in fam) +
-              "\n\nLESSONS SO FAR:\n" + "\n".join("- " + l for l in mem.get("lessons", [])[:8]) +
+              "\n\nLESSONS SO FAR:\n" + "\n".join("- " + l for l in mem.get("lessons", [])[:8]) + _blocks_text(mem) +
               f"\n\nPropose {n} NEW hypotheses that are different from what was tested. Think outside the box, like people who build profitable open-source bots and prediction-market arbitrage bots: structural, market-neutral and flow-based ideas (pairs, carry, cross-coin lead/lag, trapped leverage, forced liquidations, funding extremes) as well as classic indicator rules combined with positioning. "
               "Each must have a market MECHANISM (who is forced to buy or sell, who is trapped, where liquidity is). Mix the kinds: at least 2 pair or carry ideas. "
               'Answer ONLY JSON: {"ideas":[{"why":"one-sentence mechanism","h":{...hypothesis...}}]}')
@@ -251,3 +264,44 @@ def ai_analyst(mem, cols):
     notes = {"model": model, "why": [{"rule": str(x.get("rule", ""))[:40], "reason": str(x.get("reason", ""))[:300]} for x in (data.get("why") or [])[:6] if isinstance(x, dict)],
              "merges": merges, "wild": wild}
     return out, notes
+
+def _blocks_text(mem):
+    B = mem.get("blocks", [])
+    return ("\n\nINVENTED MEASUREMENTS (usable as u_id or p_u_id):\n" + "\n".join(f"- {b['id']} = {b['expr']}  ({b['why'][:100]}; tests {b.get('tests', 0)}, best {b.get('best', '-')})" for b in B)) if B else ""
+
+BLOCK_HELP = """A NEW MEASUREMENT is a formula over these hourly ingredients of one coin:
+  o h l c (price open/high/low/close), v (volume), tb (taker BUY volume, so sell volume = v - tb), oi (open interest = total leveraged bets in $),
+  glob (crowd long/short account ratio), topPos (top traders' long/short position ratio), topAcc (top traders' account ratio), tk (taker buy/sell ratio),
+  plus the machine's measurements: """
+
+def ai_blocks(mem, n=2):
+    """the AI invents up to n new measurements as safe formulas (validated + computed by blocks.py, never executed as code)"""
+    from .blocks import check, slug
+    names = set(["o", "h", "l", "c", "v", "tb", "oi", "glob", "topPos", "topAcc", "tk"]) | {k for k in DESC if not k.startswith("x_") and k not in ("fg", "fg7", "cbp", "cbp24", "dvol", "dvol24", "dvole", "stab7", "stab30")}
+    old = [b["expr"] for b in mem.get("blocks", [])] + [b["expr"] for b in mem.get("blocks_retired", [])][-40:]
+    prompt = ("You design new measurements for an autonomous crypto research machine. " + BLOCK_HELP + ", ".join(sorted(names - {"o", "h", "l", "c", "v", "tb", "oi", "glob", "topPos", "topAcc", "tk"})) +
+              "\nOPERATIONS: + - * /, lag(x,H) diff(x,H) pct(x,H) mean(x,H) std(x,H) z(x,H) max(x,H) min(x,H) rank(x,H) ema(x,H) sum(x,H) with H whole hours 1-2160; abs(x) log(x) sign(x) sqrt(x); clip(x,lo,hi); corr(x,y,H)."
+              "\nEXAMPLES: pct(oi,24) / std(r1,168)    |  sum(2*tb - v, 6) / sum(v, 6)    |  corr(pct(c,1), pct(oi,1), 72)    |  z(glob,720) - z(topPos,720)"
+              "\nALREADY TRIED (do not repeat): " + " ; ".join(old[-25:]) +
+              f"\nInvent {n} NEW measurements that could reveal forced buying/selling, trapped traders, divergences between crowd and smart money, or exhaustion. Each must be different from the examples and from what was tried. "
+              'Answer ONLY JSON: {"blocks":[{"name":"short_name","expr":"formula","why":"one sentence"}]}')
+    txt, model = _groq([{"role": "user", "content": prompt}], 1500)
+    try: data = json.loads(re.search(r"\{.*\}", txt, re.S).group(0))
+    except Exception: return []
+    out = []
+    for b in (data.get("blocks") or [])[:n]:
+        if not isinstance(b, dict): continue
+        expr = str(b.get("expr", "")).strip(); err = check(expr, names)
+        if err or expr in old: continue
+        out.append({"id": slug(b.get("name", "block"), expr), "expr": expr, "why": str(b.get("why", ""))[:200], "name": str(b.get("name", ""))[:40], "by": model})
+    return out
+
+def block_space(bid):
+    """standard first tests for a newly invented measurement"""
+    out = []
+    for uni in ("ALL", "MAJ", "BTC"):
+        for lo, hi in ((0.0, 0.05), (0.95, 1.0), (0.0, 0.1), (0.9, 1.0)):
+            for d in ("long", "short"):
+                for ex in ("r24", "b2_2_48"):
+                    out.append({"kind": "event", "uni": uni, "when": [{"f": "p_" + bid, "lo": lo, "hi": hi}], "dir": d, "exit": ex, "cool": 24})
+    random.Random(3).shuffle(out); return out[:40]
