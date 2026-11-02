@@ -1,6 +1,6 @@
 """Settings for the Research Machine. Everything else adapts automatically."""
 import os
-COINS = "BTC ETH SOL XRP BNB ADA DOGE AVAX LINK LTC DOT BCH TRX UNI ATOM NEAR FIL ETC AAVE ARB OP".split()
+COINS = "BTC ETH SOL XRP BNB ADA DOGE AVAX LINK LTC DOT BCH TRX UNI ATOM NEAR FIL ETC AAVE ARB OP LUNA FTT SRM".split()   # last 3 collapsed in 2022: kept so rules must survive crashes (no survivorship bias)
 START = "2020-09-01"            # positioning data (open interest, long/short ratios) starts here
 DATA_DIR = os.environ.get("RM_DATA", "data")       # raw + panel (GitHub cache; rebuilt automatically if lost)
 STATE_DIR = os.environ.get("RM_STATE", "state")    # the machine's memory (saved to the 'state' branch, overwritten each run)

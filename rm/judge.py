@@ -90,7 +90,7 @@ def describe(h, desc=None):
         who = {"BTC": "BTC", "MAJ": "BTC, ETH, SOL", "ALL": "all coins"}[h["uni"]]
         return f"Funding carry on {who}: when the last 7 days' funding pays over {h['enter'] * 100:g}%/yr, hold spot LONG + perp SHORT (price risk cancels) and collect funding; leave when it drops below {h['leave'] * 100:g}%/yr"
     exs = exit_text(h["exit"])
-    who = {"BTC": "BTC", "MAJ": "BTC, ETH, SOL", "ALL": "all 21 coins"}[h["uni"]]
+    who = {"BTC": "BTC", "MAJ": "BTC, ETH, SOL", "ALL": "all coins"}[h["uni"]]
     side = {"long": "go LONG", "short": "go SHORT", "with": "follow the last hour's move", "against": "bet against the last hour's move"}[h["dir"]]
     return f"{who}: when " + " AND ".join(cond(c) for c in h["when"]) + f" → {side}; {exs}"
 
@@ -420,6 +420,7 @@ class Judge:
         yrs = yrs[yrs["size"] >= 10]
         ck[f"profitable in every calendar year ({int((yrs['mean'] > 0).sum())}/{len(yrs)})"] = len(yrs) >= 4 and bool((yrs["mean"] > 0).all())
         ck["still profitable with double fees"] = float(r.mean()) - C.FEE > 0
+        ck[f"survives crashes: worst single trade better than −15% (worst {r.min() * 100:.1f}%)"] = float(r.min()) > -0.15
         if h["kind"] == "event":
             P = self.P; pos = {int(a): i for i, a in enumerate(t)}
             ix = self._entry_index(h)

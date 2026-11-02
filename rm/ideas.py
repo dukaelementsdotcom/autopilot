@@ -184,7 +184,7 @@ def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
     feats = {k: v for k, v in DESC.items()}
     good = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated", "near")][:12]
     fam = sorted(mem["families"].items(), key=lambda kv: -kv[1]["n"])[:25]
-    prompt = (f"You are the head of research of an autonomous crypto research machine (paper only). It tests rules on 6 years of hourly data for 21 coins.\n"
+    prompt = (f"You are the head of research of an autonomous crypto research machine (paper only). It tests rules on 6 years of hourly data for 24 coins (3 of them collapsed in 2022).\n"
               f"MEASUREMENTS (each available as p_<name>; some as x_<name>):\n" + "\n".join(f"- {k}: {v}" for k, v in feats.items()) + "\n\n" + GRAMMAR +
               "\n\nWHAT SURVIVED OR NEARLY SURVIVED SO FAR:\n" + ("\n".join(f"- [{t['status']}] {t['text']} | discovery {t['disc']} | validation {t.get('val')}" for t in good) or "- nothing yet") +
               "\n\nIDEA FAMILIES ALREADY TESTED (count, best discovery t):\n" + "\n".join(f"- {k}: {v['n']} tests, best t {v.get('best', 0)}, survivors {v.get('ok', 0)}" for k, v in fam) +

@@ -141,7 +141,7 @@ const tick=()=>{const now=Date.now(),ago=(now-builtMs)/6e4;const n=new Date(now)
  $("cd").textContent=sec>3300&&ago>8?"running now…":`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;
  $("stext").innerHTML=late?`<b style="color:var(--bad)">Late</b>: last run ${Math.round(ago/60*10)/10} h ago`:`Healthy · last run ${ago<1?"just now":Math.round(ago)+" min ago"}`;
  $("sdot").style.background=`var(--${ago>240?"bad":late?"warn":"good"})`};tick();setInterval(tick,1000);
-const EV={promoted:["became a champion","champion"],demoted:["dropped: lost money live","dead"],proven:["proven with live trades","champion"],certified:["passed the undeniable-edge checklist","champion"]};
+const EV={promoted:["became a champion","champion"],demoted:["dropped: lost money live","dead"],"failed re-exam":["dropped: failed a re-exam on newer data","dead"],proven:["proven with live trades","champion"],certified:["passed the undeniable-edge checklist","champion"]};
 $("events").innerHTML=D.events.length?D.events.map(e=>`<div class="rule"><span class="tag ${(EV[e[0]]||["",""])[1]}">${esc((EV[e[0]]||[e[0]])[0])}</span>${e[2]?`<b>Rule #${e[2]}</b> · `:""}${esc(e[1])}</div>`).join(""):'<p class="mute">Nothing promoted or dropped yet. Early on this is normal: the bar is high on purpose.</p>';
 const rule=t=>`<div class="rule">${t.no?`<span class="tag champion">Rule #${t.no}</span>`:""}<span class="tag ${t.status.startsWith("dead")?"dead":t.status}">${esc(t.status)}</span><span class="tag">${esc(t.src)}${t.gen?" · gen "+t.gen:""}</span>${t.proven?'<span class="tag champion">proven live</span>':""}${t.certified?'<span class="tag champion">★ CERTIFIED</span>':""}
 <div style="margin-top:6px;font-size:16px"><b>${esc(t.plain||t.text)}</b></div>${t.plain?`<details><summary>exact rule</summary><div class="mute">${esc(t.text)}</div></details>`:""}${t.why?`<div class="mute">${esc(t.why)}</div>`:""}
@@ -184,7 +184,8 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);
 // health warnings (only shown when something is wrong)
 (()=>{const h=(Date.now()-builtMs)/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
- dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:""})();
+ dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
+ (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
 // analyst
 (()=>{const A=D.analyst;if(!A){$("analyst").innerHTML='<p class="mute">The analyst starts once there are at least 2 winning rules.</p>';return}
  $("analyst").innerHTML=`<div class="card"><div class="mute">Written ${esc(A.at)} UTC by ${esc(A.model)}</div>
@@ -267,6 +268,14 @@ def write(mem, J=None, log=print):
     with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(PAGE.replace("__DATA__", blob))
     with open(f"{C.DOCS_DIR}/summary.json", "w", encoding="utf-8") as f: json.dump(d, f)
     log(f"report: {C.DOCS_DIR}/index.html")
+
+def write_minimal(mem, problems):
+    """fallback page if the full dashboard ever fails to build: the machine is still visible"""
+    os.makedirs(C.DOCS_DIR, exist_ok=True); r = (mem.get("runs") or [{}])[0]
+    body = "".join(f"<li>{html.escape(p)}</li>" for p in problems)
+    with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f:
+        f.write(f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Research Machine</title><body style='font-family:system-ui;max-width:800px;margin:30px auto;padding:0 16px'>"
+                f"<h1>Research Machine</h1><p>The machine ran at {html.escape(str(r.get('at')))} UTC and tested {r.get('tested')} ideas, but the full dashboard could not be built:</p><ul>{body}</ul><p>Tell Claude.</p>")
 
 def _send(text, log=print):
     tok, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
