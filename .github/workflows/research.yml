@@ -1,7 +1,7 @@
 name: research
 on:
   schedule:
-    - cron: "17 */4 * * *"       # every 4 hours (6 runs/day); new market data arrives once a day
+    - cron: "17 * * * *"         # every hour; GitHub may delay or skip a run when busy, the machine catches up on the next one
   workflow_dispatch: {}
 
 permissions:
@@ -76,7 +76,7 @@ jobs:
 
       - name: monthly heartbeat
         run: |
-          if [ "$(date -u +%d)" = "01" ] && [ "$(date -u +%H)" -lt 4 ]; then
+          if [ "$(date -u +%d)" = "01" ] && [ "$(date -u +%H)" = "00" ]; then
             date -u > .heartbeat
             git config user.name "research-machine" && git config user.email "research-machine@users.noreply.github.com"
             git add .heartbeat && git commit -qm "heartbeat" && git push -q || true

@@ -49,7 +49,7 @@ Go to **Settings → Pages → Build and deployment → Source: GitHub Actions**
 ### 4. Press the button once
 Go to **Actions**. If asked, click "I understand… enable workflows". Then open **research → Run workflow**.
 - The first run downloads about 6 years of data and takes about 15–25 minutes. After that, each daily run takes about 5–10 minutes.
-- From then on it runs **by itself every 4 hours**, forever, until you stop it.
+- From then on it runs **by itself every hour**, forever, until you stop it.
 
 Your dashboard: `https://<your-github-name>.github.io/research-machine/`. The run log also shows the link.
 

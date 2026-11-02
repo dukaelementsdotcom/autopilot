@@ -15,6 +15,12 @@ def load_env(path="secrets.env"):
                 k, v = line.split("=", 1)
                 if v.strip(): os.environ.setdefault(k.strip(), v.strip())
 
+def due(mem, name, hours):
+    """ration the free AI: each job runs at most every `hours` hours (Groq's free daily limits)"""
+    clk = mem.setdefault("aiClock", {}); last = clk.get(name)
+    if last and (time.time() - last) < hours * 3600 - 300: return False
+    clk[name] = time.time(); return True
+
 def now_iso(): return dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M")
 
 def load_memory():
@@ -67,6 +73,8 @@ def record(mem, h, res, src, gen, why=""):
 def run(budget=None, log=print):
     load_env(); t0 = time.time(); budget = budget or C.TESTS_PER_RUN
     mem = load_memory(); seen = set(mem["seen"]); events = []; certified_now = []
+    # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
+    C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
     log("── 1/6 data"); fetch.update(log=log); fetch_ext.update(log=log)
     blocks = mem.setdefault("blocks", [])
     for b in blocks: DESC[b["id"]] = f"invented measurement '{b.get('name') or b['id']}' = {b['expr']}"
@@ -108,10 +116,10 @@ def run(budget=None, log=print):
         if not b.get("scanned") and ("p_" + b["id"]) in cols:
             for h in ideas.block_space(b["id"]): add(h, "invented", 0, f"first test of invented measurement {b['id']}")
             b["scanned"] = now_iso()
-    if os.environ.get("GROQ_API_KEY"):
+    if os.environ.get("GROQ_API_KEY") and due(mem, "ideas", 2):
         got, model = ideas.ai_ideas(mem, cols); mem["ai"] = {"at": now_iso(), "model": model, "ideas": len(got)}
         for h, why in got: add(h, "ai", 0, why)
-    if os.environ.get("GROQ_API_KEY"):
+    if os.environ.get("GROQ_API_KEY") and due(mem, "analyst", 6):
         got, notes = ideas.ai_analyst(mem, cols)
         if notes is not None: mem["analyst"] = {"at": now_iso(), **notes}
         for h, why in got: add(h, "analyst", 1, why)
@@ -160,7 +168,7 @@ def run(budget=None, log=print):
         if b.get("scanned") and b["tests"] >= 60 and best < 2: mem.setdefault("blocks_retired", []).append({k: b[k] for k in ("id", "expr", "why", "tests", "best")}); log(f"   retired invented measurement {b['id']}")
         else: keep.append(b)
     mem["blocks"] = keep; mem["blocks_retired"] = mem.get("blocks_retired", [])[-200:]
-    if os.environ.get("GROQ_API_KEY") and len(keep) < 30:
+    if os.environ.get("GROQ_API_KEY") and len(keep) < 30 and due(mem, "blocks", 4):
         for b in ideas.ai_blocks(mem):
             if all(b["id"] != x["id"] for x in keep): b["at"] = now_iso(); keep.append(b); log(f"   invented measurement {b['id']} = {b['expr']}")
     promote(); dedupe(mem, J, log)
@@ -168,7 +176,7 @@ def run(budget=None, log=print):
     for t in sorted((t for t in mem["tests"].values() if t["status"] == "champion" and not t.get("no")), key=lambda t: t.get("promotedOn", "")):
         mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
     if os.environ.get("GROQ_API_KEY"):                       # plain-English explanations for the dashboard
-        todo = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated") and not t.get("plain")][:12]
+        todo = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated") and not t.get("plain")][:5]
         for t in todo:
             p = ideas.ai_plain(t["text"])
             if p: t["plain"] = p
@@ -188,7 +196,7 @@ def run(budget=None, log=print):
     dropped = compact(mem)
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],
-               "dataEnd": dt.datetime.utcfromtimestamp(int(P.t.max())).strftime("%Y-%m-%d %H:%M"), "secs": round(time.time() - t0), "scanDone": f"{mem['cursor']}/{len(space)}", "classicDone": mem["ccur"], "structuralDone": mem["scur"], "compacted": dropped}
+               "dataEnd": dt.datetime.utcfromtimestamp(int(P.t.max())).strftime("%Y-%m-%d %H:%M"), "secs": round(time.time() - t0), "scanDone": f"{mem['cursor']}/{len(space)}", "classicDone": mem["ccur"], "structuralDone": mem["scur"], "valBar": C.VAL_T, "compacted": dropped}
     mem["runs"] = [run_rec] + mem["runs"][:60]
     mem["events"] = (run_rec["events"] + mem["events"])[:60]
     log("── 6/6 report"); save_memory(mem); report.write(mem, J, log=log); report.alert(certified_now, log=log)

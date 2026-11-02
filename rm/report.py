@@ -107,9 +107,9 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
 renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);
 // health
 (()=>{const h=(Date.now()-Date.parse(D.built.replace(" UTC","Z").replace(" ","T")))/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
- $("health").innerHTML=h>9?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:14px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every 4 hours). Something may be stuck: tell Claude.</div>`:
+ $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:14px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:14px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
- `<div class="card" style="border-color:var(--good);margin-top:14px"><span style="color:var(--good)">●</span> Healthy: last run ${Math.max(0,Math.round(h*60))} min ago, runs every 4 hours. Market data up to ${esc(de||"?")} UTC.</div>`})();
+ `<div class="card" style="border-color:var(--good);margin-top:14px"><span style="color:var(--good)">●</span> Healthy: last run ${Math.max(0,Math.round(h*60))} min ago, runs every hour. Market data up to ${esc(de||"?")} UTC.</div>`})();
 // analyst
 (()=>{const A=D.analyst;if(!A){$("analyst").innerHTML='<p class="mute">The analyst starts once there are at least 2 winning rules.</p>';return}
  $("analyst").innerHTML=`<div class="card"><div class="mute">Written ${esc(A.at)} UTC by ${esc(A.model)}</div>
