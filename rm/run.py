@@ -72,6 +72,10 @@ def record(mem, h, res, src, gen, why=""):
 
 def run(budget=None, log=print):
     load_env(); t0 = time.time(); budget = budget or C.TESTS_PER_RUN
+    if os.environ.get("GITHUB_EVENT_NAME") == "schedule" and os.path.exists(f"{C.STATE_DIR}/memory.json"):    # two timers may fire: skip a duplicate
+        last = (load_memory().get("runs") or [{}])[0].get("at")
+        if last and (dt.datetime.utcnow() - dt.datetime.strptime(last, "%Y-%m-%d %H:%M")).total_seconds() < 25 * 60:
+            log("another run finished less than 25 minutes ago: skipping this one"); return None
     mem = load_memory(); seen = set(mem["seen"]); events = []; certified_now = []
     # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)

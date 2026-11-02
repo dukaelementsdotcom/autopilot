@@ -83,10 +83,13 @@ jobs:
           fi
 
       - uses: actions/configure-pages@v5
+        if: hashFiles('docs/index.html') != ''
         continue-on-error: true
       - uses: actions/upload-pages-artifact@v3
+        if: hashFiles('docs/index.html') != ''
         with:
           path: docs
       - id: deploy
+        if: hashFiles('docs/index.html') != ''
         uses: actions/deploy-pages@v4
         continue-on-error: true
