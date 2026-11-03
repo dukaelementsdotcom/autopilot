@@ -63,6 +63,9 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <h2>$500 team account: several different rules together</h2>
 <p class="help">Up to 5 rules that trade <i>different</i> situations. When two or three agree on the same trade, it puts in more money.</p>
 <div id="tbox"></div>
+<h2>$700 all-in account: no leverage, one coin at a time</h2>
+<p class="help">Your idea: the whole account goes into one coin for 1-3 days, aiming for 5-10% moves, then rotates to the next pick. It trades the best "rotation" rule that has passed every exam.</p>
+<div id="abox"></div>
 </section>
 
 <section data-tab="rules">
@@ -106,7 +109,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </section>
 </main><script>
 const D=__DATA__;const $=id=>document.getElementById(id);const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const st=s=>s&&s.n?`${s.n} trades · avg ${s.mean>0?"+":""}${s.mean}% · win ${s.hit}% · t ${s.t}`:"no trades yet";
+const st=s=>s&&s.n?`${s.n} trades · avg ${s.mean>0?"+":""}${s.mean}% · win ${s.hit}% · t ${s.t}${s.avgWin!=null?` · avg win +${s.avgWin}% / avg loss ${s.avgLoss}% (payoff ${s.payoff})`:""}${s.levMean!=null?` · <b>as traded (${s.lev}x): ${s.levMean>0?"+":""}${s.levMean}% of margin per trade${s.liq?`, ${s.liq} liquidations`:""}</b>`:""}`:"no trades yet";
 $("sub").textContent=`Paper-trading research lab · running since ${D.born} UTC · market data up to ${D.runs[0]?.dataEnd||"?"} UTC`;
 const A1=D.account,A2=D.team,fmtUsd=x=>"$"+(x??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct=A=>A?100*(A.equity/A.start-1):0, sgn=x=>(x>=0?"+":"")+x.toFixed(1)+"%";
@@ -128,7 +131,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
   <div class="big">${fmtUsd(A.equity)}</div><div class="mute" style="font-size:13px">${cl.length} closed · ${w} won · ${cl.length-w} lost · ${A.open.length} open</div>
   ${path?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;margin-top:6px"><path d="${path}" fill="none" stroke="var(--${p[p.length-1][1]>=A.start?"good":"bad"})" stroke-width="2"/></svg><div class="mute" style="font-size:12px">closed trades only${A.open.length?"; open trades are counted in the value above":""}</div>`:'<div class="mute" style="font-size:13px;margin-top:6px">Chart appears after the first closed trade.</div>'}
   <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">See trades →</a></div>`};
- $("minis").innerHTML=mini(A1,"Best-rule account")+mini(A2,"Team account")})();
+ $("minis").innerHTML=mini(A1,"Best-rule account (10x)")+mini(A2,"Team account (10x)")+mini(D.allin,"All-in account ($700, no leverage)")})();
 // tabs (remembered per browser)
 const tabs=[...document.querySelectorAll("#tabs button")];const show=t=>{tabs.forEach(b=>b.classList.toggle("on",b.dataset.t==t));document.querySelectorAll("section[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab==t));try{localStorage.setItem("tab",t)}catch(e){}};
 tabs.forEach(b=>b.onclick=()=>{show(b.dataset.t);history.replaceState(null,"","#"+b.dataset.t)});
@@ -167,7 +170,7 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
   const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
   const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`})();
- const row=r=>`<tr><td>#${r.rule??"?"}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>$${r.margin} × ${D.lev}x</td>`;
+ const row=r=>`<tr><td>#${r.rule??"?"}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>$${r.margin} × ${A.lev||D.lev}x</td>`;
  const openRows=A.open.map(r=>row(r)+`<td>${r.livePx?"live "+fmt(r.livePx):"–"}</td><td>${money(r.unreal||0)}</td></tr>`).join("");
  const closedRows=C.map(r=>row(r)+`<td>${fmt(r.exitPx)}<br><span class=mute>${when(r.exitT)}</span></td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td>$${fmt(r.after)}</td></tr>`).join("");
  const H1="<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>margin</th>";
@@ -175,12 +178,12 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  <div class="card" style="margin-top:10px">${isTeam?`<div class="mute">Team now: ${A.teamRules.length?A.teamRules.map(r=>`<div style="margin-top:4px"><b>Rule #${r.no}</b>: ${esc(r.text)}</div>`).join(""):"no team yet"}</div>
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each signal uses 5% of the account as margin at ${D.lev}x; when 2-3 team rules agree on the same trade, the position grows (up to 15%). Max 6 trades at once, profits compound. The team is re-picked every run.</div>`:
  `<div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
- <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each trade uses 10% of the account as margin at ${D.lev}x leverage, max 3 trades at once, profits compound. The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
+ <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. ${A.lev==1?"The whole account goes into one trade at a time, no leverage, profits compound.":`Each trade uses 10% of the account as margin at ${A.lev||D.lev}x leverage, max 3 trades at once, profits compound.`} The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
  <div class="card" style="margin-top:10px">${svg}</div>
  <details class="card" style="margin-top:10px" ${A.open.length?"open":""}><summary>Open positions: <b>${A.open.length}</b> · unrealised ${money(A.open.reduce((x,r)=>x+(r.unreal||0),0))}</summary><div class="scroll"><table>${A.open.length?H1+"<th>now</th><th>$ so far</th></tr>"+openRows:'<tr><td class="mute">None.</td></tr>'}</table></div></details>
  <details class="card" style="margin-top:10px"><summary>Closed trades: ${stats(C)}</summary><div class="scroll"><table>${C.length?H1+"<th>exit</th><th>how it ended</th><th>move</th><th>$ result</th><th>account after</th></tr>"+closedRows:'<tr><td class="mute">None yet.</td></tr>'}</table></div></details>
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
-renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);
+renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.allin,"abox",false);
 // health warnings (only shown when something is wrong)
 (()=>{const h=(Date.now()-builtMs)/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
@@ -240,12 +243,12 @@ def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     d["trades"] = _trades(mem, J, log) if J is not None else []; d["margin"] = C.PAPER_MARGIN; d["lev"] = C.LEVERAGE
-    for key in ("account", "team"):
+    for key in ("account", "team", "allin"):
         A = mem.get(key)
         if not A: continue
         lead = mem["tests"].get(A.get("leader") or "", {})
         tm = [mem["tests"][k] for k in (A.get("team") or []) if k in mem["tests"]]
-        d[key] = {"teamRules": [{"no": t.get("no"), "text": t.get("plain") or t["text"]} for t in tm],"born": A["born"], "t0": A["t0"], "cash": A["cash"], "equity": A.get("equity", A["cash"]), "start": 500.0,
+        d[key] = {"teamRules": [{"no": t.get("no"), "text": t.get("plain") or t["text"]} for t in tm],"born": A["born"], "t0": A["t0"], "cash": A["cash"], "equity": A.get("equity", A["cash"]), "start": A.get("start", 500.0), "lev": A.get("lev", 10),
                         "open": [{k: v for k, v in p.items() if k not in ("sd", "_w")} for p in A["open"]], "closed": A["closed"][::-1][:300],
                         "curve": A["curve"], "leaders": A["leaders"][::-1], "leaderNo": lead.get("no"), "leaderText": lead.get("plain") or lead.get("text")}
     d["analyst"] = mem.get("analyst")

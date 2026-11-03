@@ -82,6 +82,16 @@ def mutate(h, cols, rng):
     h = json.loads(json.dumps(h))
     if h["kind"] == "union":
         i = rng.randrange(len(h["parts"])); h["parts"][i] = mutate(h["parts"][i], cols, rng); return h
+    if h["kind"] == "rotate":
+        op = rng.choice(["hold", "stop", "order", "rank", "when"])
+        if op == "hold": h["hold"] = rng.choice([24, 48, 72])
+        elif op == "stop": h["stop"] = rng.choice([None, 0.03, 0.05, 0.08, 0.12])
+        elif op == "order": h["order"] = "low" if h["order"] == "high" else "high"
+        elif op == "rank": h["rank"] = rng.choice(sorted(c for c in cols if c.startswith(("p_", "x_")) and not c.startswith(("p_fg", "p_cbp", "p_dvol", "p_stab"))))
+        else:
+            f = rng.choice(sorted(c for c in cols if c.startswith("p_"))); lo, hi = rng.choice([(0.0, 0.3), (0.7, 1.0), (0.0, 0.5), (0.5, 1.0)])
+            h["when"] = ((h.get("when") or [])[:1]) + [{"f": f, "lo": lo, "hi": hi}]
+        return h
     if h["kind"] == "pair":
         op = rng.choice(["z", "look", "hold"])
         if op == "z": h["z"] = rng.choice([1.5, 2.0, 2.5, 3.0, 3.5])
@@ -111,7 +121,16 @@ def mutate(h, cols, rng):
         lo, hi = rng.choice([(0.0, 0.3), (0.7, 1.0), (0.0, 0.5), (0.5, 1.0)]); h["when"].append({"f": f, "lo": lo, "hi": hi})
     elif op == "exit":
         ex = h["exit"]
-        if isinstance(ex, dict) or rng.random() < 0.5:          # design / tune exit dials (incl. trailing stops)
+        if rng.random() < 0.45:                                # volatility-unit exits: stops outside the noise, winners run
+            d = dict(ex) if isinstance(ex, dict) and ex.get("unit") == "vol" else {"unit": "vol", "sl": 1.5, "trail": 2.0, "arm": 1.0, "hold": 72}
+            k = rng.choice(["tp", "sl", "trail", "arm", "hold"])
+            if k == "hold": d["hold"] = rng.choice([12, 24, 48, 72, 120, 168])
+            elif k == "arm": d["trail"] = d.get("trail") or 2.0; d["arm"] = rng.choice([None, 0.5, 1.0, 1.5, 2.0])
+            else: d[k] = rng.choice([None, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0] if k != "sl" else [0.75, 1.0, 1.5, 2.0, 2.5, 3.0])
+            if d.get("arm") is not None and not d.get("trail"): d.pop("arm")
+            d = {k2: v for k2, v in d.items() if v is not None}
+            if any(d.get(k2) for k2 in ("tp", "sl", "trail")): h["exit"] = d
+        elif isinstance(ex, dict) or rng.random() < 0.5:          # design / tune exit dials (incl. trailing stops)
             d = dict(ex) if isinstance(ex, dict) else ({"hold": C.EXITS[ex][1]} if C.EXITS[ex][0] == "ret" else {"tp": C.EXITS[ex][0], "sl": C.EXITS[ex][1], "hold": C.EXITS[ex][2]})
             k = rng.choice(["tp", "sl", "trail", "hold", "arm"])
             if k == "hold": d["hold"] = rng.choice([4, 8, 12, 24, 48, 72, 120])
@@ -145,9 +164,12 @@ EVENT: {"kind":"event","uni":"BTC"|"MAJ"|"ALL","when":[{"f":FEATURE,"lo":0-1,"hi
   - FEATURE "p_<name>" = that measurement's percentile vs the coin's own last 90 days (0 lowest, 1 highest); "x_<name>" = rank vs the other coins right now; "hour" (0-23 UTC, lo/hi in hours); "dow" (0=Mon).
   - "with" = trade in the direction of the last hour's move, "against" = opposite.
   - Raw classic indicators can also be used directly (not percentiles): rsi14 (0-100), bbz (Bollinger z, +/-2 = band), macdh, emax, emat (% gaps), don20 (0-1 Donchian channel position), adx14 (0-100), cross (+1/-1 EMA cross).
+  - EXIT with VOLATILITY UNITS (preferred, keeps stops outside normal noise): {"unit":"vol","sl":1.5,"trail":2,"arm":1,"hold":72}
+    here tp/sl/trail/arm are multiples of the coin's normal DAILY move (e.g. sl 1.5 = 1.5x its usual daily swing).
   - EXIT can also be DIALS you design: {"tp":0.003-0.2 or null,"sl":0.003-0.2 or null,"trail":0.003-0.1 or null,"arm":0-0.1 or null,"hold":1-168}
     tp = take-profit, sl = stop-loss, trail = trailing stop distance, arm = only start trailing once up this much, hold = max hours. Example: {"tp":0.03,"sl":0.015,"trail":0.01,"arm":0.015,"hold":24}
   - FEATURE can also be an INVENTED measurement u_... (and its p_u_... percentile) listed under INVENTED MEASUREMENTS.
+ROTATION (all-in, NO leverage, one coin at a time): {"kind":"rotate","rank":FEATURE,"order":"high"|"low","hold":24|48|72,"stop":0.02-0.2 or null,"when":[up to 2 conditions]}
 CROSS-SECTION: {"kind":"xsec","rank":FEATURE,"order":"low_long"|"high_long","frac":0.2-0.5,"rebal":24|84|168}
 UNION / TEAM ("X OR Y", 2-3 event rules traded as one; a regime switch = rule A with a condition in one half + rule B with the same condition in the other half): {"kind":"union","parts":[EVENT,EVENT],"cool":24}
 MARKET-WIDE features (same for all coins, use p_ versions): p_fg (Fear&Greed), p_fg7, p_cbp/p_cbp24 (Coinbase premium), p_dvol/p_dvol24/p_dvole (options fear gauge), p_stab7/p_stab30 (stablecoin inflow); per coin: streak (+n/-n hours in a row up/down).
@@ -180,6 +202,13 @@ def _groq(messages, max_tokens=2500):
         except Exception as e: last = f"{model}: {e}"
     return None, last
 
+PREMISE = """THE GOAL: find trades that WIN BIG and LOSE SMALL.
+- Trades are taken with 10x leverage on isolated margin: a move of about -9% liquidates the trade (-100% of its margin). Tiny targets with rare big losses FAIL.
+- Aim for moves of 1-10%. Put stops where the idea is proven wrong and OUTSIDE normal noise (use volatility-unit exits), and let winners run with trailing stops.
+- A 35-55% win rate is fine when winners are 2-3x the losers.
+- Rotation ideas (whole account, no leverage, one coin for 1-3 days, aiming for 5-10%) are welcome too.
+BE BOLD AND CREATIVE: unusual, contrarian, cross-coin, behavioural and structural ideas. Most ideas will fail the exams; that is fine and costs nothing."""
+
 def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
     feats = {k: v for k, v in DESC.items()}
     good = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated", "near")][:12]
@@ -189,7 +218,7 @@ def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
               "\n\nWHAT SURVIVED OR NEARLY SURVIVED SO FAR:\n" + ("\n".join(f"- [{t['status']}] {t['text']} | discovery {t['disc']} | validation {t.get('val')}" for t in good) or "- nothing yet") +
               "\n\nIDEA FAMILIES ALREADY TESTED (count, best discovery t):\n" + "\n".join(f"- {k}: {v['n']} tests, best t {v.get('best', 0)}, survivors {v.get('ok', 0)}" for k, v in fam) +
               "\n\nLESSONS SO FAR:\n" + "\n".join("- " + l for l in mem.get("lessons", [])[:8]) + _blocks_text(mem) +
-              f"\n\nPropose {n} NEW hypotheses that are different from what was tested. Think outside the box, like people who build profitable open-source bots and prediction-market arbitrage bots: structural, market-neutral and flow-based ideas (pairs, carry, cross-coin lead/lag, trapped leverage, forced liquidations, funding extremes) as well as classic indicator rules combined with positioning. "
+              "\n\n" + PREMISE + f"\n\nPropose {n} NEW hypotheses that are different from what was tested. Think outside the box, like people who build profitable open-source bots and prediction-market arbitrage bots: structural, market-neutral and flow-based ideas (pairs, carry, cross-coin lead/lag, trapped leverage, forced liquidations, funding extremes) as well as classic indicator rules combined with positioning. "
               "Each must have a market MECHANISM (who is forced to buy or sell, who is trapped, where liquidity is). Mix the kinds: at least 2 pair or carry ideas. "
               'Answer ONLY JSON: {"ideas":[{"why":"one-sentence mechanism","h":{...hypothesis...}}]}')
     txt, model = _groq([{"role": "user", "content": prompt}])
@@ -238,7 +267,7 @@ def ai_analyst(mem, cols):
     lines = "\n".join(f"- [{t['status']}{' #' + str(t['no']) if t.get('no') else ''}] {t['text']} | validation {t.get('val')} | final exam {t.get('hold')} | live {(t.get('live') or {}).get('n', 0)} trades, avg {(t.get('live') or {}).get('mean')}%" for t in win)
     prompt = ("You are the senior analyst of an autonomous crypto research machine (paper only). Below are the rules that survived strict out-of-sample testing.\n" + lines +
               "\n\nMEASUREMENTS:\n" + "\n".join(f"- {k}: {v}" for k, v in DESC.items()) + "\n\n" + GRAMMAR +
-              "\n\nTasks: (1) For up to 5 winners, explain in one plain sentence WHY it might work (who is forced to buy/sell, who is trapped). "
+              "\n\n" + PREMISE + "\n\nTasks: (1) For up to 5 winners, explain in one plain sentence WHY it might work (who is forced to buy/sell, who is trapped). "
               "(2) Propose up to 4 MERGES, only where it makes sense: an AND-merge when one rule's condition confirms the other's mechanism; a UNION (OR) when two rules catch DIFFERENT situations of the same mechanism; a regime switch when each rule works in a different market state. Explain why each merge makes sense. If no merge makes sense, propose none. "
               "(3) Propose 3 WILD out-of-the-box ideas, e.g. gambling concepts (hot hand vs gambler's fallacy using streak, betting against extreme crowd sentiment like Fear&Greed extremes), Coinbase premium, options fear gauge, stablecoin inflows. "
               'Answer ONLY JSON: {"why":[{"rule":"#n or short name","reason":"..."}],"merges":[{"why":"...","h":{...}}],"wild":[{"why":"...","h":{...}}]}')
@@ -305,3 +334,42 @@ def block_space(bid):
                 for ex in ("r24", "b2_2_48"):
                     out.append({"kind": "event", "uni": uni, "when": [{"f": "p_" + bid, "lo": lo, "hi": hi}], "dir": d, "exit": ex, "cool": 24})
     random.Random(3).shuffle(out); return out[:40]
+
+# ── big-move families (win big, lose small) + all-in rotation, as starting points the machine then evolves ──
+VOL_EXITS = [{"unit": "vol", "sl": 1.0, "trail": 1.5, "arm": 1.0, "hold": 72}, {"unit": "vol", "sl": 1.5, "trail": 2.0, "arm": 1.5, "hold": 120},
+             {"unit": "vol", "sl": 1.0, "tp": 3.0, "hold": 72}, {"unit": "vol", "sl": 2.0, "trail": 3.0, "arm": 2.0, "hold": 168}]
+BIG = [
+    ("Squeeze breakout up: very quiet, then price at the top of its range", [{"f": "p_vol24", "lo": 0.0, "hi": 0.1}, {"f": "p_pos24", "lo": 0.9, "hi": 1.0}], "long"),
+    ("Squeeze breakdown: very quiet, then price at the bottom of its range", [{"f": "p_vol24", "lo": 0.0, "hi": 0.1}, {"f": "p_pos24", "lo": 0.0, "hi": 0.1}], "short"),
+    ("Liquidation cascade up: leverage piling in while price surges", [{"f": "p_oi24", "lo": 0.9, "hi": 1.0}, {"f": "p_r4", "lo": 0.95, "hi": 1.0}], "long"),
+    ("Liquidation cascade down: leverage piling in while price drops", [{"f": "p_oi24", "lo": 0.9, "hi": 1.0}, {"f": "p_r4", "lo": 0.0, "hi": 0.05}], "short"),
+    ("Flush bounce, let it run: leverage wiped out after a fall", [{"f": "p_oi24", "lo": 0.0, "hi": 0.05}, {"f": "p_r72", "lo": 0.0, "hi": 0.3}], "long"),
+    ("Crowd squeeze up: crowd very short, price turning up", [{"f": "p_glob", "lo": 0.0, "hi": 0.1}, {"f": "p_r4", "lo": 0.8, "hi": 1.0}], "long"),
+    ("Crowd squeeze down: crowd very long, price turning down", [{"f": "p_glob", "lo": 0.9, "hi": 1.0}, {"f": "p_r4", "lo": 0.0, "hi": 0.2}], "short"),
+    ("BTC leads, laggard alt follows", [{"f": "p_btc_r24", "lo": 0.9, "hi": 1.0}, {"f": "x_r24", "lo": 0.0, "hi": 0.3}], "long"),
+    ("BTC falls, alt that held up follows down", [{"f": "p_btc_r24", "lo": 0.0, "hi": 0.1}, {"f": "x_r24", "lo": 0.7, "hi": 1.0}], "short"),
+    ("Trend following: new 20-day high in an uptrend", [{"f": "don20", "lo": 0.98, "hi": 1.0}, {"f": "emat", "lo": 0, "hi": 100}], "long"),
+    ("Trend following: new 20-day low in a downtrend", [{"f": "don20", "lo": 0.0, "hi": 0.02}, {"f": "emat", "lo": -100, "hi": 0}], "short"),
+    ("Options panic + crash: buy the fear", [{"f": "p_dvol24", "lo": 0.95, "hi": 1.0}, {"f": "p_r24", "lo": 0.0, "hi": 0.05}], "long"),
+]
+def bigmove_space(cols):
+    out = []
+    for name, when, d in BIG:
+        for uni in ("ALL", "MAJ", "BTC"):
+            for ex in VOL_EXITS:
+                h = {"kind": "event", "uni": uni, "when": when, "dir": d, "exit": ex, "cool": 24}
+                if valid(h, cols): out.append((h, "big-move idea: " + name))
+    return out
+
+ROT = [("p_r24", "high", "momentum: yesterday's strongest coin"), ("p_r168", "high", "momentum: this week's strongest coin"), ("x_r24", "high", "strongest coin vs the others today"),
+       ("x_r24", "low", "bounce: today's weakest coin"), ("x_r168", "low", "bounce: this week's weakest coin"), ("p_oi24", "low", "the coin whose leverage was just wiped out"),
+       ("p_glob", "low", "the coin the crowd is most short"), ("x_timb24", "high", "the coin with the strongest aggressive buying"), ("x_vol24", "low", "the calmest coin"),
+       ("p_vol24", "low", "the quietest coin vs its own history (squeeze)")]
+def rotation_space(cols):
+    out = []
+    for f, order, why in ROT:
+        for hold in (24, 48, 72):
+            for stop in (None, 0.05, 0.08):
+                h = {"kind": "rotate", "rank": f, "order": order, "hold": hold, "stop": stop}
+                if valid(h, cols): out.append((h, "all-in rotation: " + why))
+    return out

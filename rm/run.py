@@ -169,10 +169,11 @@ def run(budget=None, log=print):
             n0 = len(queue); add(ideas.mutate(p["h"], cols, rng), "evolve", p["gen"] + 1)
             if len(queue) > n0: kids[pk] = kids.get(pk, 0) + 1
     def src_lists():
-        for name, sp, cap in (("ccur", ideas.classic_space(cols), 0.12), ("scur", ideas.structural_space(), 0.10)):   # open-source classics + market-neutral ideas
+        for name, sp, cap, src_ in (("bcur", ideas.bigmove_space(cols), 0.15, "big-move"), ("rcur", ideas.rotation_space(cols), 0.08, "rotation"),
+                                    ("ccur", ideas.classic_space(cols), 0.12, "classic"), ("scur", ideas.structural_space(), 0.10, "structural")):
             n0 = len(queue); mem.setdefault(name, 0)
             while len(queue) - n0 < budget * cap and mem[name] < len(sp):
-                h, why = sp[mem[name]]; add(h, "classic" if name == "ccur" else "structural", 0, why); mem[name] += 1
+                h, why = sp[mem[name]]; add(h, src_, 0, why); mem[name] += 1
         space = ideas.scan_space(cols); mem["spaceN"] = len(space)
         while len(queue) < budget * 0.9 and mem["cursor"] < len(space):
             add(space[mem["cursor"]], "scan"); mem["cursor"] += 1
@@ -233,6 +234,7 @@ def run(budget=None, log=print):
     if os.environ.get("GROQ_API_KEY") and (not mem.get("lessonsAt") or (dt.datetime.utcnow() - dt.datetime.strptime(mem["lessonsAt"], "%Y-%m-%d %H:%M")).days >= 7): safe("weekly lessons", lessons)
     safe("$500 account", account.step, mem, J, now_iso(), log=log)
     safe("team account", account.step, mem, J, now_iso(), log=log, key="team", team=True)
+    safe("$700 all-in account", account.step, mem, J, now_iso(), log=log, key="allin", lev=1, frac=1.0, slots=1, kinds=("rotate",), start=700.0)
     dropped = safe("memory clean-up", compact, mem) or 0
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],
