@@ -121,6 +121,7 @@ class Judge:
         self.val0 = self.hold0 - C.VALID_DAYS * 86400
         self.cols = set(P.columns)
         self.coin = P.coin.values; self.t = P.t.values; self.r1 = P.r1.values
+        self.sgn = np.nan_to_num(np.sign(self.r1))      # direction of the last hour's move; 0 when it is missing (such hours are skipped)
         self._fwd = {}
         self.O = P.px.values.astype(float)
         self.H = P["_hi"].values.astype(float) if "_hi" in P else self.O; self.L = P["_lo"].values.astype(float) if "_lo" in P else self.O
@@ -146,7 +147,7 @@ class Judge:
     def trades(self, h, t_from=None):
         """event rule → (times, returns) after the per-coin cooldown"""
         P = self.P; m = self._mask(h); ex = h["exit"]
-        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
+        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": self.sgn, "against": -self.sgn}[h["dir"]]
         if isinstance(ex, str):
             L, S = P["L_" + ex].values, P["S_" + ex].values
             r = np.where(side > 0, L, np.where(side < 0, S, np.nan))
@@ -268,7 +269,7 @@ class Judge:
         P = self.P; m = (self.t >= lo) & (self.t < hi)
         u = UNI[h["uni"]]
         if u: m &= P.coin.isin(u).values
-        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
+        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": self.sgn, "against": -self.sgn}[h["dir"]]
         ex = h["exit"]
         if isinstance(ex, str):
             pool = np.where(side > 0, P["L_" + ex].values, np.where(side < 0, P["S_" + ex].values, np.nan))[m]; return pool[~np.isnan(pool)]
@@ -346,7 +347,7 @@ class Judge:
             return [{"coin": str(self.coin[i]), "t": int(self.t[i]), "side": "LONG" if sd > 0 else "SHORT", "px": float(self.P.px.values[i])}
                     for i, sd, _ in self.raw_entries(h, t_lo=self.t.max() - hours * HOUR)][-10:]
         P = self.P; m = self._mask(h) & (self.t > self.P.t.max() - hours * HOUR)
-        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
+        side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": self.sgn, "against": -self.sgn}[h["dir"]]
         idx = np.flatnonzero(m)
         return [{"coin": str(self.coin[i]), "t": int(self.t[i]), "side": "LONG" if side[i] > 0 else "SHORT", "px": float(P.px.values[i])} for i in idx[-10:] if side[i] != 0]
 
@@ -394,7 +395,7 @@ class Judge:
             for i in idx: last[self.coin[i]] = max(last.get(self.coin[i], 0), self.t[i])
             for i in extra:
                 if self.t[i] - last.get(self.coin[i], -1e18) >= h.get("cool", 24) * HOUR: idx = np.append(idx, i); last[self.coin[i]] = self.t[i]
-            side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[h["dir"]]
+            side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": self.sgn, "against": -self.sgn}[h["dir"]]
             out = []
             for i in sorted(idx, key=lambda i: self.t[i])[-limit:]:
                 if side[i] == 0: continue
@@ -452,7 +453,7 @@ class Judge:
             m = self._mask(q)
             if t_lo is not None: m &= self.t > t_lo
             if t_hi is not None: m &= self.t <= t_hi
-            side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": np.sign(self.r1), "against": -np.sign(self.r1)}[q["dir"]]
+            side = {"long": np.ones(len(P)), "short": -np.ones(len(P)), "with": self.sgn, "against": -self.sgn}[q["dir"]]
             for i in np.flatnonzero(m):
                 if side[i] != 0: out.append((int(i), int(side[i]), q["exit"]))
         out.sort(key=lambda x: (self.t[x[0]], x[0])); return out
