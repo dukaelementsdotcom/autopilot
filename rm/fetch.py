@@ -122,13 +122,20 @@ def update_live(log=print):
         if len(m5):   # exactly the archive's hourly aggregation: last 5-minute reading of each hour (taker ratio: hourly mean)
             m5 = m5.sort_values("t5"); m5["t"] = (m5.t5 // 3600 * 3600).astype("int64"); g = m5.groupby("t")
             m = pd.DataFrame({"oi": g.oi.last(), "glob": g.glob.last(), "topAcc": g.topAcc.last(), "topPos": g.topPos.last(), "tk": g.tk.mean()}).reset_index()
-            m.to_parquet(f"{C.DATA_DIR}/live/{c}_m.parquet", index=False)
-            # consistency check against the archive on the hours both have (should be ~0% difference)
+            # calibrate to the archive on the hours both have: Binance's live and archived readings differ by ~0.2%,
+            # which would otherwise show up as a fake jump where live data joins the archive
             ap = f"{C.DATA_DIR}/raw/{c}_m.parquet"
             if os.path.exists(ap):
                 A = pd.read_parquet(ap).set_index("t"); B = m.set_index("t"); both = A.index.intersection(B.index)
                 if len(both) >= 6:
-                    info["check"][c] = {col: round(float((B.loc[both, col] / A.loc[both, col] - 1).abs().median() * 100), 3) for col in ("oi", "glob", "topPos")}
+                    chk = {}
+                    for col in ("oi", "glob", "topAcc", "topPos"):
+                        ratio = (A.loc[both, col] / B.loc[both, col]).replace([np.inf, -np.inf], np.nan).dropna()
+                        if len(ratio) >= 6 and 0.9 < ratio.median() < 1.1:
+                            m[col] = m[col] * float(ratio.median())
+                            chk[col] = round(float((m.set_index("t").loc[both, col] / A.loc[both, col] - 1).abs().median() * 100), 3)
+                    info["check"][c] = chk
+            m.to_parquet(f"{C.DATA_DIR}/live/{c}_m.parquet", index=False)
         if len(k):
             ap = f"{C.DATA_DIR}/raw/{c}_k.parquet"
             if os.path.exists(ap):

@@ -30,5 +30,5 @@ PAPER_MARGIN = 50.0             # $ margin per trade
 LEVERAGE = 10                   # 10x  -> a $50 margin controls a $500 position
 
 # live relay (Vercel function in Frankfurt, see relay/). Empty = archive only (about a day behind).
-RELAY_URL = os.environ.get("RM_RELAY_URL", "")
+RELAY_URL = os.environ.get("RM_RELAY_URL", "https://btc-relay-two.vercel.app/api/live")
 DEAD = ("LUNA", "FTT", "SRM")       # collapsed coins: history only, nothing live
