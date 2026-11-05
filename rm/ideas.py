@@ -256,8 +256,10 @@ def ai_plain(text):
               "No jargon: say 'open interest' as 'the total amount of leveraged bets', 'crowd long/short ratio' as 'how many traders are betting up vs down', RSI as 'how oversold/overbought price is', "
               "'percentile vs last 90 days' as 'compared with the last 3 months'. Rule: " + text + '\nAnswer ONLY JSON: {"plain":"..."}')
     txt, model = _groq([{"role": "user", "content": prompt}], 400)
-    try: return str(json.loads(re.search(r"\{.*\}", txt, re.S).group(0))["plain"])[:400]
+    try: p = " ".join(str(json.loads(re.search(r"\{.*\}", txt, re.S).group(0))["plain"]).split())
     except Exception: return None
+    if "break it down" in p.lower() or "1." in p[:120]: return None            # an essay, not 2 plain sentences: try again next run
+    parts = re.split(r"(?<=[.!?])\s+", p); return " ".join(parts[:2])[:300]
 
 def ai_analyst(mem, cols):
     """the analyst: explains WHY the winners might win, and proposes merges only where the mechanisms fit together;

@@ -100,6 +100,8 @@ def run(budget=None, log=print):
     # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
     log("── 1/6 data"); fetch.update(log=log); fetch_ext.update(log=log)
+    live = safe("live data (relay)", fetch.update_live, log=log) or {}
+    mem["live"] = {"at": now_iso(), **{k: v for k, v in live.items() if k != "errors"}, "errors": len(live.get("errors", {}))}
     blocks = mem.setdefault("blocks", [])
     for b in blocks: DESC[b["id"]] = f"invented measurement '{b.get('name') or b['id']}' = {b['expr']}"
     P = features.build(log=log, blocks=blocks); J = Judge(P); cols = J.cols

@@ -39,6 +39,14 @@ def _coin(coin, blocks=()):
     k = pd.read_parquet(f"{C.DATA_DIR}/raw/{coin}_k.parquet").set_index("t")
     mp = f"{C.DATA_DIR}/raw/{coin}_m.parquet"
     m = pd.read_parquet(mp).set_index("t") if os.path.exists(mp) else pd.DataFrame(index=k.index, columns=["oi", "glob", "topAcc", "topPos", "tk"])
+    # live hours (relay) are stitched on ONLY where the archive has nothing yet: the archive always wins when it arrives
+    lk, lm = f"{C.DATA_DIR}/live/{coin}_k.parquet", f"{C.DATA_DIR}/live/{coin}_m.parquet"
+    if os.path.exists(lk):
+        L = pd.read_parquet(lk).set_index("t"); L = L[L.index > k.index.max()]
+        if len(L): k = pd.concat([k, L[k.columns]])
+    if os.path.exists(lm) and len(m):
+        L = pd.read_parquet(lm).set_index("t"); L = L[L.index > m.index.max()]
+        if len(L): m = pd.concat([m, L[m.columns]])
     idx = np.arange(k.index.min(), k.index.max() + H, H)
     k = k.reindex(idx); k["c"] = k.c.ffill(); [k.__setitem__(x, k[x].fillna(k.c)) for x in ("o", "h", "l")]; k[["v", "tb"]] = k[["v", "tb"]].fillna(0)
     m = m.reindex(idx)

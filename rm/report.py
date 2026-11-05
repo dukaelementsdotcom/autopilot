@@ -50,6 +50,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 
 <section data-tab="home">
 <div class="card story" id="story" style="margin-top:12px"></div>
+<h2>Signals now</h2><div id="signals"></div>
 <div class="grid" style="margin-top:12px" id="kpi"></div>
 <h2>The two paper accounts</h2>
 <div class="mini" id="minis"></div>
@@ -132,6 +133,11 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
   ${path?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;margin-top:6px"><path d="${path}" fill="none" stroke="var(--${p[p.length-1][1]>=A.start?"good":"bad"})" stroke-width="2"/></svg><div class="mute" style="font-size:12px">closed trades only${A.open.length?"; open trades are counted in the value above":""}</div>`:'<div class="mute" style="font-size:13px;margin-top:6px">Chart appears after the first closed trade.</div>'}
   <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">See trades →</a></div>`};
  $("minis").innerHTML=mini(A1,"Best-rule account (10x)")+mini(A2,"Team account (10x)")+mini(D.allin,"All-in account ($700, no leverage)")})();
+(()=>{const fmt=x=>x==null?"–":(x>=100?x.toLocaleString(undefined,{maximumFractionDigits:2}):Number(x.toPrecision(5)));const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"–";
+ const S=D.signals||[],L=D.live||{};const age=D.newest?Math.round((Date.now()/1000-D.newest-3600)/60):null;
+ const fresh=L.coins?`Live data from Binance (via the Frankfurt relay), newest complete hour ${age!=null?age+" min ago":"?"}.`:`<span style="color:var(--warn)">The live relay is not connected yet: data is about a day behind, so these signals are too late to trade.</span>`;
+ $("signals").innerHTML=`<p class="mute" style="font-size:13px">${fresh} Entries fired in the last 3 hours by the rules the accounts are trading. Paper only: this is not financial advice.</p>`+
+ (S.length?`<div class="scroll"><table><tr><th>rule</th><th>coin</th><th>side</th><th>fired</th><th>entry</th><th>stop-loss</th><th>take-profit</th><th>max hold</th></tr>`+S.map(x=>`<tr><td>#${x.no??x.rule}</td><td><b>${esc(x.coin)}</b></td><td>${x.side}</td><td>${when(x.t)}</td><td>${fmt(x.entry)}</td><td>${x.sl?fmt(x.sl):"none"}</td><td>${x.tp?fmt(x.tp):(x.trail?"trailing "+(x.trail*100).toFixed(1)+"%":"none")}</td><td>${x.hold}h</td></tr>`).join("")+"</table></div>":'<p class="mute">No signals in the last 3 hours.</p>')})();
 // tabs (remembered per browser)
 const tabs=[...document.querySelectorAll("#tabs button")];const show=t=>{tabs.forEach(b=>b.classList.toggle("on",b.dataset.t==t));document.querySelectorAll("section[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab==t));try{localStorage.setItem("tab",t)}catch(e){}};
 tabs.forEach(b=>b.onclick=()=>{show(b.dataset.t);history.replaceState(null,"","#"+b.dataset.t)});
@@ -239,6 +245,26 @@ def _trades(mem, J, log=print):
     rows = sorted(merged.values(), key=lambda r: -r["t"])
     return rows[:500]
 
+def _signals(mem, J, hours=3):
+    """entries the best rule and the team rules fired in the newest hours, with the exact levels to use"""
+    from .judge import scale_exit
+    newest = int(J.t.max()); keys = []
+    for k in [(mem.get("account") or {}).get("leader")] + list((mem.get("team") or {}).get("team") or []):
+        if k and k in mem["tests"] and k not in keys and mem["tests"][k]["status"] == "champion": keys.append(k)
+    out, seen_ = [], set()
+    for k in keys:
+        t = mem["tests"][k]
+        for i, sd, ex in J.raw_entries(t["h"], t_lo=newest - hours * 3600):
+            key = (str(J.coin[i]), int(J.t[i]), sd)
+            if key in seen_: continue
+            seen_.add(key); e = float(J.O[i])
+            d = scale_exit(ex, J.dvol[i]) if isinstance(ex, dict) else ({"hold": C.EXITS[ex][1]} if C.EXITS[ex][0] == "ret" else {"tp": C.EXITS[ex][0], "sl": C.EXITS[ex][1], "hold": C.EXITS[ex][2]})
+            if d is None: continue
+            out.append({"rule": t.get("no"), "coin": key[0], "side": "LONG" if sd > 0 else "SHORT", "t": key[1], "entry": e,
+                        "tp": e * (1 + sd * d["tp"]) if d.get("tp") else None, "sl": e * (1 - sd * d["sl"]) if d.get("sl") else None,
+                        "trail": d.get("trail"), "hold": d["hold"], "plain": (t.get("plain") or t["text"])[:200]})
+    return sorted(out, key=lambda x: -x["t"])[:20]
+
 def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
@@ -252,6 +278,9 @@ def write(mem, J=None, log=print):
                         "open": [{k: v for k, v in p.items() if k not in ("sd", "_w")} for p in A["open"]], "closed": A["closed"][::-1][:300],
                         "curve": A["curve"], "leaders": A["leaders"][::-1], "leaderNo": lead.get("no"), "leaderText": lead.get("plain") or lead.get("text")}
     d["analyst"] = mem.get("analyst")
+    d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
+    try: d["signals"] = _signals(mem, J) if J is not None else []
+    except Exception as e: log(f"signals failed: {e}"); d["signals"] = []
     d["blocks"] = [{k: b.get(k) for k in ("id", "name", "expr", "why", "tests", "best", "at", "by")} for b in mem.get("blocks", [])]
     d["blocksRetired"] = (mem.get("blocks_retired") or [])[::-1][:40]
     d["twins"] = [{"text": t.get("plain") or t["text"], "of": t.get("twinOf")} for t in mem["tests"].values() if t["status"] == "twin"][:40]

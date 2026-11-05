@@ -28,3 +28,7 @@ EXITS = {                       # exit menu: name -> (target, stop, max hours) ;
 # paper account shown on the dashboard: every trade uses the same margin and leverage
 PAPER_MARGIN = 50.0             # $ margin per trade
 LEVERAGE = 10                   # 10x  -> a $50 margin controls a $500 position
+
+# live relay (Vercel function in Frankfurt, see relay/). Empty = archive only (about a day behind).
+RELAY_URL = os.environ.get("RM_RELAY_URL", "")
+DEAD = ("LUNA", "FTT", "SRM")       # collapsed coins: history only, nothing live

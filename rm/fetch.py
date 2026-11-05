@@ -104,3 +104,38 @@ def update(coins=None, today=None, log=print):
     json.dump(man, open(mpath, "w"))
     log(f"fetch: {sum(len(v) for v in got.values())} files added")
     return len(jobs)
+
+
+def update_live(log=print):
+    """the newest hours from the live relay, stored separately and OVERWRITTEN every run ("swap"):
+    features.py stitches them onto the archive only where the archive has no data yet, so once Binance publishes those days
+    the archive takes over automatically and nothing piles up."""
+    url = C.RELAY_URL
+    if not url: log("live: no relay configured (archive only)"); return {}
+    coins = [c for c in C.COINS if c not in C.DEAD]
+    r = S.get(url, params={"coins": ",".join(coins)}, timeout=120); r.raise_for_status(); d = r.json()
+    os.makedirs(f"{C.DATA_DIR}/live", exist_ok=True); info = {"region": d.get("region"), "errors": d.get("errors", {}), "coins": 0, "check": {}}
+    for c, v in d.get("coins", {}).items():
+        k = pd.DataFrame(v.get("k", []), columns=["t", "o", "h", "l", "c", "v", "tb"])
+        m5 = pd.DataFrame(v.get("m", []), columns=["t5", "oi", "glob", "topAcc", "topPos", "tk"])
+        if len(k): k.astype({"t": "int64"}).to_parquet(f"{C.DATA_DIR}/live/{c}_k.parquet", index=False)
+        if len(m5):   # exactly the archive's hourly aggregation: last 5-minute reading of each hour (taker ratio: hourly mean)
+            m5 = m5.sort_values("t5"); m5["t"] = (m5.t5 // 3600 * 3600).astype("int64"); g = m5.groupby("t")
+            m = pd.DataFrame({"oi": g.oi.last(), "glob": g.glob.last(), "topAcc": g.topAcc.last(), "topPos": g.topPos.last(), "tk": g.tk.mean()}).reset_index()
+            m.to_parquet(f"{C.DATA_DIR}/live/{c}_m.parquet", index=False)
+            # consistency check against the archive on the hours both have (should be ~0% difference)
+            ap = f"{C.DATA_DIR}/raw/{c}_m.parquet"
+            if os.path.exists(ap):
+                A = pd.read_parquet(ap).set_index("t"); B = m.set_index("t"); both = A.index.intersection(B.index)
+                if len(both) >= 6:
+                    info["check"][c] = {col: round(float((B.loc[both, col] / A.loc[both, col] - 1).abs().median() * 100), 3) for col in ("oi", "glob", "topPos")}
+        if len(k):
+            ap = f"{C.DATA_DIR}/raw/{c}_k.parquet"
+            if os.path.exists(ap):
+                A = pd.read_parquet(ap).set_index("t"); B = k.set_index("t"); both = A.index.intersection(B.index)
+                if len(both) >= 6: info["check"].setdefault(c, {})["close"] = round(float((B.loc[both, "c"] / A.loc[both, "c"] - 1).abs().median() * 100), 4)
+        info["coins"] += 1
+    newest = max((int(pd.read_parquet(f"{C.DATA_DIR}/live/{c}_k.parquet").t.max()) for c in d.get("coins", {}) if os.path.exists(f"{C.DATA_DIR}/live/{c}_k.parquet")), default=None)
+    info["newest"] = newest
+    log(f"live: {info['coins']} coins from relay ({info['region']}), newest hour {dt.datetime.utcfromtimestamp(newest) if newest else '-'}, errors {len(info['errors'])}")
+    return info
