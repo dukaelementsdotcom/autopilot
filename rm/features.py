@@ -48,6 +48,7 @@ def _coin(coin, blocks=()):
         L = pd.read_parquet(lm).set_index("t"); L = L[L.index > m.index.max()]
         if len(L): m = pd.concat([m, L[m.columns]])
     idx = np.arange(k.index.min(), k.index.max() + H, H)
+    alive = (k.v.reindex(idx) > 0).values        # hours that really traded (missing or zero-volume hours = no market, e.g. after a delisting)
     k = k.reindex(idx); k["c"] = k.c.ffill(); [k.__setitem__(x, k[x].fillna(k.c)) for x in ("o", "h", "l")]; k[["v", "tb"]] = k[["v", "tb"]].fillna(0)
     m = m.reindex(idx)
     c = k.c; lr = np.log(c).diff()
@@ -107,6 +108,8 @@ def _coin(coin, blocks=()):
             last = np.roll(cl, -(hh - 1)); res[open_] = side * (last[open_] / e[open_] - 1)
             res[n - hh:] = np.nan
             f[pre + name] = res - C.FEE
+    dead_cols = [c for c in f.columns if c not in ("coin", "t", "px")]
+    f.loc[~alive, dead_cols] = np.nan              # nothing may be learned from, or traded in, an hour with no market
     f["coin"] = coin; f["t"] = idx; f["px"] = k.o.values
     f["_hi"], f["_lo"], f["_cl"] = k.h.values, k.l.values, k.c.values      # this hour's bar: ONLY for replaying exits, never a feature
     return f

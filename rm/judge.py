@@ -498,6 +498,16 @@ class Judge:
         yrs = yrs[yrs["size"] >= 10]
         ck[f"profitable in every calendar year ({int((yrs['mean'] > 0).sum())}/{len(yrs)})"] = len(yrs) >= 4 and bool((yrs["mean"] > 0).all())
         ck["still profitable with double fees"] = float(r.mean()) - C.FEE > 0
+        L = lev_returns(r, trade_lev(h)); yrs_all = pd.to_datetime(t, unit="s").year
+        deep = pd.Series(L).groupby(yrs_all).size(); deep = int((deep >= 50).sum())
+        ck[f"deep evidence: at least 3 calendar years with 50+ trades ({deep})"] = deep >= 3
+        bt = self.P[self.P.coin == "BTC"].set_index("t").px; ma = bt.rolling(4800, min_periods=2400).mean()
+        down = (bt < ma).reindex(t // 3600 * 3600).fillna(False).values
+        ok_bear = down.sum() >= 30 and L[down].mean() > 0
+        ck[f"profitable in bear markets: BTC below its 200-day average ({int(down.sum())} trades, avg {L[down].mean() * 100 if down.sum() else 0:+.1f}% of margin)"] = bool(ok_bear)
+        recent = t >= t.max() - 365 * 86400; old_ = ~recent
+        fade_ok = recent.sum() >= 30 and old_.sum() >= 30 and L[recent].mean() >= 0.4 * max(L[old_].mean(), 0) and L[recent].mean() > 0
+        ck[f"edge not fading: last 12 months at least 40% as strong as before ({L[recent].mean() * 100 if recent.sum() else 0:+.1f}% vs {L[old_].mean() * 100 if old_.sum() else 0:+.1f}% of margin per trade)"] = bool(fade_ok)
         ck[f"survives crashes: worst single trade better than −15% (worst {r.min() * 100:.1f}%)"] = float(r.min()) > -0.15
         if h["kind"] == "event":
             P = self.P; pos = {int(a): i for i, a in enumerate(t)}

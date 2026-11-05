@@ -1,6 +1,6 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
-import numpy as np
+import numpy as np, pandas as pd
 from . import config as C, fetch, fetch_ext, features, ideas, report, account
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
@@ -114,12 +114,17 @@ def run(budget=None, log=print):
         if re["status"] not in ("validated", "near") or (re["status"] == "near" and re["val"].get("t", 0) < 1.0):
             t["status"] = "dead_reexam"; t["diedAt"] = now_iso(); events.append(("failed re-exam", k)); return
         L = J.live(t["h"], t["promotedAt"]); t["live"] = L
+        from .judge import lev_returns, trade_lev
+        tt_, rr_ = J.series(t["h"])
+        if len(rr_):
+            yy = pd.to_datetime(tt_, unit="s").year; LL = lev_returns(rr_, trade_lev(t["h"]))
+            t["evidence"] = {int(y): [int((yy == y).sum()), round(float(LL[yy == y].mean() * 100), 1)] for y in sorted(set(yy))}
         t["signals"] = J.signals_now(t["h"])
         if L["n"] >= C.LIVE_REVIEW_TRADES:
             if L["mean"] < 0: t["status"] = "dead_live"; t["diedAt"] = now_iso(); events.append(("demoted", k))
             elif L["t"] >= 2 and not t.get("proven"): t["proven"] = now_iso(); events.append(("proven", k))
         if t["status"] == "champion" and not t.get("certified"):     # the undeniable bar (checked weekly per champion)
-            last = t.get("certCheckedAt", 0)
+            last = t.get("certCheckedAt", 0) if any("fading" in k for k in (t.get("certChecks") or {})) else 0   # re-check now if the checklist gained new items
             if J.t_end - last >= 7 * 86400:
                 ok, checks = J.certify(t["h"], t["promotedAt"], mem["total_tests"], cols, ideas.mutate)
                 t["certChecks"] = checks; t["certCheckedAt"] = J.t_end
