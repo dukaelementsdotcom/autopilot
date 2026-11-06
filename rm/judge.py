@@ -429,6 +429,10 @@ class Judge:
         if not hasattr(self, "_K"): self._K = {}
         if coin not in self._K:
             k = pd.read_parquet(f"{C.DATA_DIR}/raw/{coin}_k.parquet").sort_values("t").drop_duplicates("t")
+            lp = f"{C.DATA_DIR}/live/{coin}_k.parquet"                  # include the live hours from the relay
+            if os.path.exists(lp):
+                L = pd.read_parquet(lp); L = L[L.t > k.t.max()]
+                if len(L): k = pd.concat([k, L[k.columns]]).sort_values("t")
             self._K[coin] = (k.t.values, k.o.values, k.h.values, k.l.values, k.c.values)
         return self._K[coin]
 
@@ -443,7 +447,7 @@ class Judge:
             if ex is None: return None
         d = ({"tp": None, "sl": None, "hold": C.EXITS[ex][1]} if C.EXITS[ex][0] == "ret" else {"tp": C.EXITS[ex][0], "sl": C.EXITS[ex][1], "hold": C.EXITS[ex][2]}) if isinstance(ex, str) else ex
         lv = {"entry": e, "tp": e * (1 + side * d["tp"]) if d.get("tp") else None, "sl": e * (1 - side * d["sl"]) if d.get("sl") else None}
-        if d.get("trail"): lv["trail"] = d["trail"]
+        if d.get("trail"): lv["trail"] = d["trail"]; lv["arm"] = d.get("arm")
         s_ = simulate(e, Hh, Ll, Cc, i, len(T) - 1, side, ex)
         if s_ is None:
             # not finished yet: has it already hit a stop/target in the bars we have?

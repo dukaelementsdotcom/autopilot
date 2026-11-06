@@ -60,7 +60,7 @@ def step(mem, J, now_iso, log=print, key="account", team=False, lev=LEV, frac=MA
     # 1) replay the hours that arrived since the last run, in time order, with the leader chosen BEFORE they arrived
     def walk(p):
         w = J._walk(p["coin"], p["t"], p["sd"], p["exit"])
-        if w: p["entry"] = float(w["entry"]); p["tp"] = w.get("tp"); p["sl"] = w.get("sl"); p["_w"] = w
+        if w: p["entry"] = float(w["entry"]); p["tp"] = w.get("tp"); p["sl"] = w.get("sl"); p["trail"] = w.get("trail"); p["_w"] = w
         return w
     def close_until(t_now):
         keep = []
@@ -91,7 +91,13 @@ def step(mem, J, now_iso, log=print, key="account", team=False, lev=LEV, frac=MA
             if t0 - last_same < (tests[k]["h"].get("cool", 24) if tests[k]["h"]["kind"] != "rotate" else 0) * HOUR: continue
             p = {"coin": c, "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": t0, "exit": ex, "rule": str(tests[k].get("no")), "votes": [k],
                  "margin": round(A["cash"] * frac_, 2)}
-            walk(p); A["open"].append(p)
+            walk(p)
+            if "entry" not in p:                        # replay not possible yet: take the entry and levels straight from the signal hour
+                from .judge import scale_exit
+                e = float(J.O[i]); p["entry"] = e
+                d = scale_exit(ex, J.dvol[i]) if isinstance(ex, dict) else ({"hold": C.EXITS[ex][1]} if C.EXITS[ex][0] == "ret" else {"tp": C.EXITS[ex][0], "sl": C.EXITS[ex][1], "hold": C.EXITS[ex][2]})
+                if d: p["tp"] = e * (1 + sd * d["tp"]) if d.get("tp") else None; p["sl"] = e * (1 - sd * d["sl"]) if d.get("sl") else None; p["trail"] = d.get("trail")
+            A["open"].append(p)
     close_until(newest + HOUR)
     for p in A["open"]:
         w = p.pop("_w", None)

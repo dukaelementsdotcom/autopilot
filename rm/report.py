@@ -137,7 +137,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
  const S=D.signals||[],L=D.live||{};const age=D.newest?Math.round((Date.now()/1000-D.newest-3600)/60):null;
  const fresh=L.coins?`Live data from Binance (via the Frankfurt relay), newest complete hour ${age!=null?age+" min ago":"?"}.`:`<span style="color:var(--warn)">The live relay is not connected yet: data is about a day behind, so these signals are too late to trade.</span>`;
  $("signals").innerHTML=`<p class="mute" style="font-size:13px">${fresh} Entries fired in the last 3 hours by the rules the accounts are trading. Paper only: this is not financial advice.</p>`+
- (S.length?`<div class="scroll"><table><tr><th>rule</th><th>coin</th><th>side</th><th>fired</th><th>entry</th><th>stop-loss</th><th>take-profit</th><th>max hold</th></tr>`+S.map(x=>`<tr><td>#${x.no??x.rule}</td><td><b>${esc(x.coin)}</b></td><td>${x.side}</td><td>${when(x.t)}</td><td>${fmt(x.entry)}</td><td>${x.sl?fmt(x.sl):"none"}</td><td>${x.tp?fmt(x.tp):(x.trail?"trailing "+(x.trail*100).toFixed(1)+"%":"none")}</td><td>${x.hold}h</td></tr>`).join("")+"</table></div>":'<p class="mute">No signals in the last 3 hours.</p>')})();
+ (S.length?`<div class="scroll"><table><tr><th>rule</th><th>coin</th><th>side</th><th>fired</th><th>entry</th><th>stop-loss</th><th>take-profit</th><th>max hold</th></tr>`+S.map(x=>`<tr><td>#${x.no??x.rule}</td><td><b>${esc(x.coin)}</b></td><td>${x.side}</td><td>${when(x.t)}</td><td>${fmt(x.entry)}</td><td>${x.sl?fmt(x.sl):"none"}</td><td>${x.tp?fmt(x.tp):(x.trail?"trailing "+(x.trail*100).toFixed(1)+"%":"none")}</td><td>${x.hold}h${x.flips?' <span class="tag near" title="this rule gave the opposite side on this coin within the last 3 hours">flips</span>':""}</td></tr>`).join("")+"</table></div>":'<p class="mute">No signals in the last 3 hours.</p>')})();
 // tabs (remembered per browser)
 const tabs=[...document.querySelectorAll("#tabs button")];const show=t=>{tabs.forEach(b=>b.classList.toggle("on",b.dataset.t==t));document.querySelectorAll("section[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab==t));try{localStorage.setItem("tab",t)}catch(e){}};
 tabs.forEach(b=>b.onclick=()=>{show(b.dataset.t);history.replaceState(null,"","#"+b.dataset.t)});
@@ -177,11 +177,11 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
   const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
   const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`})();
- const row=r=>`<tr><td>#${r.rule??"?"}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>$${r.margin} × ${A.lev||D.lev}x</td>`;
- const openRows=A.open.map(r=>row(r)+`<td>${r.livePx?"live "+fmt(r.livePx):"–"}</td><td>${money(r.unreal||0)}</td></tr>`).join("");
+ const row=r=>`<tr><td>#${r.rule??"?"}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null&&r.sl==null?`<td colspan=2 class=mute>${r.trail?`trailing stop ${(r.trail*100).toFixed(1)}%${r.arm?` once up ${(r.arm*100).toFixed(1)}%`:""}`:"none, exits on time"}</td>`:`<td>${r.tp?fmt(r.tp):(r.trail?"trailing "+(r.trail*100).toFixed(1)+"%":"–")}</td><td>${r.sl?fmt(r.sl):"none"}</td>`}<td>$${r.margin} × ${A.lev||D.lev}x</td>`;
+ const openRows=A.open.map(r=>row(r)+`<td class="livepx" data-coin="${esc(r.coin)}">${r.livePx?fmt(r.livePx):"–"}</td><td class="liveusd" data-coin="${esc(r.coin)}" data-side="${r.side}" data-entry="${r.entry??""}" data-margin="${r.margin}" data-lev="${A.lev||D.lev}" data-acct="${box}">${money(r.unreal||0)}</td></tr>`).join("");
  const closedRows=C.map(r=>row(r)+`<td>${fmt(r.exitPx)}<br><span class=mute>${when(r.exitT)}</span></td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td>$${fmt(r.after)}</td></tr>`).join("");
  const H1="<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>margin</th>";
- $(box).innerHTML=`<div class="grid">${[["Account value",`$${A.equity.toFixed(2)}`],["Since start",`<span style="color:var(--${ret>=0?"good":"bad"})">${ret>=0?"+":""}${ret.toFixed(1)}%</span>`],["Closed trades",C.length?`${C.length} · ${C.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>
+ $(box).innerHTML=`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">$${A.equity.toFixed(2)}</span>`],["Since start",`<span style="color:var(--${ret>=0?"good":"bad"})">${ret>=0?"+":""}${ret.toFixed(1)}%</span>`],["Closed trades",C.length?`${C.length} · ${C.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>
  <div class="card" style="margin-top:10px">${isTeam?`<div class="mute">Team now: ${A.teamRules.length?A.teamRules.map(r=>`<div style="margin-top:4px"><b>Rule #${r.no}</b>: ${esc(r.text)}</div>`).join(""):"no team yet"}</div>
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each signal uses 5% of the account as margin at ${D.lev}x; when 2-3 team rules agree on the same trade, the position grows (up to 15%). Max 6 trades at once, profits compound. The team is re-picked every run.</div>`:
  `<div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
@@ -191,6 +191,20 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  <details class="card" style="margin-top:10px"><summary>Closed trades: ${stats(C)}</summary><div class="scroll"><table>${C.length?H1+"<th>exit</th><th>how it ended</th><th>move</th><th>$ result</th><th>account after</th></tr>"+closedRows:'<tr><td class="mute">None yet.</td></tr>'}</table></div></details>
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
 renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.allin,"abox",false);
+// live prices for open positions, straight from Binance in YOUR browser, every 5 seconds (display only; the books update hourly)
+(()=>{const cells=[...document.querySelectorAll(".liveusd")];if(!cells.length)return;const coins=[...new Set(cells.map(c=>c.dataset.coin))];
+ const note=document.createElement("div");note.className="mute";note.style.fontSize="12px";note.textContent="Live prices: connecting to Binance…";
+ const anchor=document.querySelector("#box details")||$("box");anchor.parentNode.insertBefore(note,anchor);
+ const levRet=(r,lev)=>{if(lev<=1)return r;const liq=1/lev-0.01;return r<=-liq?-1:Math.max(-1,lev*r)};
+ async function prices(){for(const url of["https://fapi.binance.com/fapi/v1/ticker/price","https://data-api.binance.vision/api/v3/ticker/price"]){
+   try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)continue;const j=await r.json();const m={};j.forEach(x=>m[x.symbol]=+x.price);return [m,url.includes("fapi")?"Binance futures":"Binance spot"]}catch(e){}}return [null,null]}
+ async function tick(){const [m,src]=await prices();if(!m){note.textContent="Live prices unavailable right now (values below are from the last hourly run).";return}
+  const tot={};cells.forEach(c=>{const px=m[c.dataset.coin+"USDT"],e=+c.dataset.entry;if(!px||!e)return;const sd=c.dataset.side=="LONG"?1:-1;
+   const usd=(+c.dataset.margin)*levRet(sd*(px/e-1)-0.001,+c.dataset.lev);c.innerHTML=money(usd);tot[c.dataset.acct]=(tot[c.dataset.acct]||0)+usd;
+   const pc=c.parentNode.querySelector(".livepx");if(pc)pc.textContent=fmt(px)});
+  document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null)v.textContent="$"+(+v.dataset.cash+tot[v.dataset.acct]).toFixed(2)});
+  note.textContent=`Live prices from ${src}, updated ${new Date().toLocaleTimeString()} (every 5 s, in your browser). Trades are booked by the hourly run.`}
+ tick();setInterval(tick,5000)})();
 // health warnings (only shown when something is wrong)
 (()=>{const h=(Date.now()-builtMs)/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
@@ -264,7 +278,12 @@ def _signals(mem, J, hours=3):
             out.append({"rule": t.get("no"), "coin": key[0], "side": "LONG" if sd > 0 else "SHORT", "t": key[1], "entry": e,
                         "tp": e * (1 + sd * d["tp"]) if d.get("tp") else None, "sl": e * (1 - sd * d["sl"]) if d.get("sl") else None,
                         "trail": d.get("trail"), "hold": d["hold"], "plain": (t.get("plain") or t["text"])[:200]})
-    return sorted(out, key=lambda x: -x["t"])[:20]
+    out.sort(key=lambda x: -x["t"]); newest, sides = {}, {}
+    for x in out: sides.setdefault((x["rule"], x["coin"]), set()).add(x["side"])
+    for x in out:
+        k = (x["rule"], x["coin"])
+        if k not in newest: x["flips"] = len(sides[k]) > 1; newest[k] = x
+    return list(newest.values())[:20]
 
 def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
