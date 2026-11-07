@@ -43,6 +43,11 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .help{font-size:13px;color:var(--mute);margin:-4px 0 10px}
 .mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 /* exchange-style positions */
+.xp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:12px;overflow:hidden}
+.xbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:2px 14px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--soft)}
+.xbar div span{display:block;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}.xbar div b{font-variant-numeric:tabular-nums;font-size:15px}
+.xtabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--line);overflow-x:auto}.xtabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 10px 8px;font:inherit;font-size:13.5px;color:var(--mute);cursor:pointer;white-space:nowrap}
+.xtabs button.on{color:var(--ink);border-bottom-color:var(--acc);font-weight:650}.xbody{padding:4px 12px 12px}.xbody .pos{border-radius:10px}
 .pos{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0;position:relative;overflow:hidden}
 .pos:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sidec)}
 .pos.L{--sidec:var(--good)}.pos.S{--sidec:var(--bad)}
@@ -212,6 +217,16 @@ const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.ma
  <div><span>TP / SL</span><b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b></div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
  ${m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
  ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +2% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
+const exPanel=(A,lev,acct,extra)=>{const unr=A.open.reduce((x,p)=>{const q=posOf(p,lev);return x+pnlOf(q,q.mark)},0),mu=A.open.reduce((x,p)=>x+(p.margin||0),0),eq=A.cash+unr;
+ const C=A.closed.slice().sort((a,b)=>(b.exitT||0)-(a.exitT||0)),pm=C.filter(r=>r.pm);
+ const tabs=[["pos",`Positions (${A.open.length})`],["hist",`Trade history (${C.length})`],...(pm.length?[["pm",`Post-mortems (${pm.length})`]]:[]),["curve","Equity"]];
+ return `<div class="xp" id="xp-${acct}"><div class="xbar"><div><span>Total equity</span><b class="acctval" data-acct="${acct}" data-cash="${A.cash}">${usd(eq)}</b></div><div><span>Unrealized PnL</span><b class="xunr" data-acct="${acct}" style="color:var(--${unr>=0?"good":"bad"})">${unr>=0?"+":""}${usd(unr)}</b></div><div><span>Margin in use</span><b>${usd(mu)}</b></div><div><span>Available</span><b>${usd(A.cash-mu)}</b></div><div><span>Realized (all time)</span><b style="color:var(--${A.cash>=A.start?"good":"bad"})">${A.cash>=A.start?"+":""}${usd(A.cash-A.start)}</b></div></div>
+ <div class="xtabs">${tabs.map(([k,t],i)=>`<button data-x="${k}" class="${i?"":"on"}">${t}</button>`).join("")}</div>
+ <div class="xbody" data-xp="pos">${posList(A,lev,acct)}</div>
+ <div class="xbody" data-xp="hist" hidden><p class="mute" style="font-size:13px">${stats(A.closed)}</p>${histTable(C,lev)}</div>
+ ${pm.length?`<div class="xbody" data-xp="pm" hidden>${pm.slice(0,20).map(r=>`<p style="font-size:13.5px"><b>${esc(r.coin)} ${r.side}</b> <span class="mute">${when(r.t)}</span>: ${esc(r.pm)}</p>`).join("")}</div>`:""}
+ <div class="xbody" data-xp="curve" hidden>${curveSvg(A)}</div></div>`};
+document.addEventListener("click",e=>{const b=e.target.closest(".xtabs button");if(!b)return;const P=b.closest(".xp");P.querySelectorAll(".xtabs button").forEach(x=>x.classList.toggle("on",x===b));P.querySelectorAll("[data-xp]").forEach(d=>d.hidden=d.dataset.xp!==b.dataset.x)});
 const posList=(A,lev,acct)=>A.open.length?A.open.map(p=>posCard(p,lev,acct)).join(""):'<div class="card mute">No open positions.</div>';
 const histTable=(C,lev)=>C.length?`<div class="scroll"><table class="hist"><tr><th>Symbol</th><th>Entry → Exit</th><th>Size</th><th>Realized PnL</th><th>ROE</th><th>How it ended</th><th>Opened</th><th>Closed</th></tr>${C.map(r=>{const L=r.lev||lev,sd=r.side=="LONG"?1:-1,n=r.notional||(r.margin*L),roe=r.roe??(r.usd/r.margin*100),c=r.usd>=0?"good":"bad";
  return `<tr><td><b>${esc(r.coin)}USDT</b> <span class="bdg ${sd>0?"L":"S"}">${sd>0?"Long":"Short"} ${L}x</span>${r.grade?` <span class="bdg A">${r.grade}</span>`:""}${r.rule?` <span class="mute">#${esc(r.rule)}</span>`:""}</td><td>${fx(r.avgEntry||r.entry)} → ${fx(r.exitPx??r.exit)}</td><td>${usd(n)}</td><td style="color:var(--${c});font-weight:650">${r.usd>=0?"+":""}${usd(r.usd)}</td><td style="color:var(--${c})">${roe>=0?"+":""}${(+roe).toFixed(1)}%</td><td>${esc(r.how)}</td><td class="mute">${when(r.t)}</td><td class="mute">${when(r.exitT)}</td></tr>`}).join("")}</table></div>`:'<p class="mute">None yet.</p>';
@@ -243,16 +258,13 @@ const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forE
  const look=R.look,lk=look&&look.rows?.length?`<div class="scroll"><table><tr><th>coin</th><th>side</th><th>odds of +2% first</th><th>needed</th><th>evidence for / against</th><th>verdict</th></tr>${look.rows.map(x=>{const why=x.off?"side watching only":x.unfamiliar?"unfamiliar situation":x.grade?"Grade "+x.grade:x.prob<x.need?"odds too low":"not enough agreement";
   return `<tr><td><b>${esc(x.coin)}</b></td><td>${x.side}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="meter" style="flex:1"><i style="width:${Math.min(100,x.prob*100)}%"></i><u style="left:${Math.min(100,x.need*100)}%"></u></div><b>${Math.round(x.prob*100)}%</b></div></td><td>${Math.round(x.need*100)}%</td><td>${x.for.map(f=>`<span class="fam y">${esc(f)}</span>`).join("")}${x.against.map(f=>`<span class="fam n">${esc(f)}</span>`).join("")}</td><td>${x.grade?`<span class="tag champion">${why}</span>`:`<span class="mute">${why}</span>`}</td></tr>`}).join("")}</table></div>`:'<p class="mute">Appears after the next run with a trained model.</p>';
  $("rbox").innerHTML=kpis(A,"rbox",[["Brain",M?`<span style="font-size:14px">trained ${esc(M.trainedAt)}</span>`:'<span style="font-size:14px" class="mute">not trained yet</span>']])+
- (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+
+ (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+exPanel(A,10,"rbox")+
  `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest 4 months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
   ${M?`<div class="scroll"><table><tr><th>side</th><th>trades</th><th>win</th><th>avg move</th><th>trades / month</th><th>account / month</th><th>base rate</th><th>safety margin</th></tr>${ex("Long",M.long)}${ex("Short",M.short)}</table></div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
  <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(hour of ${when(look.t)}, ${look.scanned} coins scanned)</span>`:""}</h3>${lk}
  <h3>Live scorecard: every A/B call, traded or not</h3>${shadowBox(R)}
  <h3>How it is adapting right now</h3>${adaptBox(R)}
- <h3>Open positions</h3>${posList(A,10,"rbox")}
- <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
- <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(A.closed)}</summary>${histTable(A.closed.slice().reverse(),10)}
- ${A.closed.some(r=>r.pm)?`<h3 style="margin-top:12px">Post-mortems</h3>${A.closed.slice().reverse().filter(r=>r.pm).slice(0,15).map(r=>`<p style="font-size:13.5px"><b>${esc(r.coin)} ${r.side}</b> <span class="mute">${when(r.t)}</span>: ${esc(r.pm)}</p>`).join("")}`:""}</details>`})();
+`})();
 // ── the $500 account ─────────────────────────────────────────────
 const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The account starts on the next run.</p>';return}
  const ret=100*(A.equity/A.start-1);const C=A.closed;
@@ -261,9 +273,7 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each signal uses 5% of the account as margin at ${D.lev}x; when 2-3 team rules agree on the same trade, the position grows (up to 15%). Max 6 trades at once, profits compound. The team is re-picked every run.</div>`:
  `<div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. ${A.lev==1?"The whole account goes into one trade at a time, no leverage, profits compound.":`Each trade uses 10% of the account as margin at ${A.lev||D.lev}x leverage, max 3 trades at once, profits compound.`} The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
- <h3>Open positions</h3>${posList(A,A.lev||D.lev,box)}
- <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
- <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(C)}</summary>${histTable(C,A.lev||D.lev)}</details>
+ ${exPanel(A,A.lev||D.lev,box)}
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
 renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.allin,"abox",false);
 // live prices for open positions, straight from Binance in YOUR browser, every 5 seconds (display only; the books update hourly)
@@ -279,6 +289,7 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
    const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
    u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
    const f=railPos(q,px);if(dot&&f!=null)dot.style.left=(f*100).toFixed(1)+"%"});
+  document.querySelectorAll(".xunr").forEach(v=>{const u=tot[v.dataset.acct];if(u==null)return;v.textContent=(u>=0?"+":"")+usd(u);v.style.color=`var(--${u>=0?"good":"bad"})`});
   const eqs={};document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null){eqs[v.dataset.acct]=+v.dataset.cash+tot[v.dataset.acct];v.textContent=usd(eqs[v.dataset.acct])}});
   document.querySelectorAll(".acctret").forEach(v=>{const e=eqs[v.dataset.acct];if(e==null)return;const r=100*(e/+v.dataset.start-1);v.textContent=sgn(r);v.style.color=`var(--${r>=0?"good":"bad"})`});
   note.textContent=`Live prices from ${src}, updated ${new Date().toLocaleTimeString()} (every 5 s, in your browser). Trades are booked by the hourly run.`}
