@@ -200,7 +200,7 @@ def step(mem, J, now_iso, log=print, problems=None):
         live = liquid_coins(J)
         rows = np.flatnonzero((J.t > A["lastT"]) & (J.t <= newest) & np.isin(J.coin, list(live)) & np.isfinite(J.dvol) & np.isfinite(J.O))
         if len(rows):
-            S = score(J, B, rows); V = votes(mem, J, rows)
+            S = score(J, B, rows); V = votes(mem, J, rows); REG = regimes(J, np.unique(J.t[rows])); R["regimeNow"] = REG.get(int(J.t[rows].max()))
             # what it saw at the newest hour (shown even when it skips): the closest candidates and what they lacked
             look = []; newest_rows = np.flatnonzero(J.t[rows] == J.t[rows].max())
             for pos in newest_rows:
@@ -209,27 +209,28 @@ def step(mem, J, now_iso, log=print, problems=None):
                     fp = {f: float(v[pos]) for f, v in S[name]["fams"].items()}; pr = float(S[name]["prob"][pos])
                     sup = [f for f, p in fp.items() if p >= sd["base"] + 0.03]; ag = [f for f, p in fp.items() if p <= sd["base"] - 0.03]
                     look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
-                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd),
-                                 "grade": None if sd.get("off") else grade(pr, fp, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])})
+                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd, REG.get(int(J.t[i]))),
+                                 "regime": REG.get(int(J.t[i])), "need": round(be + margin_of(R, name, sd), 3),
+                                 "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])})
             look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))          # sides that may trade first, closest to a trade on top
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
-            _shadow_add(J, B, R, rows, S)
+            _shadow_add(J, B, R, rows, S, REG)
             for pos in np.argsort(J.t[rows], kind="stable"):
                 i = int(rows[pos]); day = int(J.t[i] // 86400)
                 if any(int(x["t"] // 86400) == day for x in A["open"] + A["closed"][-5:]) : continue      # max one new trade per UTC day
                 if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
                 stp = float(stop_pct(J.dvol[i])); be = breakeven(stp); best = None
                 for name, sd in B["sides"].items():
-                    if not side_live(R, name, sd): continue
-                    g = grade(S[name]["prob"][pos], {f: v[pos] for f, v in S[name]["fams"].items()}, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])
+                    if not side_live(R, name, sd, REG.get(int(J.t[i]))): continue
+                    g = grade(S[name]["prob"][pos], {f: v[pos] for f, v in S[name]["fams"].items()}, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])
                     hour = int(J.t[i] % 86400 // H)
                     if g == "B" and hour < 18: g = None
                     if g and (best is None or S[name]["prob"][pos] > best[2]): best = (name, g, float(S[name]["prob"][pos]))
                 if best:
-                    _open(J, B, A, i, best, stp, be, S, pos, V.get(i, []), now_iso); _manage(J, B, A["open"][-1], A, newest)
+                    _open(J, B, A, i, best, stp, be, S, pos, V.get(i, []), now_iso, R); A["open"][-1]["regime"] = REG.get(int(J.t[i])); _manage(J, B, A["open"][-1], A, newest)
     A["lastT"] = max(A["lastT"], newest)
-    _shadow_resolve(J, R, newest)
+    _shadow_resolve(J, R, newest); adapt(R)
     for x in A["closed"][-10:]:
         if "pm" not in x:
             try: x["pm"] = postmortem(J, x)
@@ -245,9 +246,15 @@ def step(mem, J, now_iso, log=print, problems=None):
                                           **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
     log(f"referee: ${A.get('equity', A['cash'])} ({len(A['open'])} open, {len(A['closed'])} closed){' PAUSED' if A.get('paused') else ''}{' (no model yet)' if B is None else ''}")
 
-def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso):
+def margin_cap(A):
+    """your plan: 20% of the account as margin while it is small, easing to 10% as it grows (2x start -> 4x start)"""
+    g = A["cash"] / A["start"]
+    return MAX_MARGIN if g <= 2 else max(0.10, MAX_MARGIN - 0.10 * (g - 2) / 2)
+
+def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None):
     name, g, prob = best; sd = 1 if name == "long" else -1; e = float(J.O[i]); eq = A["cash"]
-    notional = min(RISK[g] * eq / stp, MAX_MARGIN * eq * LEV); margin = notional / LEV
+    mult = ((R or {}).get("adapt") or {}).get(name, {}).get("riskMult", 1.0)
+    notional = min(RISK[g] * mult * eq / stp, margin_cap(A) * eq * LEV); margin = notional / LEV
     fams = {f: round(float(v[pos]), 3) for f, v in S[name]["fams"].items()}; base = B["sides"][name]["base"]
     card = {"for": sorted([f for f, p in fams.items() if p >= base + 0.03], key=lambda f: -fams[f]), "against": [f for f, p in fams.items() if p <= base - 0.03],
             "similar": round(fams.get("similar", 0) * 100), "rules": votes_}
@@ -325,18 +332,20 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     R["trainNote"] = f"trained {B['trainedAt']} UTC in {time.time()-t0:.0f}s on {B['coins']} coins"
     R["trainings"] = (R.get("trainings") or [])[-20:] + [{"at": B["trainedAt"], **{n: {"exam": sd["exam"], "margin": sd["margin"], "off": sd["off"], "live": sd["live"]} for n, sd in B["sides"].items()}}]
     if R.get("acct", {}).get("paused"): R["acct"]["paused"] = None          # a fresh model gets a fresh chance
-    R["override"] = {}                                                        # the new brain earns (or loses) its live permission afresh
     return True
 
 
 # ── shadow book: every A/B call on BOTH sides is scored against what really happened (live, out-of-sample) ────────────
-def side_live(R, name, sd):
-    """a side trades if its exams passed, unless its own live shadow record has since proven otherwise (either way)"""
+def side_live(R, name, sd, reg=None):
+    """a side trades if its exams passed, unless its own live shadow record has since proven otherwise (either way).
+    The most specific evidence wins: its live record in THIS market regime, then its overall live record, then its exams."""
+    rv = ((R.get("regimeOverride") or {}).get(name) or {}).get(reg) if reg else None
+    if rv is not None: return rv["live"]
     ov = (R.get("override") or {}).get(name)
     if ov is not None: return ov["live"]
     return (not sd.get("off")) and sd.get("live", True)
 
-def _shadow_add(J, B, R, rows, S):
+def _shadow_add(J, B, R, rows, S, REG=None):
     sh = R.setdefault("shadow", []); recent = {(x["coin"], x["side"]): x["t"] for x in sh[-400:]}
     for pos in range(len(rows)):
         i = int(rows[pos]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
@@ -345,7 +354,8 @@ def _shadow_add(J, B, R, rows, S):
             if not g: continue
             key = (str(J.coin[i]), name)
             if int(J.t[i]) - recent.get(key, -10 ** 12) < 24 * H: continue          # one call per coin and side per day
-            sh.append({"t": int(J.t[i]), "coin": key[0], "side": name, "grade": g, "prob": round(float(S[name]["prob"][pos]), 3), "be": round(be, 3), "stop": round(stp, 4)})
+            sh.append({"t": int(J.t[i]), "coin": key[0], "side": name, "grade": g, "prob": round(float(S[name]["prob"][pos]), 3), "be": round(be, 3), "stop": round(stp, 4),
+                       "reg": (REG or {}).get(int(J.t[i]))})
             recent[key] = int(J.t[i])
     del sh[:-3000]
 
@@ -389,3 +399,41 @@ def postmortem(J, x):
     elif adv > x.get("stopPct", 0.02) and k_f < 2: v = " Verdict: wrong read; price went against it almost immediately."
     else: v = " Verdict: no follow-through; the evidence did not play out."
     return said + did + v
+
+
+# ── adapting: the referee reshapes its own behaviour from live evidence, every hour ──────────────────────────
+def regimes(J, ts):
+    """market regime per hour, from BTC: trend (above/below its 50-day average) x temperature (volatility in its top 30% = wild)"""
+    P = J.P; b = P[(P.coin == "BTC") & P.t.isin(ts)][["t", "tr50", "p_vol24"]]
+    out = {}
+    for t, tr, pv in b.itertuples(index=False):
+        if not np.isfinite(tr): continue
+        out[int(t)] = ("up" if tr > 0 else "down") + "-" + ("wild" if (np.isfinite(pv) and pv >= 0.7) else "calm")
+    return out
+
+def margin_of(R, name, sd):
+    return sd["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0))
+
+def adapt(R):
+    """three self-adjustments, each bounded and each explained on the dashboard:
+    1) CALIBRATION: if live calls hit less often than predicted, demand more (raise the bar); if more often, relax a little
+    2) SIZE: risk per trade scales 0.5x-1.25x with the live edge (never above plan)
+    3) REGIME: a side is switched on/off separately in each market regime once it has 15 live calls there"""
+    sh = [x for x in (R.get("shadow") or []) if x.get("y") is not None]; ad = {}; rov = {}
+    for name in ("long", "short"):
+        d = [x for x in sh if x["side"] == name][-80:]
+        if len(d) >= 20:
+            hit = np.mean([x["y"] for x in d]); pred = np.mean([x["prob"] for x in d]); avg = np.mean([x["ret"] for x in d])
+            adj = float(np.clip(pred - hit, -0.04, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.25))   # +1% avg -> 1.25x, -2% -> 0.5x
+            ad[name] = {"marginAdj": round(adj, 3), "riskMult": round(mult, 2), "n": len(d), "hit": round(float(hit), 3), "pred": round(float(pred), 3), "avg": round(float(avg) * 100, 3),
+                        "why": (f"live calls hit {hit:.0%} vs predicted {pred:.0%}: " + ("bar raised" if adj > 0.005 else "bar relaxed" if adj < -0.005 else "well calibrated")
+                                + f" ({adj*100:+.1f} pts); size x{mult:.2f}")}
+        byreg = {}
+        for x in sh:
+            if x["side"] == name and x.get("reg"): byreg.setdefault(x["reg"], []).append(x)
+        for reg, d in byreg.items():
+            d = d[-60:]
+            if len(d) < 15: continue
+            hit = np.mean([x["y"] for x in d]); be = np.mean([x["be"] for x in d]); avg = np.mean([x["ret"] for x in d])
+            rov.setdefault(name, {})[reg] = {"live": bool(avg > 0 and hit >= be), "n": len(d), "hit": round(float(hit), 3), "be": round(float(be), 3), "avg": round(float(avg) * 100, 3)}
+    R["adapt"] = ad; R["regimeOverride"] = rov

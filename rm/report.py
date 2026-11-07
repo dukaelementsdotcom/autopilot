@@ -225,6 +225,12 @@ const shadowBox=R=>{const S=R.shadow||{},O=R.override||{};const sides=["long","s
  return `<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +2% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
   return `<tr><td><b>${n}</b></td><td>${x.n??0}</td><td style="color:var(--${(x.hit??0)>=(x.be??1)?"good":"bad"});font-weight:650">${x.hit!=null?Math.round(x.hit*100)+"%":"–"}</td><td>${x.pred!=null?Math.round(x.pred*100)+"%":"–"}</td><td>${x.be!=null?Math.round(x.be*100)+"%":"–"}</td><td>${x.avg!=null?(x.avg>0?"+":"")+x.avg+"%":"–"}</td><td>${x.open??0}</td><td>${o?`<span class="tag ${o.live?"champion":"dead"}">${o.live?"switched ON":"switched OFF"}</span> <span class="mute" style="font-size:12px">${esc(o.why)}</span>`:'<span class="mute">needs 25 calls</span>'}</td></tr>`}).join("")}</table></div>
  ${(R.shadowRecent||[]).length?`<details style="margin-top:6px"><summary class="mute">Latest scored calls</summary><table>${R.shadowRecent.map(x=>`<tr><td>${when(x.t)}</td><td><b>${esc(x.coin)}</b> ${x.side}</td><td>grade ${x.grade} · ${Math.round(x.prob*100)}%</td><td style="color:var(--${x.y?"good":"bad"})">${x.y?"reached +2% first":"stop / no target"}</td><td>${x.ret>0?"+":""}${(x.ret*100).toFixed(2)}%</td></tr>`).join("")}</table></details>`:""}`};
+const RG={"up-calm":"rising, calm","up-wild":"rising, wild","down-calm":"falling, calm","down-wild":"falling, wild"};
+const adaptBox=R=>{const A=R.adapt||{},O=R.regimeOverride||{};const now=R.regimeNow;
+ const head=`<p>Market regime now (from Bitcoin): <b>${esc(RG[now]||now||"unknown")}</b>. The referee re-shapes itself every hour from its live record: it raises or relaxes its bar when its odds prove too optimistic or too cautious, sizes up or down with its live edge (0.5x to 1.25x, never above plan), and switches each side on or off <i>separately for each market regime</i> once it has 15 live calls there. Margin per trade is capped at 20% of the account, easing to 10% as the account grows from 2x to 4x its start.</p>`;
+ const rows=["long","short"].map(n=>{const a=A[n];const regs=Object.entries(O[n]||{}).map(([g,v])=>`<span class="fam ${v.live?"y":"n"}" title="${v.n} calls, hit ${Math.round(v.hit*100)}% vs ${Math.round(v.be*100)}%, avg ${v.avg}%">${esc(RG[g]||g)}: ${v.live?"on":"off"}</span>`).join("");
+  return `<tr><td><b>${n}</b></td><td>${a?esc(a.why):'<span class="mute">needs 20 scored calls</span>'}</td><td>${regs||'<span class="mute">needs 15 calls per regime</span>'}</td></tr>`}).join("");
+ return head+`<div class="scroll"><table><tr><th>side</th><th>self-calibration and size</th><th>on/off by regime</th></tr>${rows}</table></div>`};
 const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forEach(r=>{if(!r.exitT)return;const m=new Date(r.exitT*1000).toISOString().slice(0,7);const k=m+"|"+name;
   const o=acc[k]||(acc[k]={m,name,n:0,w:0,usd:0,first:null});o.n++;if(r.usd>0)o.w++;o.usd+=r.usd;if(o.first==null||r.exitT<o.first.exitT)o.first=r})});
  const rows=Object.values(acc).sort((a,b)=>b.m.localeCompare(a.m)||a.name.localeCompare(b.name));if(!rows.length)return'<p class="mute">The first month appears after the first closed trade.</p>';
@@ -242,6 +248,7 @@ const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forE
   ${M?`<div class="scroll"><table><tr><th>side</th><th>trades</th><th>win</th><th>avg move</th><th>trades / month</th><th>account / month</th><th>base rate</th><th>safety margin</th></tr>${ex("Long",M.long)}${ex("Short",M.short)}</table></div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
  <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(hour of ${when(look.t)}, ${look.scanned} coins scanned)</span>`:""}</h3>${lk}
  <h3>Live scorecard: every A/B call, traded or not</h3>${shadowBox(R)}
+ <h3>How it is adapting right now</h3>${adaptBox(R)}
  <h3>Open positions</h3>${posList(A,10,"rbox")}
  <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
  <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(A.closed)}</summary>${histTable(A.closed.slice().reverse(),10)}
@@ -374,7 +381,7 @@ def write(mem, J=None, log=print):
         A = R["acct"]
         d["referee"] = {"acct": {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
                                  "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote"),
-                         "shadow": R.get("shadowStats"), "override": R.get("override"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
+                         "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
     d["healthSummary"] = mem.get("healthSummary")
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
