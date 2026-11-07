@@ -1,4 +1,7 @@
-numpy>=1.26
-pandas>=2.2
-pyarrow>=15
-requests>=2.31
+# exact versions: the same ones tested locally, so nothing changes under the machine while it runs unattended
+numpy==2.5.3
+pandas==3.0.5
+pyarrow==26.0.0
+requests==2.34.2
+scikit-learn==1.9.1
+joblib==1.6.0

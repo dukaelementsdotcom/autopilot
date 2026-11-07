@@ -112,18 +112,25 @@ def _coin(coin, blocks=()):
     f.loc[~alive, dead_cols] = np.nan              # nothing may be learned from, or traded in, an hour with no market
     f["coin"] = coin; f["t"] = idx; f["px"] = k.o.values
     f["_hi"], f["_lo"], f["_cl"] = k.h.values, k.l.values, k.c.values      # this hour's bar: ONLY for replaying exits, never a feature
+    f["_qv24"] = (k.v * k.c).rolling(24, min_periods=12).sum().shift(1).values   # dollar volume of the last 24h: ONLY for picking liquid coins
+    keep64 = ("px", "_hi", "_lo", "_cl", "t")
+    for col in f.columns:                          # float32 right away: ~50 coins x 6 years must fit comfortably in memory
+        if col not in keep64 and f[col].dtype == "float64": f[col] = f[col].astype("float32")
     return f
 
 def build(coins=None, log=print, blocks=()):
     coins = [c for c in (coins or C.COINS) if os.path.exists(f"{C.DATA_DIR}/raw/{c}_k.parquet")]
-    parts = {c: _coin(c, blocks) for c in coins}
+    parts = {}
+    for c in coins:                                   # one damaged coin must never stop the whole machine
+        try: parts[c] = _coin(c, blocks)
+        except Exception as e: log(f"panel: {c} skipped ({type(e).__name__}: {e})")
     btc = parts.get("BTC")
     for c, f in parts.items():
         if btc is not None:
             b = btc.set_index("t")[["r1", "r24"]].reindex(f.t.values).values
             f["btc_r1"], f["btc_r24"] = b[:, 0], b[:, 1]
     P = pd.concat(parts.values(), ignore_index=True)
-    P = P[P.t >= pd.Timestamp(C.START).timestamp() + 30 * 86400]
+    P = P[P.t >= pd.Timestamp(C.START).timestamp() + 30 * 86400].copy()          # one solid block in memory (faster, no fragmentation)
     for col in ("r24", "r168", "glob", "topPos", "oi24", "timb24", "vol24"):
         P["x_" + col] = P.groupby("t")[col].rank(pct=True)
     for col in ("btc_r1", "btc_r24"):

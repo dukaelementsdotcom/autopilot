@@ -46,7 +46,11 @@ def live_prices(coins):
     try:
         r = requests.get("https://data-api.binance.vision/api/v3/ticker/price", timeout=20)
         px = {d["symbol"]: float(d["price"]) for d in r.json()}
-        return {c: px.get(f"{c}USDT") for c in coins}
+        out = {}
+        for c in coins:                       # spot lists 1000PEPE as PEPE: same coin, 1000x the unit
+            if c.startswith("1000") and f"{c}USDT" not in px: v = px.get(f"{c[4:]}USDT"); out[c] = v * 1000 if v else None
+            else: out[c] = px.get(f"{c}USDT")
+        return out
     except Exception: return {}
 
 def step(mem, J, now_iso, log=print, key="account", team=False, lev=LEV, frac=MARGIN_FRAC, slots=SLOTS, kinds=("event", "union"), start=START):

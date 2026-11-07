@@ -17,7 +17,7 @@ concurrency:
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 100
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
 
       - run: pip install -r requirements.txt
@@ -42,6 +42,13 @@ jobs:
           path: data/raw
           key: rawdata-${{ github.run_id }}
           restore-keys: rawdata-
+
+      - name: restore referee models
+        uses: actions/cache/restore@v4
+        with:
+          path: data/models
+          key: models-${{ github.run_id }}
+          restore-keys: models-
 
       - name: restore memory
         run: |
@@ -56,12 +63,22 @@ jobs:
       - name: research day
         run: python -m rm.run
 
+      # saved only when the data really changed (about once a day), so the 10 GB cache never fills with hourly copies
       - name: save market data
-        if: always()
+        if: always() && hashFiles('data/raw/version.txt') != ''
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
           path: data/raw
-          key: rawdata-${{ github.run_id }}
+          key: rawdata-${{ hashFiles('data/raw/version.txt') }}
+
+      - name: save referee models
+        if: always() && hashFiles('data/models/referee.joblib') != ''
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: data/models
+          key: models-${{ hashFiles('data/models/referee.joblib') }}
 
       - name: save memory (single commit, force-pushed)
         if: always()
