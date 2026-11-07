@@ -180,7 +180,8 @@ def _groq_models(key):
     """ask Groq which models exist today (they change), best first; fall back to a fixed list"""
     try:
         r = requests.get("https://api.groq.com/openai/v1/models", timeout=30, headers={"Authorization": f"Bearer {key}"})
-        names = [m["id"] for m in r.json().get("data", []) if not any(x in m["id"] for x in ("whisper", "tts", "guard", "embed", "playai", "compound"))]
+        names = [m["id"] for m in r.json().get("data", []) if not any(x in m["id"] for x in ("whisper", "tts", "guard", "embed", "playai", "compound", "allam", "orpheus"))
+                 and (m.get("context_window") or 131072) >= 32000 and m.get("active", True)]      # our prompts are long: small-context models always fail
         rank = lambda n: next((i for i, p in enumerate(PREFER) if p in n), len(PREFER))
         names = sorted(names, key=rank)[:6]
         if names: return names
@@ -202,9 +203,9 @@ def _groq_call(messages, max_tokens=2500):
             r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=90, headers={"Authorization": f"Bearer {key}"},
                               json={"model": model, "messages": messages, "temperature": 0.8, "max_tokens": max_tokens, "response_format": {"type": "json_object"}})
             if r.ok: return r.json()["choices"][0]["message"]["content"], model
-            last = f"{model}: HTTP {r.status_code} {r.text[:120]}"
-        except Exception as e: last = f"{model}: {e}"
-    return None, last
+            last += f" | {model}: HTTP {r.status_code} {r.text[:90]}"
+        except Exception as e: last += f" | {model}: {str(e)[:90]}"
+    return None, last[3:]
 
 PREMISE = """THE GOAL: find trades that WIN BIG and LOSE SMALL.
 - Trades are taken with 10x leverage on isolated margin: a move of about -9% liquidates the trade (-100% of its margin). Tiny targets with rare big losses FAIL.
@@ -213,19 +214,23 @@ PREMISE = """THE GOAL: find trades that WIN BIG and LOSE SMALL.
 - Rotation ideas (whole account, no leverage, one coin for 1-3 days, aiming for 5-10%) are welcome too.
 BE BOLD AND CREATIVE: unusual, contrarian, cross-coin, behavioural and structural ideas. Most ideas will fail the exams; that is fine and costs nothing."""
 
+def _meas():
+    """compact measurement list: the free AI tier caps tokens per minute, so prompts must stay small"""
+    return "\n".join(f"- {k}: {v.split(' (')[0][:70]}" for k, v in DESC.items())
+
 def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
     feats = {k: v for k, v in DESC.items()}
-    good = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated", "near")][:12]
-    fam = sorted(mem["families"].items(), key=lambda kv: -kv[1]["n"])[:25]
+    good = [t for t in mem["tests"].values() if t["status"] in ("champion", "validated", "near")][:8]
+    fam = sorted(mem["families"].items(), key=lambda kv: -kv[1]["n"])[:15]
     prompt = (f"You are the head of research of an autonomous crypto research machine (paper only). It tests rules on 6 years of hourly data for about 50 coins (3 of them collapsed in 2022).\n"
-              f"MEASUREMENTS (each available as p_<name>; some as x_<name>):\n" + "\n".join(f"- {k}: {v}" for k, v in feats.items()) + "\n\n" + GRAMMAR +
+              f"MEASUREMENTS (each available as p_<name>; some as x_<name>):\n" + _meas() + "\n\n" + GRAMMAR +
               "\n\nWHAT SURVIVED OR NEARLY SURVIVED SO FAR:\n" + ("\n".join(f"- [{t['status']}] {t['text']} | discovery {t['disc']} | validation {t.get('val')}" for t in good) or "- nothing yet") +
               "\n\nIDEA FAMILIES ALREADY TESTED (count, best discovery t):\n" + "\n".join(f"- {k}: {v['n']} tests, best t {v.get('best', 0)}, survivors {v.get('ok', 0)}" for k, v in fam) +
               "\n\nLESSONS SO FAR:\n" + "\n".join("- " + l for l in mem.get("lessons", [])[:8]) + _blocks_text(mem) +
               "\n\n" + PREMISE + f"\n\nPropose {n} NEW hypotheses that are different from what was tested. Think outside the box, like people who build profitable open-source bots and prediction-market arbitrage bots: structural and flow-based ideas (cross-coin lead/lag, trapped leverage, forced liquidations, funding extremes, crowd positioning) as well as classic indicator rules combined with positioning. "
               "Each must have a market MECHANISM (who is forced to buy or sell, who is trapped, where liquidity is). Aim for moves of 2-10% that a 10x isolated trade can catch, about one good trade a day across all coins. "
               'Answer ONLY JSON: {"ideas":[{"why":"one-sentence mechanism","h":{...hypothesis...}}]}')
-    txt, model = _groq([{"role": "user", "content": prompt}])
+    txt, model = _groq([{"role": "user", "content": prompt}], 2000)
     if not txt: return [], model
     try: data = json.loads(re.search(r"\{.*\}", txt, re.S).group(0))
     except Exception: return [], f"{model}: answer was not JSON"
@@ -272,12 +277,12 @@ def ai_analyst(mem, cols):
     if len(win) < 2: return [], None
     lines = "\n".join(f"- [{t['status']}{' #' + str(t['no']) if t.get('no') else ''}] {t['text']} | validation {t.get('val')} | final exam {t.get('hold')} | live {(t.get('live') or {}).get('n', 0)} trades, avg {(t.get('live') or {}).get('mean')}%" for t in win)
     prompt = ("You are the senior analyst of an autonomous crypto research machine (paper only). Below are the rules that survived strict out-of-sample testing.\n" + lines +
-              "\n\nMEASUREMENTS:\n" + "\n".join(f"- {k}: {v}" for k, v in DESC.items()) + "\n\n" + GRAMMAR +
+              "\n\nMEASUREMENTS:\n" + _meas() + "\n\n" + GRAMMAR +
               "\n\n" + PREMISE + "\n\nTasks: (1) For up to 5 winners, explain in one plain sentence WHY it might work (who is forced to buy/sell, who is trapped). "
               "(2) Propose up to 4 MERGES, only where it makes sense: an AND-merge when one rule's condition confirms the other's mechanism; a UNION (OR) when two rules catch DIFFERENT situations of the same mechanism; a regime switch when each rule works in a different market state. Explain why each merge makes sense. If no merge makes sense, propose none. "
               "(3) Propose 3 WILD out-of-the-box ideas, e.g. gambling concepts (hot hand vs gambler's fallacy using streak, betting against extreme crowd sentiment like Fear&Greed extremes), Coinbase premium, options fear gauge, stablecoin inflows. "
               'Answer ONLY JSON: {"why":[{"rule":"#n or short name","reason":"..."}],"merges":[{"why":"...","h":{...}}],"wild":[{"why":"...","h":{...}}]}')
-    txt, model = _groq([{"role": "user", "content": prompt}], 3500)
+    txt, model = _groq([{"role": "user", "content": prompt}], 2500)
     if not txt: return [], None
     try: data = json.loads(re.search(r"\{.*\}", txt, re.S).group(0))
     except Exception: return [], None

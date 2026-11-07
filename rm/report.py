@@ -194,7 +194,7 @@ const stats=a=>{const c=a.filter(r=>r.usd!=null);const w=c.filter(r=>r.usd>0),l=
  return c.length?`<b>${c.length} trades</b> · ${w.length} won · ${l.length} lost · ${Math.round(100*w.length/c.length)}% win · total ${money(tot)} · avg ${money(tot/c.length)} · best ${money(best)} · worst ${money(worst)}`:"no trades yet"};
 $("rsum").innerHTML=`Show / hide trades: `+stats(T.filter(r=>r.type!="open"));
 // ── exchange-style positions (shared by every account) ─────────────
-const fx=x=>{if(x==null||!isFinite(x))return"–";const a=Math.abs(x);return a>=1000?x.toLocaleString(undefined,{maximumFractionDigits:2}):a>=1?(+x.toFixed(4)).toString():(+x.toPrecision(4)).toString()};
+const fx=x=>{if(x==null||!isFinite(x))return"–";const a=Math.abs(x);return a>=1000?x.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1}):a>=100?x.toFixed(2):a>=1?x.toFixed(4):(+x.toPrecision(4)).toString()};
 const usd=x=>(x<0?"−":"")+"$"+Math.abs(x).toFixed(2);
 const age=t=>{const h=(Date.now()/1000-t)/3600;return h<1?Math.max(1,Math.round(h*60))+"m":h<48?h.toFixed(1)+"h":(h/24).toFixed(1)+"d"};
 const posOf=(p,lev)=>{const L=p.lev||lev,sd=p.side=="LONG"?1:-1,avg=p.avgEntry||p.entry,notional=p.notional||(p.margin*L);
@@ -219,7 +219,7 @@ const curveSvg=A=>{const p=A.curve;if(!p||p.length<2)return'<p class="mute">The 
  const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
  const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`};
-const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">${usd(A.equity??A.cash)}</span>`],["Since start",`<span style="color:var(--${(A.equity??A.cash)>=A.start?"good":"bad"})">${sgn(100*((A.equity??A.cash)/A.start-1))}</span>`],["Closed trades",A.closed.length?`${A.closed.length} · ${A.closed.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)],...(extra||[])].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`;
+const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">${usd(A.equity??A.cash)}</span>`],["Since start",`<span class="acctret" data-acct="${box}" data-start="${A.start}" style="color:var(--${(A.equity??A.cash)>=A.start?"good":"bad"})">${sgn(100*((A.equity??A.cash)/A.start-1))}</span>`],["Closed trades",A.closed.length?`${A.closed.length} · ${A.closed.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)],...(extra||[])].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`;
 const shadowBox=R=>{const S=R.shadow||{},O=R.override||{};const sides=["long","short"].filter(n=>S[n]||O[n]);
  if(!sides.length)return'<p class="mute">Every grade-A/B call on both sides is scored 48 hours later against what the price really did. The first results appear about two days after the brain is trained. After 25 calls, this live record can switch a side on or off by itself.</p>';
  return `<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +2% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
@@ -279,7 +279,8 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
    const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
    u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
    const f=railPos(q,px);if(dot&&f!=null)dot.style.left=(f*100).toFixed(1)+"%"});
-  document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null)v.textContent=usd(+v.dataset.cash+tot[v.dataset.acct])});
+  const eqs={};document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null){eqs[v.dataset.acct]=+v.dataset.cash+tot[v.dataset.acct];v.textContent=usd(eqs[v.dataset.acct])}});
+  document.querySelectorAll(".acctret").forEach(v=>{const e=eqs[v.dataset.acct];if(e==null)return;const r=100*(e/+v.dataset.start-1);v.textContent=sgn(r);v.style.color=`var(--${r>=0?"good":"bad"})`});
   note.textContent=`Live prices from ${src}, updated ${new Date().toLocaleTimeString()} (every 5 s, in your browser). Trades are booked by the hourly run.`}
  tick();setInterval(tick,5000)})();
 // health warnings (only shown when something is wrong)

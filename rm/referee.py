@@ -64,7 +64,10 @@ def _rows(J, t_lo, t_hi, every=3):
     m &= ~P.coin.isin(C.DEAD).values
     return np.flatnonzero(m)
 
-def _X(P, rows, cols): return P[cols].values[rows].astype(np.float32)
+def _X(P, rows, cols):
+    """only the needed rows, column by column (never materialise the whole table: memory stays flat)"""
+    rows = np.asarray(rows)
+    return np.column_stack([P[c].values[rows].astype(np.float32, copy=False) for c in cols]) if len(cols) else np.empty((len(rows), 0), np.float32)
 
 def train(J, log=print):
     """fit families (discovery) -> combiner (validation) -> final exam (newest months). Returns a model bundle."""
