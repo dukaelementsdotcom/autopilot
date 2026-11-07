@@ -39,14 +39,14 @@ async function pages(path, symbol, n = 2) {            // 5-minute readings: 500
   return out;
 }
 
-async function coin(c) {
+async function coin(c, npages = 2, kl = 96) {
   const symbol = c + "USDT";
-  const k = await get("/fapi/v1/klines", { symbol, interval: "1h", limit: 96 });
+  const k = await get("/fapi/v1/klines", { symbol, interval: "1h", limit: kl });
   const now = Date.now();
   const kk = k.filter((x) => +x[6] < now).map((x) => [Math.floor(+x[0] / 1000), +x[1], +x[2], +x[3], +x[4], +x[5], +x[9]]);
   const m = {};
   for (const [name, [path, pick]] of Object.entries(SERIES)) {
-    for (const x of await pages(path, symbol)) {
+    for (const x of await pages(path, symbol, npages)) {
       const t = Math.floor(+x.timestamp / 1000); (m[t] = m[t] || {})[name] = pick(x);
     }
   }
@@ -56,13 +56,16 @@ async function coin(c) {
 
 module.exports = async (req, res) => {
   const coins = String((req.query && req.query.coins) || "BTC").toUpperCase().split(",").filter((c) => /^[A-Z0-9]{2,12}$/.test(c)).slice(0, 60);
-  const out = { at: Math.floor(Date.now() / 1000), region: process.env.VERCEL_REGION || "?", coins: {}, errors: {} };
+  const q = req.query || {};
+  const npages = Math.min(2, Math.max(1, parseInt(q.pages || "2", 10) || 2));     // v2: the caller asks only for what it needs
+  const kl = Math.min(96, Math.max(24, parseInt(q.kl || "96", 10) || 96));
+  const out = { at: Math.floor(Date.now() / 1000), region: process.env.VERCEL_REGION || process.env.RELAY_REGION || "?", coins: {}, errors: {}, v: 2 };
   let i = 0;
   async function worker() {                            // at most 4 coins at once (Binance rate limits)
-    while (i < coins.length) { const c = coins[i++]; try { out.coins[c] = await coin(c); } catch (e) { out.errors[c] = String(e.message || e).slice(0, 120); } }
+    while (i < coins.length) { const c = coins[i++]; try { out.coins[c] = await coin(c, npages, kl); } catch (e) { out.errors[c] = String(e.message || e).slice(0, 120); } }
   }
   await Promise.all([worker(), worker(), worker(), worker()]);
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
   res.setHeader("Content-Type", "application/json");
-  res.status(200).send(JSON.stringify(out));
+  res.statusCode = 200; res.end(JSON.stringify(out));      // plain Node API: works on Vercel and on any Node host
 };

@@ -126,17 +126,28 @@ def update_live(log=print):
     """the newest hours from the live relay, stored separately and OVERWRITTEN every run ("swap"):
     features.py stitches them onto the archive only where the archive has no data yet, so once Binance publishes those days
     the archive takes over automatically and nothing piles up."""
-    url = C.RELAY_URL
-    if not url: log("live: no relay configured (archive only)"); return {}
+    urls = [u for u in C.RELAY_URLS if u]
+    if not urls: log("live: no relay configured (archive only)"); return {}
     coins = [c for c in C.COINS if c not in C.DEAD]
     d = {"coins": {}, "errors": {}, "region": None}
+    # ask the relay for as little as possible (its free tier meters CPU): one page of 5-minute readings (~41h) covers the gap
+    # to the archive except in the few hours before Binance publishes yesterday's file; then two pages
+    try:
+        import pyarrow.parquet as pq
+        arch = min(int(pd.read_parquet(f"{C.DATA_DIR}/raw/{c}_m.parquet", columns=["t"]).t.max()) for c in ("BTC", "ETH") if os.path.exists(f"{C.DATA_DIR}/raw/{c}_m.parquet"))
+        npages = 2 if dt.datetime.utcnow().timestamp() - arch > 38 * 3600 else 1
+    except Exception: npages = 2
     for i in range(0, len(coins), 17):                # small batches: each relay call must finish well inside Vercel's 60 s limit
         part = coins[i:i + 17]
-        try:
-            r = S.get(url, params={"coins": ",".join(part)}, timeout=90); r.raise_for_status(); x = r.json()
-            d["coins"].update(x.get("coins", {})); d["errors"].update(x.get("errors", {})); d["region"] = x.get("region") or d["region"]
-        except Exception as e:
-            d["errors"]["batch " + part[0]] = str(e)[:160]
+        last = None
+        for url in urls:                                  # first relay that answers wins; the others are backups
+            try:
+                r = S.get(url, params={"coins": ",".join(part), "pages": npages, "kl": 72}, timeout=90); r.raise_for_status(); x = r.json()
+                if not x.get("coins"): raise RuntimeError("empty answer")
+                d["coins"].update(x.get("coins", {})); d["errors"].update(x.get("errors", {})); d["region"] = x.get("region") or d["region"]
+                d.setdefault("via", {})[url.split("/")[2]] = d.get("via", {}).get(url.split("/")[2], 0) + 1; last = None; break
+            except Exception as e: last = f"{url.split('/')[2]}: {str(e)[:120]}"
+        if last: d["errors"]["batch " + part[0]] = last
     if not d["coins"]: raise RuntimeError(f"relay returned nothing: {list(d['errors'].values())[:2]}")
     os.makedirs(f"{C.DATA_DIR}/live", exist_ok=True); info = {"region": d.get("region"), "errors": d.get("errors", {}), "coins": 0, "check": {}}
     for c, v in d.get("coins", {}).items():
@@ -167,6 +178,6 @@ def update_live(log=print):
                 if len(both) >= 6: info["check"].setdefault(c, {})["close"] = round(float((B.loc[both, "c"] / A.loc[both, "c"] - 1).abs().median() * 100), 4)
         info["coins"] += 1
     newest = max((int(pd.read_parquet(f"{C.DATA_DIR}/live/{c}_k.parquet").t.max()) for c in d.get("coins", {}) if os.path.exists(f"{C.DATA_DIR}/live/{c}_k.parquet")), default=None)
-    info["newest"] = newest
+    info["newest"] = newest; info["via"] = d.get("via"); info["pages"] = npages
     log(f"live: {info['coins']} coins from relay ({info['region']}), newest hour {dt.datetime.utcfromtimestamp(newest) if newest else '-'}, errors {len(info['errors'])}")
     return info
