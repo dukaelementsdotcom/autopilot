@@ -25,9 +25,11 @@ FAMILIES = {
     "flow": ["p_timb1", "p_timb4", "p_timb24", "p_tk1", "p_tk4", "p_vr", "x_timb24"],
     "trend": ["p_r1", "p_r4", "p_r24", "p_r72", "p_r168", "p_pos24", "don20", "p_tr50", "emat", "emax", "rsi14", "bbz", "adx14", "streak", "x_r24", "x_r168"],
     "volatility": ["p_vol24", "p_volr", "x_vol24", "p_adx14", "p_bbz"],
+    "leverage": ["p_fund", "p_basis", "p_basis24", "p_hlprem", "p_hlprem24", "p_hlfund24"],
+    "realmoney": ["p_sshare", "p_sshare7", "p_stimb24", "p_basis"],
     "mood": ["p_btc_r1", "p_btc_r24", "p_fg", "p_fg7", "p_cbp", "p_cbp24", "p_dvol", "p_dvol24", "p_dvole", "p_stab7", "hour", "dow"],
 }
-KNN_FEATS = ["p_r4", "p_r24", "p_r72", "p_vol24", "p_oi24", "p_glob", "p_topPos", "p_timb4", "p_pos24", "p_btc_r24"]
+KNN_FEATS = ["p_r4", "p_r24", "p_r72", "p_vol24", "p_oi24", "p_glob", "p_topPos", "p_timb4", "p_pos24", "p_btc_r24", "p_fund", "p_basis"]
 
 def fam_cols(P):
     out = {f: [c for c in cols if c in P.columns] for f, cols in FAMILIES.items()}
@@ -316,7 +318,8 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     if B is not None:
         try: age = (time.time() - time.mktime(time.strptime(B["trainedAt"], "%Y-%m-%d %H:%M"))) / 86400
         except Exception: age = 99
-    if B is not None and age < 7: return False
+    fresh_fams = set(fam_cols(J.P)) - {"invented"}
+    if B is not None and age < 7 and fresh_fams <= set(B["fams"]): return False      # also retrain when new kinds of evidence appear
     if time_left < 20 * 60: log(f"referee: training postponed ({time_left/60:.0f} min left in this run)"); R["trainNote"] = "postponed: not enough time this run"; return False
     t0 = time.time(); B = train(J, log); save(B)
     R["trainNote"] = f"trained {B['trainedAt']} UTC in {time.time()-t0:.0f}s on {B['coins']} coins"

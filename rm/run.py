@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np, pandas as pd
-from . import config as C, fetch, fetch_ext, features, ideas, report, account, referee, health
+from . import config as C, fetch, fetch_more, fetch_ext, features, ideas, report, account, referee, health
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -103,6 +103,7 @@ def run(budget=None, log=print):
     # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
     log("── 1/6 data"); safe("archive download", fetch.update, log=log); safe("market extras", fetch_ext.update, log=log)
+    more = safe("spot + Hyperliquid data", fetch_more.update, log=log) or {}; mem["moreData"] = more
     live = safe("live data (relay)", fetch.update_live, log=log) or {}
     mem["live"] = {"at": now_iso(), **{k: v for k, v in live.items() if k != "errors"}, "errors": len(live.get("errors", {}))}
     blocks = mem.setdefault("blocks", [])

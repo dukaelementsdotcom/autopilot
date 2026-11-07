@@ -59,6 +59,11 @@ def write(mem, J, timings, problems, live, t0, log=print):
     chk("archive keeps arriving", alags and np.median(alags) <= 60, warn=alags and np.median(alags) <= 96, detail=f"median archive lag {np.median(alags) if alags else '?'} h (Binance publishes daily, ~1 day late is normal)")
     chk("relay (Frankfurt) answers", (live or {}).get("coins", 0) >= 40, warn=(live or {}).get("coins", 0) > 0,
         detail=f"{(live or {}).get('coins', 0)} coins, {snap['relayErr']} errors, region {(live or {}).get('region')}")
+    md = mem.get("moreData") or {}
+    sl = (md.get("spotLive") or {}); hl = (md.get("hl") or {})
+    chk("spot data (real money vs leverage)", sl.get("ok", 0) >= 35 and "error" not in (md.get("spot") or {}), warn=sl.get("ok", 0) > 0,
+        detail=f"live spot {sl.get('ok', 0)} coins (not on spot: {', '.join(sl.get('missing', [])[:8]) or 'none'}); archive {json.dumps(md.get('spot'))[:120]}")
+    chk("Hyperliquid data", "error" not in hl and hl.get("coins", 0) > 20, warn=True, detail=json.dumps(hl)[:160])
     chk("no broken parts", not problems, warn=len(problems) <= 2, detail="; ".join(problems[:6]) or "none")
     age = None
     try: age = (now - time.mktime(time.strptime(RM.get("trainedAt"), "%Y-%m-%d %H:%M"))) / 86400 if RM.get("trainedAt") else None

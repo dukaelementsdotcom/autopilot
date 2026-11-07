@@ -28,12 +28,30 @@ DESC = {  # feature dictionary (also shown to the AI researcher)
     "cbp": "Coinbase premium: BTC price on Coinbase vs Binance (%), positive = US buyers paying up", "cbp24": "Coinbase premium averaged over 24h",
     "dvol": "BTC options 'fear gauge' (Deribit DVOL, expected volatility)", "dvol24": "change of the BTC options fear gauge over 24h", "dvole": "ETH options fear gauge (DVOL)",
     "stab7": "stablecoin supply change over 7 days (%) = new money arriving", "stab30": "stablecoin supply change over 30 days (%)",
+    # leverage vs real money (spot archive, Binance funding, Hyperliquid)
+    "fund": "Binance funding rate (what longs pay shorts every 8h; high = crowded longs)",
+    "basis": "futures price vs spot price (%): positive = leverage paying up over real buyers", "basis24": "change of the futures-spot gap over 24h",
+    "sshare": "spot's share of all trading, last 24h (real money vs leverage)", "sshare7": "change of spot's share over 7 days",
+    "stimb24": "SPOT taker buy-minus-sell share, last 24h (real buyers hitting the market)",
+    "hlprem": "Hyperliquid perp premium vs oracle (on-chain leverage paying up)", "hlprem24": "Hyperliquid premium averaged over 24h", "hlfund24": "Hyperliquid funding averaged over 24h",
 }
 MARKET = ("fg", "fg7", "cbp", "cbp24", "dvol", "dvol24", "dvole", "stab7", "stab30")
 PCT = [f for f in DESC if not f.startswith("x_") and f not in ("hour", "dow", "cross") and f not in MARKET]
 
 def _ema(x, n): return x.ewm(span=n, adjust=False).mean()
 def _rma(x, n): return x.ewm(alpha=1 / n, adjust=False).mean()
+
+def _optional(coin, part, idx):
+    """an extra hourly source (spot 's', Hyperliquid 'hl'): archive + live stitched, aligned to the futures hours; None if absent"""
+    try:
+        p = f"{C.DATA_DIR}/raw/{coin}_{part}.parquet"; lp = f"{C.DATA_DIR}/live/{coin}_{part}.parquet"
+        x = pd.read_parquet(p).drop_duplicates("t").set_index("t") if os.path.exists(p) else None
+        if os.path.exists(lp):
+            L = pd.read_parquet(lp).drop_duplicates("t").set_index("t")
+            x = L if x is None else pd.concat([x, L[L.index > x.index.max()]])
+        if x is None or not len(x): return None
+        return x.sort_index().reindex(idx)
+    except Exception: return None
 
 def _coin(coin, blocks=()):
     k = pd.read_parquet(f"{C.DATA_DIR}/raw/{coin}_k.parquet").set_index("t")
@@ -77,6 +95,20 @@ def _coin(coin, blocks=()):
     trr = pd.concat([k.h - k.l, (k.h - c.shift()).abs(), (k.l - c.shift()).abs()], axis=1).max(axis=1); atr = _rma(trr, 14)
     pdi, mdi = 100 * _rma(pdm, 14) / atr, 100 * _rma(mdm, 14) / atr
     f["adx14"] = _rma(100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan), 14)
+    # leverage vs real money: Binance funding, spot market, Hyperliquid (each optional: missing data = NaN, never a crash)
+    fp = f"{C.DATA_DIR}/raw/{coin}_f.parquet"
+    try: f["fund"] = pd.read_parquet(fp).drop_duplicates("t").set_index("t").fr.sort_index().reindex(idx, method="ffill", tolerance=9 * H).values if os.path.exists(fp) else np.nan
+    except Exception: f["fund"] = np.nan
+    sp = _optional(coin, "s", idx)
+    if sp is not None:
+        sc = sp.sc.where(sp.sc > 0); f["basis"] = (c / sc - 1) * 100; f["basis24"] = f.basis - f.basis.shift(24)
+        fq = (k.v * c).rolling(24, min_periods=12).sum(); sq = sp.sqv.rolling(24, min_periods=12).sum()
+        f["sshare"] = sq / (sq + fq).replace(0, np.nan); f["sshare7"] = f.sshare - f.sshare.shift(168)
+        f["stimb24"] = 2 * sp.stbq.rolling(24, min_periods=12).sum() / sq.replace(0, np.nan) - 1
+    else: f["basis"] = f["basis24"] = f["sshare"] = f["sshare7"] = f["stimb24"] = np.nan
+    hl = _optional(coin, "hl", idx)
+    if hl is not None: f["hlprem"] = hl.hlp * 100; f["hlprem24"] = f.hlprem.rolling(24, min_periods=12).mean(); f["hlfund24"] = (hl.hlf * 100).rolling(24, min_periods=12).mean()
+    else: f["hlprem"] = f["hlprem24"] = f["hlfund24"] = np.nan
     if blocks:                         # measurements invented by the AI (safe formulas, see blocks.py)
         from .blocks import compute
         env = {"o": k.o, "h": k.h, "l": k.l, "c": k.c, "v": k.v, "tb": k.tb}
