@@ -43,6 +43,13 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .help{font-size:13px;color:var(--mute);margin:-4px 0 10px}
 .mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 /* exchange-style positions */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;counter-reset:st}
+.flow .card{position:relative;padding-top:34px}.flow .card:before{counter-increment:st;content:counter(st);position:absolute;top:10px;left:14px;width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.flow .card>b{display:block;margin-bottom:4px}.flow .card p{margin:0;font-size:13.5px;color:var(--mute)}
+.grades{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.grades .card{border-top:4px solid var(--gc)}.grades h4{margin:0 0 6px;font-size:16px;color:var(--gc)}
+.grades ul,.gl ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}.grades li,.gl li{margin:3px 0}
+.gl{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.gl .card>b{display:block}.gl .card p{margin:4px 0 0;font-size:13.5px;color:var(--mute)}
+.howh{margin:18px 0 8px;font-size:15px}
 .xp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:12px;overflow:hidden}
 .xbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:2px 14px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--soft)}
 .xbar div span{display:block;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}.xbar div b{font-variant-numeric:tabular-nums;font-size:15px}
@@ -107,6 +114,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </section>
 
 <section data-tab="research">
+<h2>How the referee decides</h2><div id="howref"></div>
 <h2>The analyst: why winners win, and which merges make sense</h2><div id="analyst"></div>
 <h2>Invented building blocks</h2><div id="blocks"></div>
 <h2>What it has learned</h2><div id="lessons"></div>
@@ -300,6 +308,49 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
 try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Best rule",D.account],["Team",D.team],["All-in",D.allin]])}catch(e){}
+// how the referee decides (structured explainer, live numbers where available)
+(()=>{const M=D.referee?.model||{},L=M.long||{},S=M.short||{},pts=x=>x!=null?"+"+Math.round(x*100)+" pts":"learned";
+ const step=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
+ const gl=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
+ $("howref").innerHTML=`<p class="mute">Every hour it looks at the ~40 most liquid coins, both directions, and asks one question: <b>"will this reach +2% before its stop?"</b></p>
+ <h3 class="howh">The decision, step by step</h3>
+ <div class="flow">${[
+  step("Shape the trade","Target is always +2%. The stop sits outside the coin's normal noise: 1.25× its usual daily move, kept between 1.5% and 4%."),
+  step("Work out break-even","The win rate needed to not lose money with that shape: (stop + fees) ÷ (2% + stop). A 2% stop needs ~52%; a 3% stop ~62%."),
+  step("Ask each kind of evidence","Positioning, flow, trend, volatility, leverage, real money, mood, invented measurements and similar past moments each give their own odds."),
+  step("Combine them","A small combiner, trained on a separate year, decides how much to trust each kind. Result: the <b>odds</b> you see on the Accounts tab."),
+  step("Raise the bar","<b>Needed = break-even + safety margin.</b> The margin is learned, not hand-set (now: long "+pts(L.margin)+", short "+pts(S.margin)+"), and moves with live results."),
+  step("Grade and pick one","A, B or skip (below). It takes the first qualifying trade of the UTC day: at most one trade a day.")].join("")}</div>
+ <h3 class="howh">What the grades mean</h3>
+ <div class="grades">
+  <div class="card" style="--gc:var(--good)"><h4>Grade A: full size</h4><ul><li>Odds ≥ needed</li><li>At least 2 kinds of evidence <b>for</b></li><li>At most 1 kind <b>against</b></li><li>Risk: a full loss costs ~4% of the account</li></ul></div>
+  <div class="card" style="--gc:var(--acc)"><h4>Grade B: half size</h4><ul><li>Odds ≥ break-even + half the margin</li><li>At least 2 for, at most 2 against</li><li>Only after 18:00 UTC, if no A came that day</li><li>Risk: ~2% of the account</li></ul></div>
+  <div class="card" style="--gc:var(--mute)"><h4>Skip</h4><ul><li>Odds too low, or not enough agreement</li><li>The side is "watching only"</li><li>Situation unlike anything in 6 years</li><li>Already traded today</li></ul></div></div>
+ <p class="mute" style="font-size:13px">A kind of evidence counts <b>for</b> when its own odds are at least 3 points above normal, and <b>against</b> when at least 3 points below.</p>
+ <h3 class="howh">Once a trade is open</h3>
+ <div class="flow">${[
+  step("Hard stop","Always set at entry. Isolated 10x: liquidation is ~9.5% away, far beyond the stop."),
+  step("Half at +2%","Half the position is closed at the target and the stop moves to break-even: the rest is risk-free."),
+  step("Let the rest run","An exit model asks every hour: '+1% more before −1%?' It holds and trails while yes, and closes when the move fades."),
+  step("One add-on","If the trade is up 1% and the evidence strongly says it continues, it adds once and moves the stop to the entry.")].join("")}</div>
+ <h3 class="howh">How it keeps itself honest</h3>
+ <div class="gl">${[
+  gl("Three exams","Learns on the older years, tunes on the next year, then is graded once on the newest 4 months it never saw. A side that fails becomes <i>watching only</i>."),
+  gl("Live scorecard","Every A/B call, traded or not, is scored 48 hours later against what the price really did."),
+  gl("Self-calibration","If its calls hit less often than predicted, it raises its own bar; if more often, it relaxes a little. Size moves 0.5×–1.25× with the live edge."),
+  gl("Regime switch","Market regime from Bitcoin: rising or falling × calm or wild. Each side is switched on or off separately per regime once it has 15 live calls there."),
+  gl("Kill switch","After 20 trades, if live hits fall far below what it predicted, it pauses itself until retrained."),
+  gl("Weekly retraining","Retrains every week on the newest data, and whenever a new kind of evidence becomes available.")].join("")}</div>
+ <details class="card" style="margin-top:10px"><summary>The kinds of evidence, in plain words</summary><div class="gl" style="margin-top:8px">${[
+  gl("Positioning","How the crowd and the top traders are betting (long/short ratios, open interest)."),
+  gl("Flow","Who is aggressively buying or selling right now (taker volume)."),
+  gl("Trend","Where the price sits versus its recent ranges and averages."),
+  gl("Volatility","How wild the coin is moving versus normal."),
+  gl("Leverage","Futures vs spot price gap, and Hyperliquid's on-chain premium and funding: is leverage paying up?"),
+  gl("Real money","Spot market's share of trading and spot buyers vs sellers: is the move backed by real buyers?"),
+  gl("Mood","Bitcoin's move, Fear & Greed, Coinbase premium, options fear gauge, stablecoin inflows, time of day."),
+  gl("Invented","Measurements the AI designed itself, kept only while they prove useful."),
+  gl("Similar moments","The 50 most similar situations in 6 years: how often did they reach +2% first?")].join("")}</div></details>`})();
 // self-check panel + downloadable health report
 (()=>{const H=D.healthSummary;if(!H)return;const col={OK:"good",WARN:"warn",FAIL:"bad"},n=H.checks.filter(c=>c[1]=="OK").length;
  $("hcheck").innerHTML=`<details class="card" style="margin-top:10px" ${H.overall!="OK"?"open":""}><summary><b style="color:var(--${col[H.overall]})">● Self-check: ${H.overall}</b> <span class="mute">${n}/${H.checks.length} checks OK at ${esc(H.at)} UTC</span>
