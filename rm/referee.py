@@ -111,6 +111,11 @@ def train(J, log=print):
         pick = (Xprob >= breakeven(Xstp) + best_m) & (Xd <= sd["unfamiliar"])
         sd["exam"] = _policy(J, Xr[pick], Xret[pick], Xprob[pick], Xstp[pick])
         sd["exam"]["base"] = round(float(Xy.mean()), 3); sd["exam"]["n_candidates"] = int(len(Xr))
+        # go / no-go: a side trades with paper money only if it ALSO made money on the final exam with enough trades.
+        # Otherwise it only "shadows" (decisions are logged, not traded) until a weekly retrain passes.
+        ex = sd["exam"]; sd["live"] = (not sd["off"]) and (ex.get("trades") or 0) >= 15 and (ex.get("monthly") or -1) > 0
+        sd["why"] = ("trades" if sd["live"] else "no edge on the validation year" if sd["off"] else
+                     f"failed its final exam ({ex.get('trades')} trades, {ex.get('monthly')}%/month)" if (ex.get("trades") or 0) >= 15 else f"too few exam trades ({ex.get('trades')})")
         # EXIT model: from any hour, +1% more before -1% within 24h
         ey, _ = barrier(J, Dr, side, 0.01, np.full(len(Dr), 0.01), 24)
         allc = sorted({c for f, cols in fams.items() if f != "invented" for c in cols})      # invented measurements can retire: not in the exit model
@@ -130,7 +135,7 @@ def _policy(J, rows, rets, probs, stops):
     acct = np.maximum(r * expo, -MAX_MARGIN)                    # isolated margin: never more than the margin is lost
     days = max(1, (df.day.max() - df.day.min() + 1)); per_month = len(df) / days * 30.4
     g = float(np.mean(np.log1p(acct))); monthly = math.expm1(g * per_month)
-    return {"trades": int(len(df)), "win": round(float((r > 0).mean()) * 100, 1), "avg": round(float(r.mean()) * 100, 3), "perMonth": round(per_month, 1), "monthly": round(monthly * 100, 2)}
+    return {"trades": int(len(df)), "win": round(float((r > 0).mean()) * 100, 1), "avg": round(float(r.mean()) * 100, 3), "perMonth": round(float(per_month), 1), "monthly": round(float(monthly) * 100, 2)}
 
 def save(bundle):
     import joblib
@@ -183,7 +188,7 @@ def step(mem, J, now_iso, log=print, problems=None):
     R = mem.setdefault("referee", {}); B = load()
     A = R.get("acct")
     if A is None:
-        A = R["acct"] = {"born": now_iso, "start": START, "cash": START, "lastT": int(J.t.max()), "open": [], "closed": [], "curve": [[int(J.t.max()), START]],
+        A = R["acct"] = {"born": now_iso, "start": START, "cash": START, "lastT": int(J.t.max()) - H, "open": [], "closed": [], "curve": [[int(J.t.max()), START]],
                          "decisions": [], "paused": None}
     newest = int(J.t.max())
     # 1) manage open trades hour by hour on the new bars
@@ -202,7 +207,7 @@ def step(mem, J, now_iso, log=print, problems=None):
                     fp = {f: float(v[pos]) for f, v in S[name]["fams"].items()}; pr = float(S[name]["prob"][pos])
                     sup = [f for f, p in fp.items() if p >= sd["base"] + 0.03]; ag = [f for f, p in fp.items() if p <= sd["base"] - 0.03]
                     look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
-                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": bool(sd.get("off")),
+                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": bool(sd.get("off") or not sd.get("live", True)),
                                  "grade": None if sd.get("off") else grade(pr, fp, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])})
             look.sort(key=lambda x: x["prob"] - x["need"], reverse=True)
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": look[:8], "scanned": int(len(newest_rows))}
@@ -212,7 +217,7 @@ def step(mem, J, now_iso, log=print, problems=None):
                 if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
                 stp = float(stop_pct(J.dvol[i])); be = breakeven(stp); best = None
                 for name, sd in B["sides"].items():
-                    if sd.get("off"): continue
+                    if sd.get("off") or not sd.get("live", True): continue
                     g = grade(S[name]["prob"][pos], {f: v[pos] for f, v in S[name]["fams"].items()}, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])
                     hour = int(J.t[i] % 86400 // H)
                     if g == "B" and hour < 18: g = None
@@ -228,7 +233,7 @@ def step(mem, J, now_iso, log=print, problems=None):
         if act < exp - 0.20: A["paused"] = f"{now_iso}: live hit rate {act:.0%} far below the predicted {exp:.0%} over 20 trades; paused until retrained"
     A["closed"] = A["closed"][-300:]; A["curve"] = A["curve"][-1000:]; A["decisions"] = A["decisions"][-60:]
     R["model"] = None if B is None else {"trainedAt": B["trainedAt"], "secs": B.get("secs"), "coins": B.get("coins"),
-                                          **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off")} for n, sd in B["sides"].items()}}
+                                          **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
     log(f"referee: ${A.get('equity', A['cash'])} ({len(A['open'])} open, {len(A['closed'])} closed){' PAUSED' if A.get('paused') else ''}{' (no model yet)' if B is None else ''}")
 
 def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso):
@@ -308,6 +313,6 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     if time_left < 20 * 60: log(f"referee: training postponed ({time_left/60:.0f} min left in this run)"); R["trainNote"] = "postponed: not enough time this run"; return False
     t0 = time.time(); B = train(J, log); save(B)
     R["trainNote"] = f"trained {B['trainedAt']} UTC in {time.time()-t0:.0f}s on {B['coins']} coins"
-    R["trainings"] = (R.get("trainings") or [])[-20:] + [{"at": B["trainedAt"], **{n: {"exam": sd["exam"], "margin": sd["margin"], "off": sd["off"]} for n, sd in B["sides"].items()}}]
+    R["trainings"] = (R.get("trainings") or [])[-20:] + [{"at": B["trainedAt"], **{n: {"exam": sd["exam"], "margin": sd["margin"], "off": sd["off"], "live": sd["live"]} for n, sd in B["sides"].items()}}]
     if R.get("acct", {}).get("paused"): R["acct"]["paused"] = None          # a fresh model gets a fresh chance
     return True
