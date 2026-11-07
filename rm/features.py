@@ -1,7 +1,8 @@
 """Hourly panel: for every coin and hour, what was known at the START of that hour (features) and what happened
 next (labels). Features only use completed earlier hours. Every feature also gets a 'p_' version: its percentile
 within that coin's own last 90 days (0 = lowest, 1 = highest), so rules work across coins and years."""
-import os, numpy as np, pandas as pd
+import os, warnings, numpy as np, pandas as pd
+warnings.simplefilter("ignore", pd.errors.PerformanceWarning)
 from . import config as C
 
 H = 3600
@@ -29,7 +30,6 @@ DESC = {  # feature dictionary (also shown to the AI researcher)
     "dvol": "BTC options 'fear gauge' (Deribit DVOL, expected volatility)", "dvol24": "change of the BTC options fear gauge over 24h", "dvole": "ETH options fear gauge (DVOL)",
     "stab7": "stablecoin supply change over 7 days (%) = new money arriving", "stab30": "stablecoin supply change over 30 days (%)",
     # leverage vs real money (spot archive, Binance funding, Hyperliquid)
-    "fund": "Binance funding rate (what longs pay shorts every 8h; high = crowded longs)",
     "basis": "futures price vs spot price (%): positive = leverage paying up over real buyers", "basis24": "change of the futures-spot gap over 24h",
     "sshare": "spot's share of all trading, last 24h (real money vs leverage)", "sshare7": "change of spot's share over 7 days",
     "stimb24": "SPOT taker buy-minus-sell share, last 24h (real buyers hitting the market)",
@@ -95,10 +95,7 @@ def _coin(coin, blocks=()):
     trr = pd.concat([k.h - k.l, (k.h - c.shift()).abs(), (k.l - c.shift()).abs()], axis=1).max(axis=1); atr = _rma(trr, 14)
     pdi, mdi = 100 * _rma(pdm, 14) / atr, 100 * _rma(mdm, 14) / atr
     f["adx14"] = _rma(100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan), 14)
-    # leverage vs real money: Binance funding, spot market, Hyperliquid (each optional: missing data = NaN, never a crash)
-    fp = f"{C.DATA_DIR}/raw/{coin}_f.parquet"
-    try: f["fund"] = pd.read_parquet(fp).drop_duplicates("t").set_index("t").fr.sort_index().reindex(idx, method="ffill", tolerance=9 * H).values if os.path.exists(fp) else np.nan
-    except Exception: f["fund"] = np.nan
+    # leverage vs real money: spot market, Hyperliquid (Binance funding is left out: its archive is monthly, so it is missing live) (each optional: missing data = NaN, never a crash)
     sp = _optional(coin, "s", idx)
     if sp is not None:
         sc = sp.sc.where(sp.sc > 0); f["basis"] = (c / sc - 1) * 100; f["basis24"] = f.basis - f.basis.shift(24)
@@ -161,19 +158,21 @@ def build(coins=None, log=print, blocks=()):
         if btc is not None:
             b = btc.set_index("t")[["r1", "r24"]].reindex(f.t.values).values
             f["btc_r1"], f["btc_r24"] = b[:, 0], b[:, 1]
-    P = pd.concat(parts.values(), ignore_index=True)
-    P = P[P.t >= pd.Timestamp(C.START).timestamp() + 30 * 86400].copy()          # one solid block in memory (faster, no fragmentation)
+    P = pd.concat(parts.values(), ignore_index=True); del parts, btc          # memory: never hold the coins twice
+    P = P.loc[P.t.values >= pd.Timestamp(C.START).timestamp() + 30 * 86400]; P.reset_index(drop=True, inplace=True)
+    extra = {}
     for col in ("r24", "r168", "glob", "topPos", "oi24", "timb24", "vol24"):
-        P["x_" + col] = P.groupby("t")[col].rank(pct=True)
+        extra["x_" + col] = P.groupby("t")[col].rank(pct=True).astype("float32").values
     for col in ("btc_r1", "btc_r24"):
-        if col in P: P["p_" + col] = P.groupby("coin")[col].transform(lambda s: s.rolling(2160, min_periods=500).rank(pct=True))
+        if col in P: extra["p_" + col] = P.groupby("coin")[col].transform(lambda s: s.rolling(2160, min_periods=500).rank(pct=True)).astype("float32").values
     try:                                               # market-wide extras (Fear & Greed, Coinbase premium, options fear, stablecoins)
         from .fetch_ext import market_frame
-        btc = pd.read_parquet(f"{C.DATA_DIR}/raw/BTC_k.parquet").set_index("t").c if "BTC" in parts else None
-        M = market_frame(np.sort(P.t.unique()), btc)
-        if len(M.columns): P = P.merge(M, left_on="t", right_index=True, how="left")
+        bc = pd.read_parquet(f"{C.DATA_DIR}/raw/BTC_k.parquet").set_index("t").c if os.path.exists(f"{C.DATA_DIR}/raw/BTC_k.parquet") else None
+        M = market_frame(np.sort(P.t.unique()), bc)
+        for col in M.columns: extra[col] = M[col].reindex(P.t.values).astype("float32").values      # aligned by hour, no full-table merge copy
     except Exception as e: log(f"extra features skipped: {e}")
+    P = pd.concat([P, pd.DataFrame(extra, index=P.index)], axis=1); del extra
     num = [c for c in P.select_dtypes("float64").columns if c not in ("px", "_hi", "_lo", "_cl")]; P[num] = P[num].astype("float32")
-    os.makedirs(C.DATA_DIR, exist_ok=True); P.reset_index(drop=True).to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)
+    os.makedirs(C.DATA_DIR, exist_ok=True); P.to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)
     log(f"panel: {len(P):,} coin-hours, {P.coin.nunique()} coins, {pd.to_datetime(P.t.min(), unit='s').date()} → {pd.to_datetime(P.t.max(), unit='s')}")
     return P

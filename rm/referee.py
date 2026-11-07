@@ -25,11 +25,11 @@ FAMILIES = {
     "flow": ["p_timb1", "p_timb4", "p_timb24", "p_tk1", "p_tk4", "p_vr", "x_timb24"],
     "trend": ["p_r1", "p_r4", "p_r24", "p_r72", "p_r168", "p_pos24", "don20", "p_tr50", "emat", "emax", "rsi14", "bbz", "adx14", "streak", "x_r24", "x_r168"],
     "volatility": ["p_vol24", "p_volr", "x_vol24", "p_adx14", "p_bbz"],
-    "leverage": ["p_fund", "p_basis", "p_basis24", "p_hlprem", "p_hlprem24", "p_hlfund24"],
+    "leverage": ["p_basis", "p_basis24", "p_hlprem", "p_hlprem24", "p_hlfund24"],
     "realmoney": ["p_sshare", "p_sshare7", "p_stimb24", "p_basis"],
     "mood": ["p_btc_r1", "p_btc_r24", "p_fg", "p_fg7", "p_cbp", "p_cbp24", "p_dvol", "p_dvol24", "p_dvole", "p_stab7", "hour", "dow"],
 }
-KNN_FEATS = ["p_r4", "p_r24", "p_r72", "p_vol24", "p_oi24", "p_glob", "p_topPos", "p_timb4", "p_pos24", "p_btc_r24", "p_fund", "p_basis"]
+KNN_FEATS = ["p_r4", "p_r24", "p_r72", "p_vol24", "p_oi24", "p_glob", "p_topPos", "p_timb4", "p_pos24", "p_btc_r24", "p_basis"]
 
 def fam_cols(P):
     out = {f: [c for c in cols if c in P.columns] for f, cols in FAMILIES.items()}
