@@ -6,6 +6,7 @@ Automatic checks turn all of that into OK / WARN / FAIL lines, so problems are o
 import os, json, time, resource, datetime as dt, numpy as np, pandas as pd
 from . import config as C
 
+H = 3600
 def _utc(t): return dt.datetime.utcfromtimestamp(int(t)).strftime("%Y-%m-%d %H:%M") if t else None
 
 def _freshness(J):

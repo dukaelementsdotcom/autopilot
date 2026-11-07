@@ -167,7 +167,8 @@ def build(coins=None, log=print, blocks=()):
         if col in P: extra["p_" + col] = P.groupby("coin")[col].transform(lambda s: s.rolling(2160, min_periods=500).rank(pct=True)).astype("float32").values
     try:                                               # market-wide extras (Fear & Greed, Coinbase premium, options fear, stablecoins)
         from .fetch_ext import market_frame
-        bc = pd.read_parquet(f"{C.DATA_DIR}/raw/BTC_k.parquet").set_index("t").c if os.path.exists(f"{C.DATA_DIR}/raw/BTC_k.parquet") else None
+        b_ = P.loc[P.coin.values == "BTC", ["t", "_cl"]]          # BTC closes INCLUDING the live hours (the archive alone is a day behind)
+        bc = pd.Series(b_._cl.values, index=b_.t.values) if len(b_) else None
         M = market_frame(np.sort(P.t.unique()), bc)
         for col in M.columns: extra[col] = M[col].reindex(P.t.values).astype("float32").values      # aligned by hour, no full-table merge copy
     except Exception as e: log(f"extra features skipped: {e}")
