@@ -81,6 +81,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <h2>The referee: one trade a day, every kind of evidence</h2>
 <p class="help">One brain instead of many rules. For each of the ~40 most liquid coins it asks "will this reach +2% before its stop?", long and short. Seven independent kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +2% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
 <div id="rbox"></div>
+<h2>Monthly report</h2><div id="monthly"></div>
 <h2>$500 account: trades only the best rule</h2>
 <p class="help">It always trades the single rule with the best record on data it never saw while being chosen. It switches when a better one appears.</p>
 <div id="box"></div>
@@ -104,7 +105,6 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <h2>The analyst: why winners win, and which merges make sense</h2><div id="analyst"></div>
 <h2>Invented building blocks</h2><div id="blocks"></div>
 <h2>What it has learned</h2><div id="lessons"></div>
-<h2>Gambling lab: same trades, different betting systems</h2><div id="lab"></div>
 </section>
 
 <section data-tab="data">
@@ -220,6 +220,16 @@ const curveSvg=A=>{const p=A.curve;if(!p||p.length<2)return'<p class="mute">The 
  const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`};
 const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">${usd(A.equity??A.cash)}</span>`],["Since start",`<span style="color:var(--${(A.equity??A.cash)>=A.start?"good":"bad"})">${sgn(100*((A.equity??A.cash)/A.start-1))}</span>`],["Closed trades",A.closed.length?`${A.closed.length} · ${A.closed.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)],...(extra||[])].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`;
+const shadowBox=R=>{const S=R.shadow||{},O=R.override||{};const sides=["long","short"].filter(n=>S[n]||O[n]);
+ if(!sides.length)return'<p class="mute">Every grade-A/B call on both sides is scored 48 hours later against what the price really did. The first results appear about two days after the brain is trained. After 25 calls, this live record can switch a side on or off by itself.</p>';
+ return `<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +2% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
+  return `<tr><td><b>${n}</b></td><td>${x.n??0}</td><td style="color:var(--${(x.hit??0)>=(x.be??1)?"good":"bad"});font-weight:650">${x.hit!=null?Math.round(x.hit*100)+"%":"–"}</td><td>${x.pred!=null?Math.round(x.pred*100)+"%":"–"}</td><td>${x.be!=null?Math.round(x.be*100)+"%":"–"}</td><td>${x.avg!=null?(x.avg>0?"+":"")+x.avg+"%":"–"}</td><td>${x.open??0}</td><td>${o?`<span class="tag ${o.live?"champion":"dead"}">${o.live?"switched ON":"switched OFF"}</span> <span class="mute" style="font-size:12px">${esc(o.why)}</span>`:'<span class="mute">needs 25 calls</span>'}</td></tr>`}).join("")}</table></div>
+ ${(R.shadowRecent||[]).length?`<details style="margin-top:6px"><summary class="mute">Latest scored calls</summary><table>${R.shadowRecent.map(x=>`<tr><td>${when(x.t)}</td><td><b>${esc(x.coin)}</b> ${x.side}</td><td>grade ${x.grade} · ${Math.round(x.prob*100)}%</td><td style="color:var(--${x.y?"good":"bad"})">${x.y?"reached +2% first":"stop / no target"}</td><td>${x.ret>0?"+":""}${(x.ret*100).toFixed(2)}%</td></tr>`).join("")}</table></details>`:""}`};
+const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forEach(r=>{if(!r.exitT)return;const m=new Date(r.exitT*1000).toISOString().slice(0,7);const k=m+"|"+name;
+  const o=acc[k]||(acc[k]={m,name,n:0,w:0,usd:0,first:null});o.n++;if(r.usd>0)o.w++;o.usd+=r.usd;if(o.first==null||r.exitT<o.first.exitT)o.first=r})});
+ const rows=Object.values(acc).sort((a,b)=>b.m.localeCompare(a.m)||a.name.localeCompare(b.name));if(!rows.length)return'<p class="mute">The first month appears after the first closed trade.</p>';
+ return `<div class="scroll"><table><tr><th>month</th><th>account</th><th>trades</th><th>won</th><th>result</th><th>month return</th></tr>${rows.map(o=>{const startEq=(o.first.after??0)-(o.first.usd??0),ret=startEq>0?o.usd/startEq*100:null;
+  return `<tr><td>${o.m}</td><td>${esc(o.name)}</td><td>${o.n}</td><td>${o.w} (${Math.round(o.w/o.n*100)}%)</td><td style="color:var(--${o.usd>=0?"good":"bad"})">${o.usd>=0?"+":""}${usd(o.usd)}</td><td style="color:var(--${(ret??0)>=0?"good":"bad"});font-weight:650">${ret!=null?(ret>=0?"+":"")+ret.toFixed(1)+"%":"–"}</td></tr>`}).join("")}</table></div><p class="mute" style="font-size:12.5px">Goal for comparison: about +20% a month.</p>`};
 // ── the referee ────────────────────────────────────────────────────
 (()=>{const R=D.referee||{},A=R.acct,M=R.model;if(!A){$("rbox").innerHTML='<p class="mute">The referee starts on the next run.</p>';return}
  const ex=(n,s)=>s?`<tr><td><b>${n}</b>${s.live===false||s.off?` <span class="tag dead">watching only: ${esc(s.why||"no edge on the validation year")}</span>`:' <span class="tag champion">trading</span>'}</td><td>${s.exam?.trades??0}</td><td>${s.exam?.win??"–"}%</td><td>${s.exam?.avg!=null?(s.exam.avg>0?"+":"")+s.exam.avg+"%":"–"}</td><td>${s.exam?.perMonth??"–"}</td><td style="color:var(--${(s.exam?.monthly??0)>=0?"good":"bad"});font-weight:650">${s.exam?.monthly!=null?(s.exam.monthly>0?"+":"")+s.exam.monthly+"%":"–"}</td><td>${Math.round((s.base||0)*100)}%</td><td>+${Math.round((s.margin||0)*100)} pts</td></tr>`:"";
@@ -231,9 +241,11 @@ const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="a
  `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest 4 months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
   ${M?`<div class="scroll"><table><tr><th>side</th><th>trades</th><th>win</th><th>avg move</th><th>trades / month</th><th>account / month</th><th>base rate</th><th>safety margin</th></tr>${ex("Long",M.long)}${ex("Short",M.short)}</table></div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
  <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(hour of ${when(look.t)}, ${look.scanned} coins scanned)</span>`:""}</h3>${lk}
+ <h3>Live scorecard: every A/B call, traded or not</h3>${shadowBox(R)}
  <h3>Open positions</h3>${posList(A,10,"rbox")}
  <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
- <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(A.closed)}</summary>${histTable(A.closed.slice().reverse(),10)}</details>`})();
+ <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(A.closed)}</summary>${histTable(A.closed.slice().reverse(),10)}
+ ${A.closed.some(r=>r.pm)?`<h3 style="margin-top:12px">Post-mortems</h3>${A.closed.slice().reverse().filter(r=>r.pm).slice(0,15).map(r=>`<p style="font-size:13.5px"><b>${esc(r.coin)} ${r.side}</b> <span class="mute">${when(r.t)}</span>: ${esc(r.pm)}</p>`).join("")}`:""}</details>`})();
 // ── the $500 account ─────────────────────────────────────────────
 const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The account starts on the next run.</p>';return}
  const ret=100*(A.equity/A.start-1);const C=A.closed;
@@ -268,6 +280,7 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
+try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Best rule",D.account],["Team",D.team],["All-in",D.allin]])}catch(e){}
 // self-check panel + downloadable health report
 (()=>{const H=D.healthSummary;if(!H)return;const col={OK:"good",WARN:"warn",FAIL:"bad"},n=H.checks.filter(c=>c[1]=="OK").length;
  $("hcheck").innerHTML=`<details class="card" style="margin-top:10px" ${H.overall!="OK"?"open":""}><summary><b style="color:var(--${col[H.overall]})">● Self-check: ${H.overall}</b> <span class="mute">${n}/${H.checks.length} checks OK at ${esc(H.at)} UTC</span>
@@ -280,11 +293,6 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
  ${A.why?.length?"<h3 style='font-size:15px;margin:10px 0 4px'>Why the winners might win</h3><ul>"+A.why.map(w=>`<li><b>${esc(w.rule)}</b>: ${esc(w.reason)}</li>`).join("")+"</ul>":""}
  ${A.merges?.length?"<h3 style='font-size:15px;margin:10px 0 4px'>Merges it proposed (each is tested like any other idea)</h3><ul>"+A.merges.map(m=>`<li>${esc(m.why)}${m.valid?"":" <span class=mute>(could not be built, skipped)</span>"}</li>`).join("")+"</ul>":"<p class=mute>No merge made sense this time.</p>"}
  ${A.wild?.length?"<h3 style='font-size:15px;margin:10px 0 4px'>Wild ideas (gambling concepts, sentiment extremes)</h3><ul>"+A.wild.map(m=>`<li>${esc(m.why)}${m.valid?"":" <span class=mute>(could not be built, skipped)</span>"}</li>`).join("")+"</ul>":""}</div>`})();
-// gambling lab
-(()=>{const L=D.lab;if(!L){$("lab").innerHTML='<p class="mute">Appears once the best rule has 20+ finished trades.</p>';return}
- $("lab").innerHTML=`<p class="mute">Rule #${L.rule}'s ${L.n} trades (final exam + live), replayed with different betting systems: $500 start, ${D.lev}x leverage, one trade at a time. "Shuffled" = the same trades in 500 random orders, because the order of wins and losses is luck. A betting system can never change the odds of each trade; it only changes the ride.</p>
- <div class="scroll"><table><tr><th>betting system</th><th>real order: final $</th><th>worst drop</th><th>shuffled: typical final $</th><th>bad luck (5%)</th><th>good luck (95%)</th><th>chance of going broke</th></tr>
- ${L.rows.map(r=>`<tr><td>${esc(r.system)}</td><td>$${r.real} (${money(r.real-500)})</td><td>${r.realDD}%</td><td>$${r.median}</td><td>$${r.bad5}</td><td>$${r.good95}</td><td style="color:var(--${r.ruin>5?"bad":"ink"})">${r.ruin}%</td></tr>`).join("")}</table></div>`})();
 (()=>{const B=D.blocks||[],R=D.blocksRetired||[];
  $("blocks").innerHTML=`<p class="mute">The AI writes new measurements as small formulas (it can't run code). The machine checks and computes each one, tests it in up to 40 standard ways, keeps the ones that produce good rules and retires the useless ones after 60 tests. Exits are invented the same way: take-profit, stop-loss, trailing stop and holding time are dials the machine sets itself.</p>
  <details class="card" open><summary>In use: <b>${B.length}</b></summary>${B.length?"<div class=scroll><table><tr><th>name</th><th>formula</th><th>why</th><th>tests</th><th>best result</th></tr>"+B.map(b=>`<tr><td>${esc(b.name||b.id)}</td><td><code>${esc(b.expr)}</code></td><td>${esc(b.why)}</td><td>${b.tests||0}</td><td>${esc(b.best||"-")}</td></tr>`).join("")+"</table></div>":'<p class="mute">None yet: the first ones are invented at the next run.</p>'}</details>
@@ -365,7 +373,8 @@ def write(mem, J=None, log=print):
     if R.get("acct"):
         A = R["acct"]
         d["referee"] = {"acct": {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
-                                 "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote")}
+                                 "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote"),
+                         "shadow": R.get("shadowStats"), "override": R.get("override"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
     d["healthSummary"] = mem.get("healthSummary")
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
@@ -374,18 +383,6 @@ def write(mem, J=None, log=print):
     d["blocks"] = [{k: b.get(k) for k in ("id", "name", "expr", "why", "tests", "best", "at", "by")} for b in mem.get("blocks", [])]
     d["blocksRetired"] = (mem.get("blocks_retired") or [])[::-1][:40]
     d["twins"] = [{"text": t.get("plain") or t["text"], "of": t.get("twinOf")} for t in mem["tests"].values() if t["status"] == "twin"][:40]
-    d["lab"] = None
-    try:
-        from . import lab
-        lead = mem["tests"].get((mem.get("account") or {}).get("leader") or "")
-        if lead and J is not None:
-            tl = sorted([x for x in J.trade_log(lead["h"], J.hold0, limit=2000) if x["how"] != "open"], key=lambda x: x["t"])
-            seq, free = [], -1                     # one trade at a time: the next trade must start after the previous one ended
-            for x in tl:
-                if x["t"] >= free: seq.append(x["ret"]); free = x["exitT"]
-            res = lab.run(seq)
-            if res: d["lab"] = {**res, "rule": lead.get("no")}
-    except Exception as e: log(f"lab failed: {e}")
     blob = json.dumps(d, separators=(",", ":")).replace("</", "<\\/")
     with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(PAGE.replace("__DATA__", blob))
     with open(f"{C.DOCS_DIR}/summary.json", "w", encoding="utf-8") as f: json.dump(d, f)

@@ -207,18 +207,19 @@ def step(mem, J, now_iso, log=print, problems=None):
                     fp = {f: float(v[pos]) for f, v in S[name]["fams"].items()}; pr = float(S[name]["prob"][pos])
                     sup = [f for f, p in fp.items() if p >= sd["base"] + 0.03]; ag = [f for f, p in fp.items() if p <= sd["base"] - 0.03]
                     look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
-                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": bool(sd.get("off") or not sd.get("live", True)),
+                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd),
                                  "grade": None if sd.get("off") else grade(pr, fp, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])})
             look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))          # sides that may trade first, closest to a trade on top
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
+            _shadow_add(J, B, R, rows, S)
             for pos in np.argsort(J.t[rows], kind="stable"):
                 i = int(rows[pos]); day = int(J.t[i] // 86400)
                 if any(int(x["t"] // 86400) == day for x in A["open"] + A["closed"][-5:]) : continue      # max one new trade per UTC day
                 if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
                 stp = float(stop_pct(J.dvol[i])); be = breakeven(stp); best = None
                 for name, sd in B["sides"].items():
-                    if sd.get("off") or not sd.get("live", True): continue
+                    if not side_live(R, name, sd): continue
                     g = grade(S[name]["prob"][pos], {f: v[pos] for f, v in S[name]["fams"].items()}, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])
                     hour = int(J.t[i] % 86400 // H)
                     if g == "B" and hour < 18: g = None
@@ -226,6 +227,11 @@ def step(mem, J, now_iso, log=print, problems=None):
                 if best:
                     _open(J, B, A, i, best, stp, be, S, pos, V.get(i, []), now_iso); _manage(J, B, A["open"][-1], A, newest)
     A["lastT"] = max(A["lastT"], newest)
+    _shadow_resolve(J, R, newest)
+    for x in A["closed"][-10:]:
+        if "pm" not in x:
+            try: x["pm"] = postmortem(J, x)
+            except Exception as e: x["pm"] = f"(post-mortem unavailable: {e})"
     # 3) live marks + kill switch
     _mark(A)
     done = [x for x in A["closed"] if x.get("grade")]
@@ -316,4 +322,67 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     R["trainNote"] = f"trained {B['trainedAt']} UTC in {time.time()-t0:.0f}s on {B['coins']} coins"
     R["trainings"] = (R.get("trainings") or [])[-20:] + [{"at": B["trainedAt"], **{n: {"exam": sd["exam"], "margin": sd["margin"], "off": sd["off"], "live": sd["live"]} for n, sd in B["sides"].items()}}]
     if R.get("acct", {}).get("paused"): R["acct"]["paused"] = None          # a fresh model gets a fresh chance
+    R["override"] = {}                                                        # the new brain earns (or loses) its live permission afresh
     return True
+
+
+# ── shadow book: every A/B call on BOTH sides is scored against what really happened (live, out-of-sample) ────────────
+def side_live(R, name, sd):
+    """a side trades if its exams passed, unless its own live shadow record has since proven otherwise (either way)"""
+    ov = (R.get("override") or {}).get(name)
+    if ov is not None: return ov["live"]
+    return (not sd.get("off")) and sd.get("live", True)
+
+def _shadow_add(J, B, R, rows, S):
+    sh = R.setdefault("shadow", []); recent = {(x["coin"], x["side"]): x["t"] for x in sh[-400:]}
+    for pos in range(len(rows)):
+        i = int(rows[pos]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
+        for name, sd in B["sides"].items():
+            g = grade(S[name]["prob"][pos], {f: v[pos] for f, v in S[name]["fams"].items()}, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])
+            if not g: continue
+            key = (str(J.coin[i]), name)
+            if int(J.t[i]) - recent.get(key, -10 ** 12) < 24 * H: continue          # one call per coin and side per day
+            sh.append({"t": int(J.t[i]), "coin": key[0], "side": name, "grade": g, "prob": round(float(S[name]["prob"][pos]), 3), "be": round(be, 3), "stop": round(stp, 4)})
+            recent[key] = int(J.t[i])
+    del sh[:-3000]
+
+def _shadow_resolve(J, R, newest):
+    sh = R.get("shadow") or []
+    for x in sh:
+        if "y" in x or x["t"] + HORIZON * H > newest + H: continue
+        r = np.flatnonzero((J.coin == x["coin"]) & (J.t == x["t"]))
+        if not len(r): x["y"] = None; continue
+        y, ret = barrier(J, r[:1], 1 if x["side"] == "long" else -1, TARGET, np.array([x["stop"]]), HORIZON)
+        x["y"] = int(y[0]); x["ret"] = round(float(ret[0]), 4)
+    stats = {}
+    for name in ("long", "short"):
+        d = [x for x in sh if x["side"] == name and x.get("y") is not None]
+        if not d: continue
+        last = d[-60:]
+        stats[name] = {"n": len(d), "recentN": len(last), "hit": round(float(np.mean([x["y"] for x in last])), 3), "pred": round(float(np.mean([x["prob"] for x in last])), 3),
+                       "be": round(float(np.mean([x["be"] for x in last])), 3), "avg": round(float(np.mean([x["ret"] for x in last])) * 100, 3),
+                       "open": sum(1 for x in sh if x["side"] == name and "y" not in x)}
+    R["shadowStats"] = stats
+    # promotion / demotion on live evidence (at least 25 resolved calls)
+    ov = R.setdefault("override", {})
+    for name, st in stats.items():
+        if st["recentN"] < 25: continue
+        if st["avg"] > 0.15 and st["hit"] >= st["be"] + 0.03: ov[name] = {"live": True, "why": f"live shadow record: {st['recentN']} calls, hit {st['hit']:.0%} vs break-even {st['be']:.0%}, avg {st['avg']:+.2f}%"}
+        elif st["avg"] < 0 and st["hit"] < st["be"]: ov[name] = {"live": False, "why": f"live shadow record below break-even: {st['recentN']} calls, hit {st['hit']:.0%} vs {st['be']:.0%}, avg {st['avg']:+.2f}%"}
+
+def postmortem(J, x):
+    """plain-English account of one finished trade: what the evidence said, what the price did, and the verdict"""
+    T, O, Hh, Ll, Cc = J._bars(x["coin"]); sd = 1 if x["side"] == "LONG" else -1
+    a = int(np.searchsorted(T, x["t"])); b = int(np.searchsorted(T, x["exitT"] - H, side="right"))
+    if b <= a: return "too short to analyse"
+    e = x["entry"]; fav = (Hh[a:b].max() / e - 1) if sd > 0 else (1 - Ll[a:b].min() / e); adv = (1 - Ll[a:b].min() / e) if sd > 0 else (Hh[a:b].max() / e - 1)
+    k_f = int(np.argmax(Hh[a:b] if sd > 0 else -Ll[a:b])); hrs = (x["exitT"] - x["t"]) / H
+    card = x.get("card") or {}
+    said = f"It went {x['side'].lower()} on {x['coin']} with {round(x['prob']*100)}% odds (grade {x['grade']})" + (f"; for: {', '.join(card.get('for', []))}" if card.get("for") else "") + "."
+    did = f" Best point {fav*100:+.1f}% after {k_f+1}h, worst {-adv*100:.1f}%; closed after {hrs:.0f}h ({x['how']}), {x['usd']:+.2f} USD."
+    if x["usd"] > 0 and fav > 0.04: v = " Verdict: right call; the move kept going, exits could have held longer."
+    elif x["usd"] > 0: v = " Verdict: right call, profit taken."
+    elif fav >= 0.015: v = " Verdict: the idea worked for a while (nearly reached the target) but reversed; timing/exit issue more than a wrong read."
+    elif adv > x.get("stopPct", 0.02) and k_f < 2: v = " Verdict: wrong read; price went against it almost immediately."
+    else: v = " Verdict: no follow-through; the evidence did not play out."
+    return said + did + v

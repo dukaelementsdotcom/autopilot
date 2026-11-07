@@ -182,7 +182,7 @@ def run(budget=None, log=print):
             if len(queue) > n0: kids[pk] = kids.get(pk, 0) + 1
     def src_lists():
         for name, sp, cap, src_ in (("bcur", ideas.bigmove_space(cols), 0.15, "big-move"), ("rcur", ideas.rotation_space(cols), 0.08, "rotation"),
-                                    ("ccur", ideas.classic_space(cols), 0.12, "classic"), ("scur", ideas.structural_space(), 0.10, "structural")):
+                                    ("ccur", ideas.classic_space(cols), 0.12, "classic")):          # pairs/carry retired: they cannot reach the goal
             n0 = len(queue); mem.setdefault(name, 0)
             while len(queue) - n0 < budget * cap and mem[name] < len(sp):
                 h, why = sp[mem[name]]; add(h, src_, 0, why); mem[name] += 1
