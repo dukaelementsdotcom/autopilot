@@ -17,7 +17,7 @@ async function get(path, params, tries = 3) {
   const url = BASE + path + "?" + new URLSearchParams(params).toString();
   for (let i = 0; i < tries; i++) {
     try {
-      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 12000);
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 25000);
       const r = await fetch(url, { signal: ctl.signal, headers: { "User-Agent": "research-machine-relay/1.0" } });
       clearTimeout(tm);
       if (r.ok) return await r.json();
@@ -64,7 +64,8 @@ module.exports = async (req, res) => {
   async function worker() {                            // at most 4 coins at once (Binance rate limits)
     while (i < coins.length) { const c = coins[i++]; try { out.coins[c] = await coin(c, npages, kl); } catch (e) { out.errors[c] = String(e.message || e).slice(0, 120); } }
   }
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  const nw = Math.max(1, Math.min(4, parseInt(process.env.RELAY_WORKERS || "4", 10) || 4));   // small hosts: fewer at once
+  await Promise.all(Array.from({ length: nw }, worker));
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
   res.setHeader("Content-Type", "application/json");
   res.statusCode = 200; res.end(JSON.stringify(out));      // plain Node API: works on Vercel and on any Node host

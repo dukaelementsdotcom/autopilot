@@ -148,6 +148,20 @@ def update_live(log=print):
                 d.setdefault("via", {})[url.split("/")[2]] = d.get("via", {}).get(url.split("/")[2], 0) + 1; last = None; break
             except Exception as e: last = f"{url.split('/')[2]}: {str(e)[:120]}"
         if last: d["errors"]["batch " + part[0]] = last
+    # coins that failed inside an otherwise good answer get one more try, in a small batch (any relay)
+    retry = [c for c in coins if c not in d["coins"]]
+    for i in range(0, len(retry), 6):
+        part = retry[i:i + 6]
+        for url in urls:
+            try:
+                r = S.get(url, params={"coins": ",".join(part), "pages": npages, "kl": 72}, timeout=90); r.raise_for_status(); x = r.json()
+                got = x.get("coins", {})
+                if got:
+                    d["coins"].update(got)
+                    for c in got: d["errors"].pop(c, None)
+                    if all(c in got for c in part): break
+            except Exception: pass
+    d["errors"] = {k: v for k, v in d["errors"].items() if k not in d["coins"]}
     if not d["coins"]: raise RuntimeError(f"relay returned nothing: {list(d['errors'].values())[:2]}")
     os.makedirs(f"{C.DATA_DIR}/live", exist_ok=True); info = {"region": d.get("region"), "errors": d.get("errors", {}), "coins": 0, "check": {}}
     for c, v in d.get("coins", {}).items():
