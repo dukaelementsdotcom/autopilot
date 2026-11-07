@@ -169,9 +169,9 @@ def grade(prob, fams, base, margin, be, unfamiliar):
 
 def liquid_coins(J, n=TOP_LIQUID):
     P = J.P
-    if "qv24" not in P.columns: return set(P.coin.unique())
+    if "_qv24" not in P.columns: return set(P.coin.unique()) - set(C.DEAD)
     recent = P[P.t >= J.t.max() - 30 * 86400]
-    s = recent.groupby("coin").qv24.median().drop(labels=list(C.DEAD), errors="ignore").sort_values(ascending=False)
+    s = recent.groupby("coin")["_qv24"].median().drop(labels=list(C.DEAD), errors="ignore").sort_values(ascending=False)
     return set(s.index[:n])
 
 def votes(mem, J, rows):
@@ -209,8 +209,9 @@ def step(mem, J, now_iso, log=print, problems=None):
                     look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
                                  "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": bool(sd.get("off") or not sd.get("live", True)),
                                  "grade": None if sd.get("off") else grade(pr, fp, sd["base"], sd["margin"], be, S[name]["unfamiliar"][pos])})
-            look.sort(key=lambda x: x["prob"] - x["need"], reverse=True)
-            R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": look[:8], "scanned": int(len(newest_rows))}
+            look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))          # sides that may trade first, closest to a trade on top
+            keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
+            R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
             for pos in np.argsort(J.t[rows], kind="stable"):
                 i = int(rows[pos]); day = int(J.t[i] // 86400)
                 if any(int(x["t"] // 86400) == day for x in A["open"] + A["closed"][-5:]) : continue      # max one new trade per UTC day

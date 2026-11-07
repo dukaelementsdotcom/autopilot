@@ -130,7 +130,7 @@ def build(coins=None, log=print, blocks=()):
             b = btc.set_index("t")[["r1", "r24"]].reindex(f.t.values).values
             f["btc_r1"], f["btc_r24"] = b[:, 0], b[:, 1]
     P = pd.concat(parts.values(), ignore_index=True)
-    P = P[P.t >= pd.Timestamp(C.START).timestamp() + 30 * 86400]
+    P = P[P.t >= pd.Timestamp(C.START).timestamp() + 30 * 86400].copy()          # one solid block in memory (faster, no fragmentation)
     for col in ("r24", "r168", "glob", "topPos", "oi24", "timb24", "vol24"):
         P["x_" + col] = P.groupby("t")[col].rank(pct=True)
     for col in ("btc_r1", "btc_r24"):

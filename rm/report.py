@@ -69,6 +69,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 
 <section data-tab="home">
 <div class="card story" id="story" style="margin-top:12px"></div>
+<div id="hcheck"></div>
 <h2>Signals now</h2><div id="signals"></div>
 <div class="grid" style="margin-top:12px" id="kpi"></div>
 <h2>The paper accounts</h2>
@@ -267,6 +268,12 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
+// self-check panel + downloadable health report
+(()=>{const H=D.healthSummary;if(!H)return;const col={OK:"good",WARN:"warn",FAIL:"bad"},n=H.checks.filter(c=>c[1]=="OK").length;
+ $("hcheck").innerHTML=`<details class="card" style="margin-top:10px" ${H.overall!="OK"?"open":""}><summary><b style="color:var(--${col[H.overall]})">● Self-check: ${H.overall}</b> <span class="mute">${n}/${H.checks.length} checks OK at ${esc(H.at)} UTC</span>
+  <a href="health.json" download="health-${esc(H.at.replace(/[ :]/g,"-"))}.json" style="float:right" onclick="event.stopPropagation()">⬇ Download health report</a></summary>
+  <table style="margin-top:8px">${H.checks.map(c=>`<tr><td style="color:var(--${col[c[1]]});font-weight:650;width:60px">${c[1]}</td><td><b>${esc(c[0])}</b><div class="mute" style="font-size:12.5px">${esc(c[2])}</div></td></tr>`).join("")}</table>
+  <p class="mute" style="font-size:12.5px">The health report holds the last ~4 days of runs (timing, memory, data freshness per coin, relay and AI answers, problems, accounts). After a night away, download it and send it to Claude to check.</p></details>`})();
 // analyst
 (()=>{const A=D.analyst;if(!A){$("analyst").innerHTML='<p class="mute">The analyst starts once there are at least 2 winning rules.</p>';return}
  $("analyst").innerHTML=`<div class="card"><div class="mute">Written ${esc(A.at)} UTC by ${esc(A.model)}</div>
@@ -359,6 +366,7 @@ def write(mem, J=None, log=print):
         A = R["acct"]
         d["referee"] = {"acct": {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
                                  "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote")}
+    d["healthSummary"] = mem.get("healthSummary")
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
     try: d["signals"] = _signals(mem, J) if J is not None else []

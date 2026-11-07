@@ -189,7 +189,13 @@ def _groq_models(key):
     except Exception: pass
     return ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]
 
+AI_LOG = []          # every AI call this run: model, ok, error (goes into the health report)
+
 def _groq(messages, max_tokens=2500):
+    out = _groq_call(messages, max_tokens)
+    AI_LOG.append({"ok": out[0] is not None, "model" if out[0] is not None else "error": str(out[1])[:160]}); return out
+
+def _groq_call(messages, max_tokens=2500):
     key = os.environ.get("GROQ_API_KEY")
     if not key: return None, "no GROQ_API_KEY"
     last = ""

@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np, pandas as pd
-from . import config as C, fetch, fetch_ext, features, ideas, report, account, referee
+from . import config as C, fetch, fetch_ext, features, ideas, report, account, referee, health
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -92,11 +92,14 @@ def run(budget=None, log=print):
         if last and (dt.datetime.utcnow() - dt.datetime.strptime(last, "%Y-%m-%d %H:%M")).total_seconds() < 25 * 60:
             log("another run finished less than 25 minutes ago: skipping this one"); return None
     mem = load_memory(); seen = set(mem["seen"]); events = []; certified_now = []; problems = []
+    timings = {}
     def safe(name, fn, *a, **k):
         """one broken part must never stop the whole run: log it, show it on the dashboard, carry on"""
+        ts = time.time()
         try: return fn(*a, **k)
         except Exception as e:
             import traceback; msg = f"{name}: {type(e).__name__}: {str(e)[:160]}"; problems.append(msg); log("   ! " + msg); log(traceback.format_exc()[-600:])
+        finally: timings[name] = timings.get(name, 0) + round(time.time() - ts, 1)
     # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
     log("── 1/6 data"); safe("archive download", fetch.update, log=log); safe("market extras", fetch_ext.update, log=log)
@@ -104,7 +107,7 @@ def run(budget=None, log=print):
     mem["live"] = {"at": now_iso(), **{k: v for k, v in live.items() if k != "errors"}, "errors": len(live.get("errors", {}))}
     blocks = mem.setdefault("blocks", [])
     for b in blocks: DESC[b["id"]] = f"invented measurement '{b.get('name') or b['id']}' = {b['expr']}"
-    P = features.build(log=log, blocks=blocks); J = Judge(P); cols = J.cols
+    ts = time.time(); P = features.build(log=log, blocks=blocks); J = Judge(P); cols = J.cols; timings["panel"] = round(time.time() - ts, 1)
     log(f"windows: discovery < {dt.datetime.utcfromtimestamp(J.val0).date()} ≤ validation < {dt.datetime.utcfromtimestamp(J.hold0).date()} ≤ holdout ≤ {dt.datetime.utcfromtimestamp(J.t_end).date()}")
 
     log("── 2/6 live review of champions")
@@ -252,7 +255,10 @@ def run(budget=None, log=print):
     run_rec["problems"] = problems
     mem["runs"] = [run_rec] + mem["runs"][:60]
     mem["events"] = (run_rec["events"] + mem["events"])[:60]
-    log("── 6/6 report"); save_memory(mem)
+    log("── 6/6 report")
+    ai = ideas.AI_LOG; mem["aiStatus"] = {"calls": len(ai), "ok": (all(x["ok"] for x in ai) if ai else True), "last": ai[-3:]} if ai else mem.get("aiStatus")
+    safe("health report", health.write, mem, J, timings, problems, live, t0, log=log)
+    save_memory(mem)
     if safe("dashboard", report.write, mem, J, log=log) is None and problems and problems[-1].startswith("dashboard"):
         safe("simple dashboard", report.write_minimal, mem, problems)
     safe("alert", report.alert, certified_now, log=log)
