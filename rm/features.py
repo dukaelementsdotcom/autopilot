@@ -112,11 +112,18 @@ def _coin(coin, blocks=()):
     f.loc[~alive, dead_cols] = np.nan              # nothing may be learned from, or traded in, an hour with no market
     f["coin"] = coin; f["t"] = idx; f["px"] = k.o.values
     f["_hi"], f["_lo"], f["_cl"] = k.h.values, k.l.values, k.c.values      # this hour's bar: ONLY for replaying exits, never a feature
+    f["_qv24"] = (k.v * k.c).rolling(24, min_periods=12).sum().shift(1).values   # dollar volume of the last 24h: ONLY for picking liquid coins
+    keep64 = ("px", "_hi", "_lo", "_cl", "t")
+    for col in f.columns:                          # float32 right away: ~50 coins x 6 years must fit comfortably in memory
+        if col not in keep64 and f[col].dtype == "float64": f[col] = f[col].astype("float32")
     return f
 
 def build(coins=None, log=print, blocks=()):
     coins = [c for c in (coins or C.COINS) if os.path.exists(f"{C.DATA_DIR}/raw/{c}_k.parquet")]
-    parts = {c: _coin(c, blocks) for c in coins}
+    parts = {}
+    for c in coins:                                   # one damaged coin must never stop the whole machine
+        try: parts[c] = _coin(c, blocks)
+        except Exception as e: log(f"panel: {c} skipped ({type(e).__name__}: {e})")
     btc = parts.get("BTC")
     for c, f in parts.items():
         if btc is not None:

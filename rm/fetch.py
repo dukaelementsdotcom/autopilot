@@ -64,9 +64,19 @@ def update(coins=None, today=None, log=print):
     coins = coins or C.COINS; today = today or dt.datetime.utcnow().date()
     os.makedirs(f"{C.DATA_DIR}/raw", exist_ok=True)
     mpath = f"{C.DATA_DIR}/raw/manifest.json"
-    man = json.load(open(mpath)) if os.path.exists(mpath) else {}
+    try: man = json.load(open(mpath)) if os.path.exists(mpath) else {}
+    except Exception: man = {}                              # damaged manifest: files are re-checked (existing rows are kept, duplicates dropped)
     start = dt.date.fromisoformat(C.START); jobs = []
     last_full_month = (today.replace(day=1) - dt.timedelta(days=1)).replace(day=1)
+    import pyarrow.parquet as pq
+    for coin in coins:                                     # health check: a damaged file is deleted and downloaded again
+        for part, pre in (("k", ("km", "kd")), ("m", ("m",)), ("f", ("f",))):
+            path = f"{C.DATA_DIR}/raw/{coin}_{part}.parquet"
+            if os.path.exists(path):
+                try: pq.read_metadata(path)
+                except Exception:
+                    log(f"fetch: {path} damaged, re-downloading"); os.remove(path)
+                    if coin in man: man[coin]["done"] = [x for x in man[coin]["done"] if not any(x.startswith(q) and x[len(q):len(q)+1].isdigit() for q in pre)]
     for coin in coins:
         M = man.setdefault(coin, {"done": [], "miss": {}})
         done = set(M["done"])
@@ -97,11 +107,17 @@ def update(coins=None, today=None, log=print):
     for (coin, part), dfs in got.items():
         path = f"{C.DATA_DIR}/raw/{coin}_{part}.parquet"
         new = pd.concat(dfs)
-        if os.path.exists(path): new = pd.concat([pd.read_parquet(path), new])
+        if os.path.exists(path):
+            try: new = pd.concat([pd.read_parquet(path), new])
+            except Exception as e:             # damaged file: start this coin's part again from scratch (re-downloaded next run)
+                log(f"fetch: {path} unreadable ({e}); rebuilding it"); pre = {"k": ("km", "kd"), "m": ("m",), "f": ("f",)}[part]
+                man[coin]["done"] = [x for x in man[coin]["done"] if not any(x.startswith(p) and x[len(p):len(p)+1].isdigit() for p in pre)]
         new = new.drop_duplicates("t", keep="last").sort_values("t").reset_index(drop=True)
-        new.to_parquet(path, index=False)
+        new.to_parquet(path + ".tmp", index=False); os.replace(path + ".tmp", path)      # atomic: a killed run never leaves half a file
     for coin in coins: man[coin]["done"] = sorted(set(man[coin]["done"]))
-    json.dump(man, open(mpath, "w"))
+    json.dump(man, open(mpath + ".tmp", "w")); os.replace(mpath + ".tmp", mpath)
+    # changes only when real files were added (not on every retry count): the workflow saves the cache only when this changes
+    open(f"{C.DATA_DIR}/raw/version.txt", "w").write(str(sum(len(man[c]["done"]) for c in man)))
     log(f"fetch: {sum(len(v) for v in got.values())} files added")
     return len(jobs)
 
@@ -113,12 +129,20 @@ def update_live(log=print):
     url = C.RELAY_URL
     if not url: log("live: no relay configured (archive only)"); return {}
     coins = [c for c in C.COINS if c not in C.DEAD]
-    r = S.get(url, params={"coins": ",".join(coins)}, timeout=120); r.raise_for_status(); d = r.json()
+    d = {"coins": {}, "errors": {}, "region": None}
+    for i in range(0, len(coins), 17):                # small batches: each relay call must finish well inside Vercel's 60 s limit
+        part = coins[i:i + 17]
+        try:
+            r = S.get(url, params={"coins": ",".join(part)}, timeout=90); r.raise_for_status(); x = r.json()
+            d["coins"].update(x.get("coins", {})); d["errors"].update(x.get("errors", {})); d["region"] = x.get("region") or d["region"]
+        except Exception as e:
+            d["errors"]["batch " + part[0]] = str(e)[:160]
+    if not d["coins"]: raise RuntimeError(f"relay returned nothing: {list(d['errors'].values())[:2]}")
     os.makedirs(f"{C.DATA_DIR}/live", exist_ok=True); info = {"region": d.get("region"), "errors": d.get("errors", {}), "coins": 0, "check": {}}
     for c, v in d.get("coins", {}).items():
         k = pd.DataFrame(v.get("k", []), columns=["t", "o", "h", "l", "c", "v", "tb"])
         m5 = pd.DataFrame(v.get("m", []), columns=["t5", "oi", "glob", "topAcc", "topPos", "tk"])
-        if len(k): k.astype({"t": "int64"}).to_parquet(f"{C.DATA_DIR}/live/{c}_k.parquet", index=False)
+        if len(k): k.astype({"t": "int64"}).to_parquet(f"{C.DATA_DIR}/live/{c}_k.parquet.tmp", index=False); os.replace(f"{C.DATA_DIR}/live/{c}_k.parquet.tmp", f"{C.DATA_DIR}/live/{c}_k.parquet")
         if len(m5):   # exactly the archive's hourly aggregation: last 5-minute reading of each hour (taker ratio: hourly mean)
             m5 = m5.sort_values("t5"); m5["t"] = (m5.t5 // 3600 * 3600).astype("int64"); g = m5.groupby("t")
             m = pd.DataFrame({"oi": g.oi.last(), "glob": g.glob.last(), "topAcc": g.topAcc.last(), "topPos": g.topPos.last(), "tk": g.tk.mean()}).reset_index()

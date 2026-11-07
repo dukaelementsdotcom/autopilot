@@ -42,6 +42,25 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .story{font-size:17px;line-height:1.6}.story b{font-weight:650}
 .help{font-size:13px;color:var(--mute);margin:-4px 0 10px}
 .mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+/* exchange-style positions */
+.pos{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0;position:relative;overflow:hidden}
+.pos:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sidec)}
+.pos.L{--sidec:var(--good)}.pos.S{--sidec:var(--bad)}
+.ph{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}.sym{font-weight:700;font-size:16px;letter-spacing:.2px}.sym small{font-weight:500;color:var(--mute);font-size:12px;margin-left:2px}
+.bdg{font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:6px;background:var(--soft);color:var(--mute)}
+.bdg.L{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.bdg.S{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.bdg.A{background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc)}
+.pnlbox{margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}.pnlbox .v{font-size:19px;font-weight:700;display:block;line-height:1.2}.pnlbox .r{font-size:12.5px;font-weight:600}
+.pg{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px 14px;margin-top:10px}
+.pg div span{display:block;font-size:11.5px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}.pg div b{font-weight:600;font-variant-numeric:tabular-nums;font-size:14px}
+.liq b{color:var(--warn)}
+.track{margin-top:12px}.rail{position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--bad) 35%,transparent),var(--soft) 50%,color-mix(in srgb,var(--good) 35%,transparent))}
+.rail .ent{position:absolute;top:-3px;width:2px;height:14px;background:var(--mute)}.rail .mk{position:absolute;top:-4px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--card);border:3px solid var(--ink);transition:left .6s}
+.tl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mute);margin-top:5px;font-variant-numeric:tabular-nums}
+.ev{font-size:12.5px;color:var(--mute);margin-top:8px}.ev b{color:var(--ink);font-weight:600}
+.hist td,.hist th{white-space:nowrap}.hist th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mute);font-weight:600}
+.fam{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:99px;margin:1px 2px;border:1px solid var(--line)}.fam.y{color:var(--good);border-color:var(--good)}.fam.n{color:var(--bad);border-color:var(--bad)}
+.meter{height:6px;background:var(--soft);border-radius:99px;position:relative;min-width:90px}.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--acc)}.meter u{position:absolute;top:-3px;width:2px;height:12px;background:var(--ink)}
 </style></head><body><main>
 <div class="top"><div><h1>Research Machine</h1><div class="mute" id="sub" style="font-size:13px"></div></div>
 <div class="pill" id="statuspill"><span class="dot" id="sdot"></span><span id="stext"></span><span class="mute">·</span><span>next run in <span class="cd" id="cd">–</span></span></div></div>
@@ -52,12 +71,15 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <div class="card story" id="story" style="margin-top:12px"></div>
 <h2>Signals now</h2><div id="signals"></div>
 <div class="grid" style="margin-top:12px" id="kpi"></div>
-<h2>The two paper accounts</h2>
+<h2>The paper accounts</h2>
 <div class="mini" id="minis"></div>
 <h2>What happened recently</h2><div id="events"></div>
 </section>
 
 <section data-tab="accounts">
+<h2>The referee: one trade a day, every kind of evidence</h2>
+<p class="help">One brain instead of many rules. For each of the ~40 most liquid coins it asks "will this reach +2% before its stop?", long and short. Seven independent kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +2% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
+<div id="rbox"></div>
 <h2>$500 account: trades only the best rule</h2>
 <p class="help">It always trades the single rule with the best record on data it never saw while being chosen. It switches when a better one appears.</p>
 <div id="box"></div>
@@ -98,7 +120,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <section data-tab="help">
 <h2>How to read this page</h2>
 <div class="card">
-<p><b>What the machine does:</b> every hour it invents and tests trading ideas on 6 years of hourly data for 21 coins. Nearly all of them fail. The few that pass become <b>champions</b> and are traded with <b>paper money</b> (never real money).</p>
+<p><b>What the machine does:</b> every hour it invents and tests trading ideas on 6 years of hourly data for about 50 coins. Nearly all of them fail. The few that pass become <b>champions</b> and are traded with <b>paper money</b> (never real money).</p>
 <p><b>The three exams:</b> (1) <i>discovery</i>: the older years, where ideas may be found; (2) <i>validation</i>: the next year, which the idea must also win, and beat random trading; (3) <i>final exam</i>: the newest 4 months, used once. Only then is a rule a champion.</p>
 <p><b>Live vs exam trades:</b> <i>exam</i> trades happened before a rule was promoted (a test). <i>Live</i> trades happened after: the real proof.</p>
 <p><b>"t" numbers:</b> how far a result is from luck. Around 2 is "probably not luck", 3+ is strong. Win rate alone can fool you.</p>
@@ -132,7 +154,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
   <div class="big">${fmtUsd(A.equity)}</div><div class="mute" style="font-size:13px">${cl.length} closed · ${w} won · ${cl.length-w} lost · ${A.open.length} open</div>
   ${path?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;margin-top:6px"><path d="${path}" fill="none" stroke="var(--${p[p.length-1][1]>=A.start?"good":"bad"})" stroke-width="2"/></svg><div class="mute" style="font-size:12px">closed trades only${A.open.length?"; open trades are counted in the value above":""}</div>`:'<div class="mute" style="font-size:13px;margin-top:6px">Chart appears after the first closed trade.</div>'}
   <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">See trades →</a></div>`};
- $("minis").innerHTML=mini(A1,"Best-rule account (10x)")+mini(A2,"Team account (10x)")+mini(D.allin,"All-in account ($700, no leverage)")})();
+ $("minis").innerHTML=mini(D.referee&&D.referee.acct,"The referee (1 trade/day, 10x)")+mini(A1,"Best-rule account (10x)")+mini(A2,"Team account (10x)")+mini(D.allin,"All-in account ($700, no leverage)")})();
 (()=>{const fmt=x=>x==null?"–":(x>=100?x.toLocaleString(undefined,{maximumFractionDigits:2}):Number(x.toPrecision(5)));const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"–";
  const S=D.signals||[],L=D.live||{};const age=D.newest?Math.round((Date.now()/1000-D.newest-3600)/60):null;
  const fresh=L.coins?`Live data from Binance (via the Frankfurt relay), newest complete hour ${age!=null?age+" min ago":"?"}.`:`<span style="color:var(--warn)">The live relay is not connected yet: data is about a day behind, so these signals are too late to trade.</span>`;
@@ -170,39 +192,74 @@ const stats=a=>{const c=a.filter(r=>r.usd!=null);const w=c.filter(r=>r.usd>0),l=
  const best=c.length?Math.max(...c.map(r=>r.usd)):0,worst=c.length?Math.min(...c.map(r=>r.usd)):0;
  return c.length?`<b>${c.length} trades</b> · ${w.length} won · ${l.length} lost · ${Math.round(100*w.length/c.length)}% win · total ${money(tot)} · avg ${money(tot/c.length)} · best ${money(best)} · worst ${money(worst)}`:"no trades yet"};
 $("rsum").innerHTML=`Show / hide trades: `+stats(T.filter(r=>r.type!="open"));
+// ── exchange-style positions (shared by every account) ─────────────
+const fx=x=>{if(x==null||!isFinite(x))return"–";const a=Math.abs(x);return a>=1000?x.toLocaleString(undefined,{maximumFractionDigits:2}):a>=1?(+x.toFixed(4)).toString():(+x.toPrecision(4)).toString()};
+const usd=x=>(x<0?"−":"")+"$"+Math.abs(x).toFixed(2);
+const age=t=>{const h=(Date.now()/1000-t)/3600;return h<1?Math.max(1,Math.round(h*60))+"m":h<48?h.toFixed(1)+"h":(h/24).toFixed(1)+"d"};
+const posOf=(p,lev)=>{const L=p.lev||lev,sd=p.side=="LONG"?1:-1,avg=p.avgEntry||p.entry,notional=p.notional||(p.margin*L);
+ return {...p,L,sd,avg,notional,tp:p.target??p.tp,sl:p.stop??p.sl,mark:p.mark||p.livePx||avg,liq:L>1?avg*(1-sd*(1/L-0.005)):null}};
+const pnlOf=(q,px)=>Math.max(-q.margin,q.notional*(q.sd*(px/q.avg-1))-q.notional*0.001);
+const railPos=(q,px)=>{if(!q.tp||!q.sl)return null;const f=q.sd>0?(px-q.sl)/(q.tp-q.sl):(q.sl-px)/(q.sl-q.tp);return Math.max(0,Math.min(1,f))};
+const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.margin*100,c=pn>=0?"good":"bad",m=railPos(q,q.mark),en=railPos(q,q.avg);
+ const tpTxt=q.tp?fx(q.tp)+(q.half?" ✓ half taken":""):(q.trail?`trailing ${(q.trail*100).toFixed(1)}%`:"–");
+ return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}">
+ <div class="ph"><span class="sym">${esc(q.coin)}USDT<small>Perp</small></span><span class="bdg ${q.sd>0?"L":"S"}">${q.sd>0?"Long":"Short"} ${q.L}x</span><span class="bdg">${q.L>1?"Isolated":"Spot-like"}</span>${q.grade?`<span class="bdg A" title="model probability of reaching +2% before the stop">Grade ${q.grade} · ${Math.round(q.prob*100)}%</span>`:""}${q.rule?`<span class="bdg">Rule #${esc(q.rule)}</span>`:""}${q.added?'<span class="bdg A">+ added</span>':""}
+ <span class="pnlbox"><span class="v upnl" style="color:var(--${c})">${pn>=0?"+":""}${usd(pn)}</span><span class="r roe" style="color:var(--${c})">ROE ${roe>=0?"+":""}${roe.toFixed(2)}%</span></span></div>
+ <div class="pg"><div><span>Size</span><b>${fx(q.notional/q.avg)} ${esc(q.coin)}</b><div class="mute" style="font-size:12px">${usd(q.notional)}</div></div>
+ <div><span>Entry price</span><b>${fx(q.avg)}</b></div><div><span>Mark price</span><b class="mark">${fx(q.mark)}</b></div>
+ <div class="liq"><span>Liq. price</span><b>${q.liq?fx(q.liq):"none"}</b></div><div><span>Margin</span><b>${usd(q.margin)}</b></div>
+ <div><span>TP / SL</span><b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b></div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
+ ${m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
+ ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +2% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
+const posList=(A,lev,acct)=>A.open.length?A.open.map(p=>posCard(p,lev,acct)).join(""):'<div class="card mute">No open positions.</div>';
+const histTable=(C,lev)=>C.length?`<div class="scroll"><table class="hist"><tr><th>Symbol</th><th>Entry → Exit</th><th>Size</th><th>Realized PnL</th><th>ROE</th><th>How it ended</th><th>Opened</th><th>Closed</th></tr>${C.map(r=>{const L=r.lev||lev,sd=r.side=="LONG"?1:-1,n=r.notional||(r.margin*L),roe=r.roe??(r.usd/r.margin*100),c=r.usd>=0?"good":"bad";
+ return `<tr><td><b>${esc(r.coin)}USDT</b> <span class="bdg ${sd>0?"L":"S"}">${sd>0?"Long":"Short"} ${L}x</span>${r.grade?` <span class="bdg A">${r.grade}</span>`:""}${r.rule?` <span class="mute">#${esc(r.rule)}</span>`:""}</td><td>${fx(r.avgEntry||r.entry)} → ${fx(r.exitPx??r.exit)}</td><td>${usd(n)}</td><td style="color:var(--${c});font-weight:650">${r.usd>=0?"+":""}${usd(r.usd)}</td><td style="color:var(--${c})">${roe>=0?"+":""}${(+roe).toFixed(1)}%</td><td>${esc(r.how)}</td><td class="mute">${when(r.t)}</td><td class="mute">${when(r.exitT)}</td></tr>`}).join("")}</table></div>`:'<p class="mute">None yet.</p>';
+const curveSvg=A=>{const p=A.curve;if(!p||p.length<2)return'<p class="mute">The equity chart appears after the first closed trade.</p>';
+ const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
+ const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
+ return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`};
+const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">${usd(A.equity??A.cash)}</span>`],["Since start",`<span style="color:var(--${(A.equity??A.cash)>=A.start?"good":"bad"})">${sgn(100*((A.equity??A.cash)/A.start-1))}</span>`],["Closed trades",A.closed.length?`${A.closed.length} · ${A.closed.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)],...(extra||[])].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`;
+// ── the referee ────────────────────────────────────────────────────
+(()=>{const R=D.referee||{},A=R.acct,M=R.model;if(!A){$("rbox").innerHTML='<p class="mute">The referee starts on the next run.</p>';return}
+ const ex=(n,s)=>s?`<tr><td><b>${n}</b>${s.off?' <span class="tag dead">abstains: no edge on the validation year</span>':""}</td><td>${s.exam?.trades??0}</td><td>${s.exam?.win??"–"}%</td><td>${s.exam?.avg!=null?(s.exam.avg>0?"+":"")+s.exam.avg+"%":"–"}</td><td>${s.exam?.perMonth??"–"}</td><td style="color:var(--${(s.exam?.monthly??0)>=0?"good":"bad"});font-weight:650">${s.exam?.monthly!=null?(s.exam.monthly>0?"+":"")+s.exam.monthly+"%":"–"}</td><td>${Math.round((s.base||0)*100)}%</td><td>+${Math.round((s.margin||0)*100)} pts</td></tr>`:"";
+ const W=M?Object.entries(M.long?.weights||{}).map(([f,w])=>`${esc(f)} ${w>0?"+":""}${w}`).join(" · "):"";
+ const look=R.look,lk=look&&look.rows?.length?`<div class="scroll"><table><tr><th>coin</th><th>side</th><th>odds of +2% first</th><th>needed</th><th>evidence for / against</th><th>verdict</th></tr>${look.rows.map(x=>{const why=x.off?"side abstains":x.unfamiliar?"unfamiliar situation":x.grade?"Grade "+x.grade:x.prob<x.need?"odds too low":"not enough agreement";
+  return `<tr><td><b>${esc(x.coin)}</b></td><td>${x.side}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="meter" style="flex:1"><i style="width:${Math.min(100,x.prob*100)}%"></i><u style="left:${Math.min(100,x.need*100)}%"></u></div><b>${Math.round(x.prob*100)}%</b></div></td><td>${Math.round(x.need*100)}%</td><td>${x.for.map(f=>`<span class="fam y">${esc(f)}</span>`).join("")}${x.against.map(f=>`<span class="fam n">${esc(f)}</span>`).join("")}</td><td>${x.grade?`<span class="tag champion">${why}</span>`:`<span class="mute">${why}</span>`}</td></tr>`}).join("")}</table></div>`:'<p class="mute">Appears after the next run with a trained model.</p>';
+ $("rbox").innerHTML=kpis(A,"rbox",[["Brain",M?`<span style="font-size:14px">trained ${esc(M.trainedAt)}</span>`:'<span style="font-size:14px" class="mute">not trained yet</span>']])+
+ (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+
+ `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest 4 months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
+  ${M?`<div class="scroll"><table><tr><th>side</th><th>trades</th><th>win</th><th>avg move</th><th>trades / month</th><th>account / month</th><th>base rate</th><th>safety margin</th></tr>${ex("Long",M.long)}${ex("Short",M.short)}</table></div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
+ <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(hour of ${when(look.t)}, ${look.scanned} coins scanned)</span>`:""}</h3>${lk}
+ <h3>Open positions</h3>${posList(A,10,"rbox")}
+ <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
+ <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(A.closed)}</summary>${histTable(A.closed.slice().reverse(),10)}</details>`})();
 // ── the $500 account ─────────────────────────────────────────────
 const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The account starts on the next run.</p>';return}
  const ret=100*(A.equity/A.start-1);const C=A.closed;
- const svg=(()=>{const p=A.curve;if(p.length<2)return'<p class="mute">The equity chart appears after the first closed trade.</p>';
-  const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
-  const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`})();
- const row=r=>`<tr><td>#${r.rule??"?"}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null&&r.sl==null?`<td colspan=2 class=mute>${r.trail?`trailing stop ${(r.trail*100).toFixed(1)}%${r.arm?` once up ${(r.arm*100).toFixed(1)}%`:""}`:"none, exits on time"}</td>`:`<td>${r.tp?fmt(r.tp):(r.trail?"trailing "+(r.trail*100).toFixed(1)+"%":"–")}</td><td>${r.sl?fmt(r.sl):"none"}</td>`}<td>$${r.margin} × ${A.lev||D.lev}x</td>`;
- const openRows=A.open.map(r=>row(r)+`<td class="livepx" data-coin="${esc(r.coin)}">${r.livePx?fmt(r.livePx):"–"}</td><td class="liveusd" data-coin="${esc(r.coin)}" data-side="${r.side}" data-entry="${r.entry??""}" data-margin="${r.margin}" data-lev="${A.lev||D.lev}" data-acct="${box}">${money(r.unreal||0)}</td></tr>`).join("");
- const closedRows=C.map(r=>row(r)+`<td>${fmt(r.exitPx)}<br><span class=mute>${when(r.exitT)}</span></td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td>$${fmt(r.after)}</td></tr>`).join("");
- const H1="<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>margin</th>";
- $(box).innerHTML=`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">$${A.equity.toFixed(2)}</span>`],["Since start",`<span style="color:var(--${ret>=0?"good":"bad"})">${ret>=0?"+":""}${ret.toFixed(1)}%</span>`],["Closed trades",C.length?`${C.length} · ${C.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>
+ $(box).innerHTML=kpis(A,box)+`
  <div class="card" style="margin-top:10px">${isTeam?`<div class="mute">Team now: ${A.teamRules.length?A.teamRules.map(r=>`<div style="margin-top:4px"><b>Rule #${r.no}</b>: ${esc(r.text)}</div>`).join(""):"no team yet"}</div>
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each signal uses 5% of the account as margin at ${D.lev}x; when 2-3 team rules agree on the same trade, the position grows (up to 15%). Max 6 trades at once, profits compound. The team is re-picked every run.</div>`:
  `<div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. ${A.lev==1?"The whole account goes into one trade at a time, no leverage, profits compound.":`Each trade uses 10% of the account as margin at ${A.lev||D.lev}x leverage, max 3 trades at once, profits compound.`} The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
- <div class="card" style="margin-top:10px">${svg}</div>
- <details class="card" style="margin-top:10px" ${A.open.length?"open":""}><summary>Open positions: <b>${A.open.length}</b> · unrealised ${money(A.open.reduce((x,r)=>x+(r.unreal||0),0))}</summary><div class="scroll"><table>${A.open.length?H1+"<th>now</th><th>$ so far</th></tr>"+openRows:'<tr><td class="mute">None.</td></tr>'}</table></div></details>
- <details class="card" style="margin-top:10px"><summary>Closed trades: ${stats(C)}</summary><div class="scroll"><table>${C.length?H1+"<th>exit</th><th>how it ended</th><th>move</th><th>$ result</th><th>account after</th></tr>"+closedRows:'<tr><td class="mute">None yet.</td></tr>'}</table></div></details>
+ <h3>Open positions</h3>${posList(A,A.lev||D.lev,box)}
+ <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
+ <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(C)}</summary>${histTable(C,A.lev||D.lev)}</details>
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
 renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.allin,"abox",false);
 // live prices for open positions, straight from Binance in YOUR browser, every 5 seconds (display only; the books update hourly)
-(()=>{const cells=[...document.querySelectorAll(".liveusd")];if(!cells.length)return;const coins=[...new Set(cells.map(c=>c.dataset.coin))];
+(()=>{const cards=[...document.querySelectorAll(".pos")];if(!cards.length)return;
  const note=document.createElement("div");note.className="mute";note.style.fontSize="12px";note.textContent="Live prices: connecting to Binance…";
- const anchor=document.querySelector("#box details")||$("box");anchor.parentNode.insertBefore(note,anchor);
- const levRet=(r,lev)=>{if(lev<=1)return r;const liq=1/lev-0.01;return r<=-liq?-1:Math.max(-1,lev*r)};
+ const anchor=$("rbox")||$("box");anchor.parentNode.insertBefore(note,anchor);
  async function prices(){for(const url of["https://fapi.binance.com/fapi/v1/ticker/price","https://data-api.binance.vision/api/v3/ticker/price"]){
    try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)continue;const j=await r.json();const m={};j.forEach(x=>m[x.symbol]=+x.price);return [m,url.includes("fapi")?"Binance futures":"Binance spot"]}catch(e){}}return [null,null]}
+ const pick=(m,c)=>m[c+"USDT"]||(c.startsWith("1000")&&m[c.slice(4)+"USDT"]?m[c.slice(4)+"USDT"]*1000:null);
  async function tick(){const [m,src]=await prices();if(!m){note.textContent="Live prices unavailable right now (values below are from the last hourly run).";return}
-  const tot={};cells.forEach(c=>{const px=m[c.dataset.coin+"USDT"],e=+c.dataset.entry;if(!px||!e)return;const sd=c.dataset.side=="LONG"?1:-1;
-   const usd=(+c.dataset.margin)*levRet(sd*(px/e-1)-0.001,+c.dataset.lev);c.innerHTML=money(usd);tot[c.dataset.acct]=(tot[c.dataset.acct]||0)+usd;
-   const pc=c.parentNode.querySelector(".livepx");if(pc)pc.textContent=fmt(px)});
-  document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null)v.textContent="$"+(+v.dataset.cash+tot[v.dataset.acct]).toFixed(2)});
+  const tot={};cards.forEach(el=>{const px=pick(m,el.dataset.coin);if(!px)return;const q={sd:+el.dataset.sd,avg:+el.dataset.avg,notional:+el.dataset.notional,margin:+el.dataset.margin,tp:+el.dataset.tp||null,sl:+el.dataset.sl||null};
+   const pn=pnlOf(q,px),roe=pn/q.margin*100,c=`var(--${pn>=0?"good":"bad"})`;tot[el.dataset.acct]=(tot[el.dataset.acct]||0)+pn;
+   const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
+   u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
+   const f=railPos(q,px);if(dot&&f!=null)dot.style.left=(f*100).toFixed(1)+"%"});
+  document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null)v.textContent=usd(+v.dataset.cash+tot[v.dataset.acct])});
   note.textContent=`Live prices from ${src}, updated ${new Date().toLocaleTimeString()} (every 5 s, in your browser). Trades are booked by the hourly run.`}
  tick();setInterval(tick,5000)})();
 // health warnings (only shown when something is wrong)
@@ -297,6 +354,11 @@ def write(mem, J=None, log=print):
         d[key] = {"teamRules": [{"no": t.get("no"), "text": t.get("plain") or t["text"]} for t in tm],"born": A["born"], "t0": A["t0"], "cash": A["cash"], "equity": A.get("equity", A["cash"]), "start": A.get("start", 500.0), "lev": A.get("lev", 10),
                         "open": [{k: v for k, v in p.items() if k not in ("sd", "_w")} for p in A["open"]], "closed": A["closed"][::-1][:300],
                         "curve": A["curve"], "leaders": A["leaders"][::-1], "leaderNo": lead.get("no"), "leaderText": lead.get("plain") or lead.get("text")}
+    R = mem.get("referee") or {}
+    if R.get("acct"):
+        A = R["acct"]
+        d["referee"] = {"acct": {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
+                                 "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote")}
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
     try: d["signals"] = _signals(mem, J) if J is not None else []

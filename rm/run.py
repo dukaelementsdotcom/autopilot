@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np, pandas as pd
-from . import config as C, fetch, fetch_ext, features, ideas, report, account
+from . import config as C, fetch, fetch_ext, features, ideas, report, account, referee
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -99,7 +99,7 @@ def run(budget=None, log=print):
             import traceback; msg = f"{name}: {type(e).__name__}: {str(e)[:160]}"; problems.append(msg); log("   ! " + msg); log(traceback.format_exc()[-600:])
     # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
-    log("── 1/6 data"); fetch.update(log=log); fetch_ext.update(log=log)
+    log("── 1/6 data"); safe("archive download", fetch.update, log=log); safe("market extras", fetch_ext.update, log=log)
     live = safe("live data (relay)", fetch.update_live, log=log) or {}
     mem["live"] = {"at": now_iso(), **{k: v for k, v in live.items() if k != "errors"}, "errors": len(live.get("errors", {}))}
     blocks = mem.setdefault("blocks", [])
@@ -143,6 +143,8 @@ def run(budget=None, log=print):
                 mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
             elif hs["n"] < min_h: t["status"] = "validated"; t["waitHold"] = True       # not enough holdout trades yet — wait for more data
             else: t["status"] = "dead_hold"
+    # the referee's brain: retrained weekly, early in the run so the idea search (which stops at 35 min) cannot starve it
+    if time.time() - t0 < 25 * 60: safe("referee training", referee.maybe_train, J, mem, log=log, time_left=50 * 60 - (time.time() - t0))
     log("── 3/6 promotions"); safe("promotions", promote); safe("twin check", dedupe, mem, J, log)
 
     log("── 4/6 new ideas"); rng = random.Random(int(time.time())); queue = []
@@ -241,6 +243,7 @@ def run(budget=None, log=print):
     if os.environ.get("GROQ_API_KEY") and (not mem.get("lessonsAt") or (dt.datetime.utcnow() - dt.datetime.strptime(mem["lessonsAt"], "%Y-%m-%d %H:%M")).days >= 7): safe("weekly lessons", lessons)
     safe("$500 account", account.step, mem, J, now_iso(), log=log)
     safe("team account", account.step, mem, J, now_iso(), log=log, key="team", team=True)
+    safe("referee account", referee.step, mem, J, now_iso(), log=log)
     safe("$700 all-in account", account.step, mem, J, now_iso(), log=log, key="allin", lev=1, frac=1.0, slots=1, kinds=("rotate",), start=700.0)
     dropped = safe("memory clean-up", compact, mem) or 0
 
@@ -257,4 +260,8 @@ def run(budget=None, log=print):
     return run_rec
 
 if __name__ == "__main__":
-    run()
+    try: run()
+    except Exception as e:          # last line of defence: the page says what broke, memory stays as it was, the next run tries again
+        import traceback; traceback.print_exc()
+        try: report.write_minimal(load_memory(), [f"the whole run stopped: {type(e).__name__}: {str(e)[:200]} (memory kept; next hourly run retries)"])
+        except Exception: traceback.print_exc()
