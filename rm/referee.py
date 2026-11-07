@@ -378,6 +378,9 @@ def _shadow_resolve(J, R, newest):
         stats[name] = {"n": len(d), "recentN": len(last), "hit": round(float(np.mean([x["y"] for x in last])), 3), "pred": round(float(np.mean([x["prob"] for x in last])), 3),
                        "be": round(float(np.mean([x["be"] for x in last])), 3), "avg": round(float(np.mean([x["ret"] for x in last])) * 100, 3),
                        "open": sum(1 for x in sh if x["side"] == name and "y" not in x)}
+    wk = [x for x in sh if x["t"] > newest - 7 * 86400]
+    R["callRate"] = {g: round(sum(1 for x in wk if x["grade"] == g) / 7, 2) for g in ("A", "B")}          # calls per day, last 7 days (both sides)
+    R["callRateBySide"] = {n: {g: round(sum(1 for x in wk if x["grade"] == g and x["side"] == n) / 7, 2) for g in ("A", "B")} for n in ("long", "short")}
     R["shadowStats"] = stats
     # promotion / demotion on live evidence (at least 25 resolved calls)
     ov = R.setdefault("override", {})
