@@ -98,10 +98,10 @@ def update_spot_live(coins=None, log=print):
 
 # ── Hyperliquid ───────────────────────────────────────────────────────────────────────────────
 def _hl(body):
-    for i in range(3):
+    for i in range(4):
         try:
             r = S.post(HL_URL, json=body, timeout=30)
-            if r.status_code == 429: time.sleep(2 + 3 * i); continue
+            if r.status_code == 429: time.sleep(5 * 2 ** i); continue          # rate limit (~1200 weight/min): back off 5, 10, 20, 40 s
             r.raise_for_status(); return r.json()
         except requests.RequestException:
             time.sleep(1 + i)
@@ -118,19 +118,24 @@ def update_hl(coins=None, log=print, budget_s=300):
             try: last = int(pd.read_parquet(path, columns=["t"]).t.max())
             except Exception: last = None
         todo.append((coin, path, (last + H) * 1000 if last else start_ms))
-    for coin, path, since in todo:                        # newest-first fairness: every coin gets its share of the time budget
+    reach = {c: since for c, _, since in todo}
+    todo.sort(key=lambda x: -x[2])                          # coins that are nearly up to date first (cheap), then the long back-fills
+    for coin, path, since in todo:
         rows = []
         while time.time() - t0 < budget_s and since < time.time() * 1000 - H * 1000:
-            x = _hl({"type": "fundingHistory", "coin": hl_name(coin), "startTime": int(since)})
+            try: x = _hl({"type": "fundingHistory", "coin": hl_name(coin), "startTime": int(since)})
+            except Exception as e: log(f"   hyperliquid {coin}: {e} (continues next run)"); break
             if not x: break
-            rows += x; since = x[-1]["time"] + 1
+            rows += x; since = x[-1]["time"] + 1; reach[coin] = since
             if len(x) < 400: break
-            time.sleep(0.15)
+            time.sleep(2.5)                     # stay well under the public rate limit; the history back-fills over the first ~day of runs
         if rows:
             df = pd.DataFrame(rows); df = pd.DataFrame({"t": (df.time.astype("int64") // 1000 // H * H).astype("int64"), "hlf": df.fundingRate.astype(float), "hlp": df.premium.astype(float)})
             _save(_merge(path, df.drop_duplicates("t", keep="last")), path); added += len(df)
-    log(f"hyperliquid: {added} hours added for {len(todo)} coins in {time.time()-t0:.0f}s")
-    return {"added": added, "coins": len(todo)}
+        if time.time() - t0 >= budget_s: break
+    behind = sum(1 for c, v in reach.items() if v < (time.time() - 3 * H) * 1000)
+    log(f"hyperliquid: {added} hours added, {len(todo)} coins listed there, {behind} still back-filling ({time.time()-t0:.0f}s)")
+    return {"added": added, "coins": len(todo), "backfilling": behind}
 
 def update(log=print, deadline_s=None):
     """called once per run; each source is contained. Writes version_more.txt (changes about once a day) for the cache key."""
