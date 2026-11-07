@@ -43,6 +43,18 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .help{font-size:13px;color:var(--mute);margin:-4px 0 10px}
 .mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 /* exchange-style positions */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;counter-reset:st}
+.flow .card{position:relative;padding-top:34px}.flow .card:before{counter-increment:st;content:counter(st);position:absolute;top:10px;left:14px;width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.flow .card>b{display:block;margin-bottom:4px}.flow .card p{margin:0;font-size:13.5px;color:var(--mute)}
+.grades{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.grades .card{border-top:4px solid var(--gc)}.grades h4{margin:0 0 6px;font-size:16px;color:var(--gc)}
+.grades ul,.gl ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}.grades li,.gl li{margin:3px 0}
+.gl{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.gl .card>b{display:block}.gl .card p{margin:4px 0 0;font-size:13.5px;color:var(--mute)}
+.howh{margin:18px 0 8px;font-size:15px}
+.xp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:12px;overflow:hidden}
+.xbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:2px 14px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--soft)}
+.xbar div span{display:block;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}.xbar div b{font-variant-numeric:tabular-nums;font-size:15px}
+.xtabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--line);overflow-x:auto}.xtabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 10px 8px;font:inherit;font-size:13.5px;color:var(--mute);cursor:pointer;white-space:nowrap}
+.xtabs button.on{color:var(--ink);border-bottom-color:var(--acc);font-weight:650}.xbody{padding:4px 12px 12px}.xbody .pos{border-radius:10px}
 .pos{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0;position:relative;overflow:hidden}
 .pos:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sidec)}
 .pos.L{--sidec:var(--good)}.pos.S{--sidec:var(--bad)}
@@ -102,6 +114,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </section>
 
 <section data-tab="research">
+<h2>How the referee decides</h2><div id="howref"></div>
 <h2>The analyst: why winners win, and which merges make sense</h2><div id="analyst"></div>
 <h2>Invented building blocks</h2><div id="blocks"></div>
 <h2>What it has learned</h2><div id="lessons"></div>
@@ -134,7 +147,8 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </main><script>
 const D=__DATA__;const $=id=>document.getElementById(id);const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const st=s=>s&&s.n?`${s.n} trades · avg ${s.mean>0?"+":""}${s.mean}% · win ${s.hit}% · t ${s.t}${s.avgWin!=null?` · avg win +${s.avgWin}% / avg loss ${s.avgLoss}% (payoff ${s.payoff})`:""}${s.levMean!=null?` · <b>as traded (${s.lev}x): ${s.levMean>0?"+":""}${s.levMean}% of margin per trade${s.liq?`, ${s.liq} liquidations`:""}</b>`:""}`:"no trades yet";
-$("sub").textContent=`Paper-trading research lab · running since ${D.born} UTC · market data up to ${D.runs[0]?.dataEnd||"?"} UTC`;
+$("sub").textContent=(()=>{const de=D.runs[0]?.dataEnd;if(!de)return`Paper-trading research lab · running since ${D.born} UTC`;const a=new Date(de.replace(" ","T")+"Z"),b=new Date(a.getTime()+36e5),f=d=>d.toISOString().slice(11,16);
+ return `Paper-trading research lab · running since ${D.born} UTC · newest complete hour: ${de.slice(0,10)} ${f(a)}–${f(b)} UTC (each hourly run uses the hour that just closed)`})();
 const A1=D.account,A2=D.team,fmtUsd=x=>"$"+(x??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct=A=>A?100*(A.equity/A.start-1):0, sgn=x=>(x>=0?"+":"")+x.toFixed(1)+"%";
 const k=[["Ideas tested",D.total.toLocaleString(),"since the start"],["Champions",D.champions.length,"rules good enough to paper-trade"],
@@ -194,7 +208,7 @@ const stats=a=>{const c=a.filter(r=>r.usd!=null);const w=c.filter(r=>r.usd>0),l=
  return c.length?`<b>${c.length} trades</b> · ${w.length} won · ${l.length} lost · ${Math.round(100*w.length/c.length)}% win · total ${money(tot)} · avg ${money(tot/c.length)} · best ${money(best)} · worst ${money(worst)}`:"no trades yet"};
 $("rsum").innerHTML=`Show / hide trades: `+stats(T.filter(r=>r.type!="open"));
 // ── exchange-style positions (shared by every account) ─────────────
-const fx=x=>{if(x==null||!isFinite(x))return"–";const a=Math.abs(x);return a>=1000?x.toLocaleString(undefined,{maximumFractionDigits:2}):a>=1?(+x.toFixed(4)).toString():(+x.toPrecision(4)).toString()};
+const fx=x=>{if(x==null||!isFinite(x))return"–";const a=Math.abs(x);return a>=1000?x.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1}):a>=100?x.toFixed(2):a>=1?x.toFixed(4):(+x.toPrecision(4)).toString()};
 const usd=x=>(x<0?"−":"")+"$"+Math.abs(x).toFixed(2);
 const age=t=>{const h=(Date.now()/1000-t)/3600;return h<1?Math.max(1,Math.round(h*60))+"m":h<48?h.toFixed(1)+"h":(h/24).toFixed(1)+"d"};
 const posOf=(p,lev)=>{const L=p.lev||lev,sd=p.side=="LONG"?1:-1,avg=p.avgEntry||p.entry,notional=p.notional||(p.margin*L);
@@ -212,6 +226,16 @@ const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.ma
  <div><span>TP / SL</span><b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b></div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
  ${m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
  ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +2% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
+const exPanel=(A,lev,acct,extra)=>{const unr=A.open.reduce((x,p)=>{const q=posOf(p,lev);return x+pnlOf(q,q.mark)},0),mu=A.open.reduce((x,p)=>x+(p.margin||0),0),eq=A.cash+unr;
+ const C=A.closed.slice().sort((a,b)=>(b.exitT||0)-(a.exitT||0)),pm=C.filter(r=>r.pm);
+ const tabs=[["pos",`Positions (${A.open.length})`],["hist",`Trade history (${C.length})`],...(pm.length?[["pm",`Post-mortems (${pm.length})`]]:[]),["curve","Equity"]];
+ return `<div class="xp" id="xp-${acct}"><div class="xbar"><div><span>Total equity</span><b class="acctval" data-acct="${acct}" data-cash="${A.cash}">${usd(eq)}</b></div><div><span>Unrealized PnL</span><b class="xunr" data-acct="${acct}" style="color:var(--${unr>=0?"good":"bad"})">${unr>=0?"+":""}${usd(unr)}</b></div><div><span>Margin in use</span><b>${usd(mu)}</b></div><div><span>Available</span><b>${usd(A.cash-mu)}</b></div><div><span>Realized (all time)</span><b style="color:var(--${A.cash>=A.start?"good":"bad"})">${A.cash>=A.start?"+":""}${usd(A.cash-A.start)}</b></div></div>
+ <div class="xtabs">${tabs.map(([k,t],i)=>`<button data-x="${k}" class="${i?"":"on"}">${t}</button>`).join("")}</div>
+ <div class="xbody" data-xp="pos">${posList(A,lev,acct)}</div>
+ <div class="xbody" data-xp="hist" hidden><p class="mute" style="font-size:13px">${stats(A.closed)}</p>${histTable(C,lev)}</div>
+ ${pm.length?`<div class="xbody" data-xp="pm" hidden>${pm.slice(0,20).map(r=>`<p style="font-size:13.5px"><b>${esc(r.coin)} ${r.side}</b> <span class="mute">${when(r.t)}</span>: ${esc(r.pm)}</p>`).join("")}</div>`:""}
+ <div class="xbody" data-xp="curve" hidden>${curveSvg(A)}</div></div>`};
+document.addEventListener("click",e=>{const b=e.target.closest(".xtabs button");if(!b)return;const P=b.closest(".xp");P.querySelectorAll(".xtabs button").forEach(x=>x.classList.toggle("on",x===b));P.querySelectorAll("[data-xp]").forEach(d=>d.hidden=d.dataset.xp!==b.dataset.x)});
 const posList=(A,lev,acct)=>A.open.length?A.open.map(p=>posCard(p,lev,acct)).join(""):'<div class="card mute">No open positions.</div>';
 const histTable=(C,lev)=>C.length?`<div class="scroll"><table class="hist"><tr><th>Symbol</th><th>Entry → Exit</th><th>Size</th><th>Realized PnL</th><th>ROE</th><th>How it ended</th><th>Opened</th><th>Closed</th></tr>${C.map(r=>{const L=r.lev||lev,sd=r.side=="LONG"?1:-1,n=r.notional||(r.margin*L),roe=r.roe??(r.usd/r.margin*100),c=r.usd>=0?"good":"bad";
  return `<tr><td><b>${esc(r.coin)}USDT</b> <span class="bdg ${sd>0?"L":"S"}">${sd>0?"Long":"Short"} ${L}x</span>${r.grade?` <span class="bdg A">${r.grade}</span>`:""}${r.rule?` <span class="mute">#${esc(r.rule)}</span>`:""}</td><td>${fx(r.avgEntry||r.entry)} → ${fx(r.exitPx??r.exit)}</td><td>${usd(n)}</td><td style="color:var(--${c});font-weight:650">${r.usd>=0?"+":""}${usd(r.usd)}</td><td style="color:var(--${c})">${roe>=0?"+":""}${(+roe).toFixed(1)}%</td><td>${esc(r.how)}</td><td class="mute">${when(r.t)}</td><td class="mute">${when(r.exitT)}</td></tr>`}).join("")}</table></div>`:'<p class="mute">None yet.</p>';
@@ -219,12 +243,19 @@ const curveSvg=A=>{const p=A.curve;if(!p||p.length<2)return'<p class="mute">The 
  const W=900,H=180,xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start)*0.98,y1=Math.max(...ys,A.start)*1.02;
  const X=x=>((x-x0)/(x1-x0||1))*W,Y=y=>H-((y-y0)/(y1-y0||1))*H;const d=p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)).join("");
  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px"><line x1="0" x2="${W}" y1="${Y(A.start)}" y2="${Y(A.start)}" stroke="var(--line)" stroke-dasharray="4"/><path d="${d}" fill="none" stroke="var(--${A.equity>=A.start?"good":"bad"})" stroke-width="2"/></svg>`};
-const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">${usd(A.equity??A.cash)}</span>`],["Since start",`<span style="color:var(--${(A.equity??A.cash)>=A.start?"good":"bad"})">${sgn(100*((A.equity??A.cash)/A.start-1))}</span>`],["Closed trades",A.closed.length?`${A.closed.length} · ${A.closed.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)],...(extra||[])].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`;
-const shadowBox=R=>{const S=R.shadow||{},O=R.override||{};const sides=["long","short"].filter(n=>S[n]||O[n]);
- if(!sides.length)return'<p class="mute">Every grade-A/B call on both sides is scored 48 hours later against what the price really did. The first results appear about two days after the brain is trained. After 25 calls, this live record can switch a side on or off by itself.</p>';
- return `<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +2% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
+const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="acctval" data-acct="${box}" data-cash="${A.cash}">${usd(A.equity??A.cash)}</span>`],["Since start",`<span class="acctret" data-acct="${box}" data-start="${A.start}" style="color:var(--${(A.equity??A.cash)>=A.start?"good":"bad"})">${sgn(100*((A.equity??A.cash)/A.start-1))}</span>`],["Closed trades",A.closed.length?`${A.closed.length} · ${A.closed.filter(r=>r.usd>0).length} won`:"none yet"],["Open now",String(A.open.length)],...(extra||[])].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`;
+const shadowBox=R=>{const S=R.shadow||{},O=R.override||{};const cr=R.callRate,cs=R.callRateBySide||{};
+ const rate=cr?`<div class="grid" style="margin-bottom:8px">${[["Grade A calls / day (7 days)",cr.A],["Grade B calls / day (7 days)",cr.B],["A calls: long / short",`${cs.long?.A??0} / ${cs.short?.A??0}`]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`:"";const sides=["long","short"].filter(n=>S[n]||O[n]);
+ if(!sides.length)return rate+'<p class="mute">Every grade-A/B call on both sides is scored 48 hours later against what the price really did. The first results appear about two days after the brain is trained. After 25 calls, this live record can switch a side on or off by itself.</p>';
+ return rate+`<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +2% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
   return `<tr><td><b>${n}</b></td><td>${x.n??0}</td><td style="color:var(--${(x.hit??0)>=(x.be??1)?"good":"bad"});font-weight:650">${x.hit!=null?Math.round(x.hit*100)+"%":"–"}</td><td>${x.pred!=null?Math.round(x.pred*100)+"%":"–"}</td><td>${x.be!=null?Math.round(x.be*100)+"%":"–"}</td><td>${x.avg!=null?(x.avg>0?"+":"")+x.avg+"%":"–"}</td><td>${x.open??0}</td><td>${o?`<span class="tag ${o.live?"champion":"dead"}">${o.live?"switched ON":"switched OFF"}</span> <span class="mute" style="font-size:12px">${esc(o.why)}</span>`:'<span class="mute">needs 25 calls</span>'}</td></tr>`}).join("")}</table></div>
  ${(R.shadowRecent||[]).length?`<details style="margin-top:6px"><summary class="mute">Latest scored calls</summary><table>${R.shadowRecent.map(x=>`<tr><td>${when(x.t)}</td><td><b>${esc(x.coin)}</b> ${x.side}</td><td>grade ${x.grade} · ${Math.round(x.prob*100)}%</td><td style="color:var(--${x.y?"good":"bad"})">${x.y?"reached +2% first":"stop / no target"}</td><td>${x.ret>0?"+":""}${(x.ret*100).toFixed(2)}%</td></tr>`).join("")}</table></details>`:""}`};
+const RG={"up-calm":"rising, calm","up-wild":"rising, wild","down-calm":"falling, calm","down-wild":"falling, wild"};
+const adaptBox=R=>{const A=R.adapt||{},O=R.regimeOverride||{};const now=R.regimeNow;
+ const head=`<p>Market regime now (from Bitcoin): <b>${esc(RG[now]||now||"unknown")}</b>. The referee re-shapes itself every hour from its live record: it raises or relaxes its bar when its odds prove too optimistic or too cautious, sizes up or down with its live edge (0.5x to 1.25x, never above plan), and switches each side on or off <i>separately for each market regime</i> once it has 15 live calls there. Margin per trade is capped at 20% of the account, easing to 10% as the account grows from 2x to 4x its start.</p>`;
+ const rows=["long","short"].map(n=>{const a=A[n];const regs=Object.entries(O[n]||{}).map(([g,v])=>`<span class="fam ${v.live?"y":"n"}" title="${v.n} calls, hit ${Math.round(v.hit*100)}% vs ${Math.round(v.be*100)}%, avg ${v.avg}%">${esc(RG[g]||g)}: ${v.live?"on":"off"}</span>`).join("");
+  return `<tr><td><b>${n}</b></td><td>${a?esc(a.why):'<span class="mute">needs 20 scored calls</span>'}</td><td>${regs||'<span class="mute">needs 15 calls per regime</span>'}</td></tr>`}).join("");
+ return head+`<div class="scroll"><table><tr><th>side</th><th>self-calibration and size</th><th>on/off by regime</th></tr>${rows}</table></div>`};
 const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forEach(r=>{if(!r.exitT)return;const m=new Date(r.exitT*1000).toISOString().slice(0,7);const k=m+"|"+name;
   const o=acc[k]||(acc[k]={m,name,n:0,w:0,usd:0,first:null});o.n++;if(r.usd>0)o.w++;o.usd+=r.usd;if(o.first==null||r.exitT<o.first.exitT)o.first=r})});
  const rows=Object.values(acc).sort((a,b)=>b.m.localeCompare(a.m)||a.name.localeCompare(b.name));if(!rows.length)return'<p class="mute">The first month appears after the first closed trade.</p>';
@@ -237,15 +268,13 @@ const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forE
  const look=R.look,lk=look&&look.rows?.length?`<div class="scroll"><table><tr><th>coin</th><th>side</th><th>odds of +2% first</th><th>needed</th><th>evidence for / against</th><th>verdict</th></tr>${look.rows.map(x=>{const why=x.off?"side watching only":x.unfamiliar?"unfamiliar situation":x.grade?"Grade "+x.grade:x.prob<x.need?"odds too low":"not enough agreement";
   return `<tr><td><b>${esc(x.coin)}</b></td><td>${x.side}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="meter" style="flex:1"><i style="width:${Math.min(100,x.prob*100)}%"></i><u style="left:${Math.min(100,x.need*100)}%"></u></div><b>${Math.round(x.prob*100)}%</b></div></td><td>${Math.round(x.need*100)}%</td><td>${x.for.map(f=>`<span class="fam y">${esc(f)}</span>`).join("")}${x.against.map(f=>`<span class="fam n">${esc(f)}</span>`).join("")}</td><td>${x.grade?`<span class="tag champion">${why}</span>`:`<span class="mute">${why}</span>`}</td></tr>`}).join("")}</table></div>`:'<p class="mute">Appears after the next run with a trained model.</p>';
  $("rbox").innerHTML=kpis(A,"rbox",[["Brain",M?`<span style="font-size:14px">trained ${esc(M.trainedAt)}</span>`:'<span style="font-size:14px" class="mute">not trained yet</span>']])+
- (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+
+ (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+exPanel(A,10,"rbox")+
  `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest 4 months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
   ${M?`<div class="scroll"><table><tr><th>side</th><th>trades</th><th>win</th><th>avg move</th><th>trades / month</th><th>account / month</th><th>base rate</th><th>safety margin</th></tr>${ex("Long",M.long)}${ex("Short",M.short)}</table></div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
  <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(hour of ${when(look.t)}, ${look.scanned} coins scanned)</span>`:""}</h3>${lk}
  <h3>Live scorecard: every A/B call, traded or not</h3>${shadowBox(R)}
- <h3>Open positions</h3>${posList(A,10,"rbox")}
- <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
- <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(A.closed)}</summary>${histTable(A.closed.slice().reverse(),10)}
- ${A.closed.some(r=>r.pm)?`<h3 style="margin-top:12px">Post-mortems</h3>${A.closed.slice().reverse().filter(r=>r.pm).slice(0,15).map(r=>`<p style="font-size:13.5px"><b>${esc(r.coin)} ${r.side}</b> <span class="mute">${when(r.t)}</span>: ${esc(r.pm)}</p>`).join("")}`:""}</details>`})();
+ <h3>How it is adapting right now</h3>${adaptBox(R)}
+`})();
 // ── the $500 account ─────────────────────────────────────────────
 const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The account starts on the next run.</p>';return}
  const ret=100*(A.equity/A.start-1);const C=A.closed;
@@ -254,9 +283,7 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. Each signal uses 5% of the account as margin at ${D.lev}x; when 2-3 team rules agree on the same trade, the position grows (up to 15%). Max 6 trades at once, profits compound. The team is re-picked every run.</div>`:
  `<div class="mute">Trading now: ${A.leaderNo?`<b>Rule #${A.leaderNo}</b>`:"no rule yet (waiting for a champion with 30+ trades after its exams)"}</div>${A.leaderText?`<div style="margin-top:4px">${esc(A.leaderText)}</div>`:""}
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. ${A.lev==1?"The whole account goes into one trade at a time, no leverage, profits compound.":`Each trade uses 10% of the account as margin at ${A.lev||D.lev}x leverage, max 3 trades at once, profits compound.`} The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
- <h3>Open positions</h3>${posList(A,A.lev||D.lev,box)}
- <div class="card" style="margin-top:10px">${curveSvg(A)}</div>
- <details class="card" style="margin-top:10px"><summary>Trade history: ${stats(C)}</summary>${histTable(C,A.lev||D.lev)}</details>
+ ${exPanel(A,A.lev||D.lev,box)}
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
 renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.allin,"abox",false);
 // live prices for open positions, straight from Binance in YOUR browser, every 5 seconds (display only; the books update hourly)
@@ -272,7 +299,9 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
    const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
    u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
    const f=railPos(q,px);if(dot&&f!=null)dot.style.left=(f*100).toFixed(1)+"%"});
-  document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null)v.textContent=usd(+v.dataset.cash+tot[v.dataset.acct])});
+  document.querySelectorAll(".xunr").forEach(v=>{const u=tot[v.dataset.acct];if(u==null)return;v.textContent=(u>=0?"+":"")+usd(u);v.style.color=`var(--${u>=0?"good":"bad"})`});
+  const eqs={};document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null){eqs[v.dataset.acct]=+v.dataset.cash+tot[v.dataset.acct];v.textContent=usd(eqs[v.dataset.acct])}});
+  document.querySelectorAll(".acctret").forEach(v=>{const e=eqs[v.dataset.acct];if(e==null)return;const r=100*(e/+v.dataset.start-1);v.textContent=sgn(r);v.style.color=`var(--${r>=0?"good":"bad"})`});
   note.textContent=`Live prices from ${src}, updated ${new Date().toLocaleTimeString()} (every 5 s, in your browser). Trades are booked by the hourly run.`}
  tick();setInterval(tick,5000)})();
 // health warnings (only shown when something is wrong)
@@ -281,6 +310,49 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
 try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Best rule",D.account],["Team",D.team],["All-in",D.allin]])}catch(e){}
+// how the referee decides (structured explainer, live numbers where available)
+(()=>{const M=D.referee?.model||{},L=M.long||{},S=M.short||{},pts=x=>x!=null?"+"+Math.round(x*100)+" pts":"learned";
+ const step=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
+ const gl=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
+ $("howref").innerHTML=`<p class="mute">Every hour it looks at the ~40 most liquid coins, both directions, and asks one question: <b>"will this reach +2% before its stop?"</b></p>
+ <h3 class="howh">The decision, step by step</h3>
+ <div class="flow">${[
+  step("Shape the trade","Target is always +2%. The stop sits outside the coin's normal noise: 1.25× its usual daily move, kept between 1.5% and 4%."),
+  step("Work out break-even","The win rate needed to not lose money with that shape: (stop + fees) ÷ (2% + stop). A 2% stop needs ~52%; a 3% stop ~62%."),
+  step("Ask each kind of evidence","Positioning, flow, trend, volatility, leverage, real money, mood, invented measurements and similar past moments each give their own odds."),
+  step("Combine them","A small combiner, trained on a separate year, decides how much to trust each kind. Result: the <b>odds</b> you see on the Accounts tab."),
+  step("Raise the bar","<b>Needed = break-even + safety margin.</b> The margin is learned, not hand-set (now: long "+pts(L.margin)+", short "+pts(S.margin)+"), and moves with live results."),
+  step("Grade and pick one","A, B or skip (below). It takes the first qualifying trade of the UTC day: at most one trade a day.")].join("")}</div>
+ <h3 class="howh">What the grades mean</h3>
+ <div class="grades">
+  <div class="card" style="--gc:var(--good)"><h4>Grade A: full size</h4><ul><li>Odds ≥ needed</li><li>At least 2 kinds of evidence <b>for</b></li><li>At most 1 kind <b>against</b></li><li>Risk: a full loss costs ~4% of the account</li></ul></div>
+  <div class="card" style="--gc:var(--acc)"><h4>Grade B: half size</h4><ul><li>Odds ≥ break-even + half the margin</li><li>At least 2 for, at most 2 against</li><li>Only after 18:00 UTC, if no A came that day</li><li>Risk: ~2% of the account</li></ul></div>
+  <div class="card" style="--gc:var(--mute)"><h4>Skip</h4><ul><li>Odds too low, or not enough agreement</li><li>The side is "watching only"</li><li>Situation unlike anything in 6 years</li><li>Already traded today</li></ul></div></div>
+ <p class="mute" style="font-size:13px">A kind of evidence counts <b>for</b> when its own odds are at least 3 points above normal, and <b>against</b> when at least 3 points below.</p>
+ <h3 class="howh">Once a trade is open</h3>
+ <div class="flow">${[
+  step("Hard stop","Always set at entry. Isolated 10x: liquidation is ~9.5% away, far beyond the stop."),
+  step("Half at +2%","Half the position is closed at the target and the stop moves to break-even: the rest is risk-free."),
+  step("Let the rest run","An exit model asks every hour: '+1% more before −1%?' It holds and trails while yes, and closes when the move fades."),
+  step("One add-on","If the trade is up 1% and the evidence strongly says it continues, it adds once and moves the stop to the entry.")].join("")}</div>
+ <h3 class="howh">How it keeps itself honest</h3>
+ <div class="gl">${[
+  gl("Three exams","Learns on the older years, tunes on the next year, then is graded once on the newest 4 months it never saw. A side that fails becomes <i>watching only</i>."),
+  gl("Live scorecard","Every A/B call, traded or not, is scored 48 hours later against what the price really did."),
+  gl("Self-calibration","If its calls hit less often than predicted, it raises its own bar; if more often, it relaxes a little. Size moves 0.5×–1.25× with the live edge."),
+  gl("Regime switch","Market regime from Bitcoin: rising or falling × calm or wild. Each side is switched on or off separately per regime once it has 15 live calls there."),
+  gl("Kill switch","After 20 trades, if live hits fall far below what it predicted, it pauses itself until retrained."),
+  gl("Weekly retraining","Retrains every week on the newest data, and whenever a new kind of evidence becomes available.")].join("")}</div>
+ <details class="card" style="margin-top:10px"><summary>The kinds of evidence, in plain words</summary><div class="gl" style="margin-top:8px">${[
+  gl("Positioning","How the crowd and the top traders are betting (long/short ratios, open interest)."),
+  gl("Flow","Who is aggressively buying or selling right now (taker volume)."),
+  gl("Trend","Where the price sits versus its recent ranges and averages."),
+  gl("Volatility","How wild the coin is moving versus normal."),
+  gl("Leverage","Futures vs spot price gap, and Hyperliquid's on-chain premium and funding: is leverage paying up?"),
+  gl("Real money","Spot market's share of trading and spot buyers vs sellers: is the move backed by real buyers?"),
+  gl("Mood","Bitcoin's move, Fear & Greed, Coinbase premium, options fear gauge, stablecoin inflows, time of day."),
+  gl("Invented","Measurements the AI designed itself, kept only while they prove useful."),
+  gl("Similar moments","The 50 most similar situations in 6 years: how often did they reach +2% first?")].join("")}</div></details>`})();
 // self-check panel + downloadable health report
 (()=>{const H=D.healthSummary;if(!H)return;const col={OK:"good",WARN:"warn",FAIL:"bad"},n=H.checks.filter(c=>c[1]=="OK").length;
  $("hcheck").innerHTML=`<details class="card" style="margin-top:10px" ${H.overall!="OK"?"open":""}><summary><b style="color:var(--${col[H.overall]})">● Self-check: ${H.overall}</b> <span class="mute">${n}/${H.checks.length} checks OK at ${esc(H.at)} UTC</span>
@@ -374,7 +446,7 @@ def write(mem, J=None, log=print):
         A = R["acct"]
         d["referee"] = {"acct": {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
                                  "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote"),
-                         "shadow": R.get("shadowStats"), "override": R.get("override"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
+                         "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
     d["healthSummary"] = mem.get("healthSummary")
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None

@@ -65,12 +65,12 @@ jobs:
 
       # saved only when the data really changed (about once a day), so the 10 GB cache never fills with hourly copies
       - name: save market data
-        if: always() && hashFiles('data/raw/version.txt') != ''
+        if: always() && hashFiles('data/raw/version*.txt') != ''
         uses: actions/cache/save@v4
         continue-on-error: true
         with:
           path: data/raw
-          key: rawdata-${{ hashFiles('data/raw/version.txt') }}
+          key: rawdata-${{ hashFiles('data/raw/version*.txt') }}
 
       - name: save referee models
         if: always() && hashFiles('data/models/referee.joblib') != ''
