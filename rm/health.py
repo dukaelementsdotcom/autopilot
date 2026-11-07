@@ -58,8 +58,8 @@ def write(mem, J, timings, problems, live, t0, log=print):
     chk("live data fresh", lags and max(lags) <= 2.5, warn=lags and max(lags) <= 6,
         detail=f"newest usable hour is {min(lags) if lags else '?'}–{max(lags) if lags else '?'} h old; stale coins: " + (", ".join(c for c, v in fresh.items() if (v.get('usableLagH') or 99) > 2.5) or "none"))
     chk("archive keeps arriving", alags and np.median(alags) <= 60, warn=alags and np.median(alags) <= 96, detail=f"median archive lag {np.median(alags) if alags else '?'} h (Binance publishes daily, ~1 day late is normal)")
-    chk("relay (Frankfurt) answers", (live or {}).get("coins", 0) >= 40, warn=(live or {}).get("coins", 0) > 0,
-        detail=f"{(live or {}).get('coins', 0)} coins, {snap['relayErr']} errors, region {(live or {}).get('region')}")
+    chk("live relay answers (Render, Vercel backup)", (live or {}).get("coins", 0) >= 40, warn=(live or {}).get("coins", 0) > 0,
+        detail=f"{(live or {}).get('coins', 0)} coins, {snap['relayErr']} errors, via {(live or {}).get('via')}")
     # every measurement must exist NOW as often as it did in the past week (a silent gap would blind the referee)
     gaps_live = []
     if J is not None:
