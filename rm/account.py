@@ -28,7 +28,7 @@ def ranked(mem, J, kinds=("event", "union")):
         if t["status"] != "champion" or t["h"]["kind"] not in kinds: continue
         sc, s = _score(J, t)
         if sc > -99: out.append((sc, k, s))
-    return sorted(out, reverse=True)
+    return sorted(out, key=lambda x: (x[0], str(x[1])), reverse=True)
 
 def pick_leader(mem, J, kinds=("event", "union")):
     r = ranked(mem, J, kinds); return r[0] if r else None
@@ -82,7 +82,7 @@ def step(mem, J, now_iso, log=print, key="account", team=False, lev=LEV, frac=MA
         ent = []
         for k in rules:
             for i, sd, ex in J.raw_entries(tests[k]["h"], t_lo=A["lastT"], t_hi=newest): ent.append((int(J.t[i]), i, sd, ex, k))
-        ent.sort()
+        ent.sort(key=lambda e: (e[0], e[1], str(e[4])))          # never compare the exit settings (dicts)
         slots_ = slots * (2 if team else 1); frac_ = frac / (2 if team else 1)
         for t0, i, sd, ex, k in ent:
             c = str(J.coin[i]); close_until(t0)
