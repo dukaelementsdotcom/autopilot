@@ -213,7 +213,7 @@ def step(mem, J, now_iso, log=print, problems=None):
                     sup = [f for f, p in fp.items() if p >= sd["base"] + 0.03]; ag = [f for f, p in fp.items() if p <= sd["base"] - 0.03]
                     look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
                                  "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd, REG.get(int(J.t[i]))),
-                                 "regime": REG.get(int(J.t[i])), "need": round(be + margin_of(R, name, sd), 3),
+                                 "regime": REG.get(int(J.t[i])), "need": round(be + margin_of(R, name, sd), 3), "px": float(J.O[i]), "stopPct": round(stp, 4),
                                  "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])})
             look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))          # sides that may trade first, closest to a trade on top
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
@@ -358,7 +358,7 @@ def _shadow_add(J, B, R, rows, S, REG=None):
             key = (str(J.coin[i]), name)
             if int(J.t[i]) - recent.get(key, -10 ** 12) < 24 * H: continue          # one call per coin and side per day
             sh.append({"t": int(J.t[i]), "coin": key[0], "side": name, "grade": g, "prob": round(float(S[name]["prob"][pos]), 3), "be": round(be, 3), "stop": round(stp, 4),
-                       "reg": (REG or {}).get(int(J.t[i]))})
+                       "reg": (REG or {}).get(int(J.t[i])), "px": float(J.O[i])})
             recent[key] = int(J.t[i])
     del sh[:-3000]
 
