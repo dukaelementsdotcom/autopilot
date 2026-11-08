@@ -14,7 +14,6 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] **Challenger system**: cloned judge in shadow; promotion = more accurate + at least as many Grade A + no worse calibration; "upgrade under test" line on the dashboard
 - [ ] **Fluid pacing**: learned trade pace (no hard 1/day or 7/week), several trades a day allowed, weekly pace by count **and** profit, surplus carries into next week, new top tier **Grade S**
 - [ ] **Fluid risk**: total open-risk cap, same-bet (correlation) guard, daily and weekly brakes, all learned and slow-moving
-- [ ] **Re-judge open trades**: every hour ask "would I open this now?"; graded response (tighten / partial / close / close-and-flip with its own grade); confirmation rule against whipsaws (tuned by the scorecard); portfolio net-exposure view; cut losers whose reason vanished, give locked winners rope
 - [ ] **Runners**: learned runner targets (+6-10% when evidence supports), trail width by evidence
 - [ ] **Honest timing**: paper fills at the real price at decision time (not the hour's open)
 - [ ] **Account clean-up**: remove team + all-in accounts; keep best-rule account
@@ -47,6 +46,7 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] Universe 70-80 coins with a liquidity filter (as a challenger); judge still trades the most liquid ~40 of the day
 
 ## Later / only if the evidence asks for it
+- [ ] **Re-judge open trades (parked)**: test against "leave it alone" only when the scorecard shows trades being lost to market turns; reluctant by design (confirmation, minimum hold, never tighten inside noise)
 - [ ] Liquidation + order-book recording via the Render relay
 - [ ] Bybit / OKX positioning
 - [ ] Deep-learning judge as a challenger
