@@ -104,8 +104,9 @@ def run(budget=None, log=print):
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
     log("── 1/6 data"); safe("archive download", fetch.update, log=log); safe("market extras", fetch_ext.update, log=log)
     more = safe("spot + Hyperliquid data", fetch_more.update, log=log) or {}; mem["moreData"] = more
-    live = safe("live data (relay)", fetch.update_live, log=log, prefer=mem.get("relayPref")) or {}
-    if live.get("best"): mem["relayPref"] = live["best"]
+    # relays are tried in the fixed order (Render first, so Vercel's metered free tier is only the backup); a rate-limited
+    # Render answers instantly with "cooling down", so trying it first costs nothing when it is out
+    live = safe("live data (relay)", fetch.update_live, log=log) or {}
     mem["live"] = {"at": now_iso(), **{k: v for k, v in live.items() if k != "errors"}, "errors": len(live.get("errors", {}))}
     blocks = mem.setdefault("blocks", [])
     for b in blocks: DESC[b["id"]] = f"invented measurement '{b.get('name') or b['id']}' = {b['expr']}"
