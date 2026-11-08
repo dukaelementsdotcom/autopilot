@@ -56,6 +56,8 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .cand .ch .odds small{font-weight:400;color:var(--mute);font-size:12px}.cand .lv{font-size:12.5px;color:var(--mute);margin:6px 0 4px;font-variant-numeric:tabular-nums}
 .exam{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:8px}.exam .card{padding:10px 12px}
 .exam .kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:13.5px;margin-top:6px}.exam .kv span{color:var(--mute)}
+.rm h3{margin:16px 0 6px;font-size:15.5px}.rm h3:first-child{margin-top:0}.rm ul{list-style:none;padding-left:0;margin:4px 0}.rm li{padding:4px 0 4px 26px;position:relative;font-size:14px;border-bottom:1px solid var(--line)}
+.rm li:before{content:"○";position:absolute;left:4px;color:var(--mute)}.rm li.done:before{content:"✓";color:var(--good);font-weight:700}.rm li.done{color:var(--mute)}.rm p{font-size:13.5px;margin:6px 0}
 .xp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:12px;overflow:hidden}
 .xbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:2px 14px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--soft)}
 .xbar div span{display:block;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}.xbar div b{font-variant-numeric:tabular-nums;font-size:15px}
@@ -83,7 +85,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <div class="top"><div><h1>Research Machine</h1><div class="mute" id="sub" style="font-size:13px"></div></div>
 <div class="pill" id="statuspill"><span class="dot" id="sdot"></span><span id="stext"></span><span class="mute">·</span><span>next run in <span class="cd" id="cd">–</span></span></div></div>
 <div id="health"></div>
-<nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="help">Help</button></nav>
+<nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="roadmap">Build board</button><button data-t="help">Help</button></nav>
 
 <section data-tab="home">
 <div class="card story" id="story" style="margin-top:12px"></div>
@@ -137,6 +139,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <details><summary>Idea families explored</summary><div class="scroll"><table id="fam"></table></div></details>
 </section>
 
+<section data-tab="roadmap"><h2>Build board</h2><p class="mute">What is built, what comes next, and what is waiting for evidence. Updated with every build.</p><div id="roadmap" class="card rm"></div></section>
 <section data-tab="help">
 <h2>How to read this page</h2>
 <div class="card">
@@ -364,6 +367,7 @@ try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Best rule",D.a
   gl("Mood","Bitcoin's move, Fear & Greed, Coinbase premium, options fear gauge, stablecoin inflows, time of day."),
   gl("Invented","Measurements the AI designed itself, kept only while they prove useful."),
   gl("Similar moments","The 50 most similar situations in 6 years: how often did they reach +2% first?")].join("")}</div></details>`})();
+try{$("roadmap").innerHTML=D.roadmap||'<p class="mute">Not available.</p>'}catch(e){}
 // self-check panel + downloadable health report
 (()=>{const H=D.healthSummary;if(!H)return;const col={OK:"good",WARN:"warn",FAIL:"bad"},n=H.checks.filter(c=>c[1]=="OK").length;
  $("hcheck").innerHTML=`<details class="card" style="margin-top:10px" ${H.overall!="OK"?"open":""}><summary><b style="color:var(--${col[H.overall]})">● Self-check: ${H.overall}</b> <span class="mute">${n}/${H.checks.length} checks OK at ${esc(H.at)} UTC</span>
@@ -440,6 +444,25 @@ def _signals(mem, J, hours=3):
         if k not in newest: x["flips"] = len(sides[k]) > 1; newest[k] = x
     return list(newest.values())[:20]
 
+def _roadmap():
+    """ROADMAP.md -> small safe HTML (headings, check-list items, bold)"""
+    import html as _h, re as _re
+    try: lines = open("ROADMAP.md", encoding="utf-8").read().splitlines()
+    except Exception: return ""
+    out, inlist = [], False
+    b = lambda t: _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _h.escape(t))
+    for ln in lines:
+        if ln.startswith("- "):
+            if not inlist: out.append("<ul>"); inlist = True
+            t = ln[2:]; done = t.startswith("[x]"); t = t[3:].strip() if t[:3] in ("[x]", "[ ]") else t
+            out.append(f'<li class="{"done" if done else ""}">{b(t)}</li>'); continue
+        if inlist: out.append("</ul>"); inlist = False
+        if ln.startswith("## "): out.append(f"<h3>{b(ln[3:])}</h3>")
+        elif ln.startswith("# ") or not ln.strip(): continue
+        else: out.append(f"<p>{b(ln)}</p>")
+    if inlist: out.append("</ul>")
+    return "".join(out)
+
 def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
@@ -459,6 +482,7 @@ def write(mem, J=None, log=print):
                                  "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote"),
                          "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
     d["healthSummary"] = mem.get("healthSummary")
+    d["roadmap"] = _roadmap()
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
     try: d["signals"] = _signals(mem, J) if J is not None else []
