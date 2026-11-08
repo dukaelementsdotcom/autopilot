@@ -13,8 +13,10 @@ const SERIES = {
   tk: ["/futures/data/takerlongshortRatio", (x) => +x.buySellRatio],
 };
 
+let coolUntil = 0;                                     // Binance said "too many requests": stop asking until this time (never escalate a ban)
 async function get(path, params, tries = 3) {
   const url = BASE + path + "?" + new URLSearchParams(params).toString(); let why = "";
+  if (Date.now() < coolUntil) throw new Error("failed " + path + " " + params.symbol + " cooling down (rate limit)");
   for (let i = 0; i < tries; i++) {
     try {
       const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 25000);
@@ -22,9 +24,13 @@ async function get(path, params, tries = 3) {
       clearTimeout(tm);
       if (r.ok) return await r.json();
       if (r.status === 400) return [];               // e.g. symbol not listed
+      if (r.status === 418 || r.status === 429) {     // rate limited / temporarily banned: back off completely
+        coolUntil = Date.now() + 1000 * Math.min(3600, Math.max(60, parseInt(r.headers.get("retry-after") || "120", 10) || 120));
+        throw new Error("failed " + path + " " + params.symbol + " HTTP " + r.status + " (rate limit; cooling down)");
+      }
       why = "HTTP " + r.status + (r.status === 451 || r.status === 403 ? " (location blocked)" : r.status === 429 || r.status === 418 ? " (rate limit)" : "");
       await new Promise((s) => setTimeout(s, 400 * (i + 1)));
-    } catch (e) { why = String(e.name || e).slice(0, 40); await new Promise((s) => setTimeout(s, 400 * (i + 1))); }
+    } catch (e) { if (String(e.message || "").includes("cooling")) throw e; why = String(e.name || e).slice(0, 40); await new Promise((s) => setTimeout(s, 400 * (i + 1))); }
   }
   throw new Error("failed " + path + " " + params.symbol + " " + why);
 }

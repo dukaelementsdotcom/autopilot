@@ -122,11 +122,12 @@ def update(coins=None, today=None, log=print):
     return len(jobs)
 
 
-def update_live(log=print):
+def update_live(log=print, prefer=None):
     """the newest hours from the live relay, stored separately and OVERWRITTEN every run ("swap"):
     features.py stitches them onto the archive only where the archive has no data yet, so once Binance publishes those days
     the archive takes over automatically and nothing piles up."""
     urls = [u for u in C.RELAY_URLS if u]
+    if prefer in urls: urls = [prefer] + [u for u in urls if u != prefer]     # the relay that worked last time goes first
     if not urls: log("live: no relay configured (archive only)"); return {}
     coins = [c for c in C.COINS if c not in C.DEAD]
     d = {"coins": {}, "errors": {}, "region": None}
@@ -193,5 +194,7 @@ def update_live(log=print):
         info["coins"] += 1
     newest = max((int(pd.read_parquet(f"{C.DATA_DIR}/live/{c}_k.parquet").t.max()) for c in d.get("coins", {}) if os.path.exists(f"{C.DATA_DIR}/live/{c}_k.parquet")), default=None)
     info["newest"] = newest; info["via"] = d.get("via"); info["pages"] = npages
+    try: best = max((d.get("via") or {}).items(), key=lambda kv: kv[1])[0]; info["best"] = next(u for u in urls if best in u)
+    except Exception: pass
     log(f"live: {info['coins']} coins from relay ({info['region']}), newest hour {dt.datetime.utcfromtimestamp(newest) if newest else '-'}, errors {len(info['errors'])}")
     return info
