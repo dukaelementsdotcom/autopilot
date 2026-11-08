@@ -240,11 +240,13 @@ def ai_ideas(mem, cols, n=C.LLM_IDEAS_PER_RUN):
         if not isinstance(h, dict): continue
         if h.get("kind") == "event": h.setdefault("cool", 24)
         for key in ("z", "enter", "leave"):
-            if key in h: h[key] = float(h[key])
+            if key in h:
+                if h[key] is None: del h[key]                 # the AI sometimes sends null: fall back to the default
+                else: h[key] = float(h[key])
         for key in ("look", "hold"):
             if key in h: h[key] = int(h[key])
         for c in h.get("when", []) if isinstance(h.get("when"), list) else []:
-            if isinstance(c, dict) and c.get("f", "").startswith(("p_", "x_")): c["lo"], c["hi"] = float(c.get("lo", 0)), float(c.get("hi", 1))
+            if isinstance(c, dict) and c.get("f", "").startswith(("p_", "x_")): c["lo"], c["hi"] = float(c.get("lo") if c.get("lo") is not None else 0), float(c.get("hi") if c.get("hi") is not None else 1)
         if valid(h, cols): out.append((h, str(it.get("why", ""))[:240]))
     return out, model
 
@@ -293,7 +295,7 @@ def ai_analyst(mem, cols):
         if h.get("kind") == "event":
             h.setdefault("cool", 24)
             for c in h.get("when", []) if isinstance(h.get("when"), list) else []:
-                if isinstance(c, dict): c["lo"], c["hi"] = float(c.get("lo", 0)), float(c.get("hi", 1))
+                if isinstance(c, dict): c["lo"], c["hi"] = float(c.get("lo") if c.get("lo") is not None else 0), float(c.get("hi") if c.get("hi") is not None else 1)
         return h
     for key, bucket in (("merges", merges), ("wild", wild)):
         for it in (data.get(key) or [])[:6]:

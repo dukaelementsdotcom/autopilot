@@ -134,7 +134,7 @@ def update_live(log=print):
     # to the archive except in the few hours before Binance publishes yesterday's file; then two pages
     try:
         import pyarrow.parquet as pq
-        arch = min(int(pd.read_parquet(f"{C.DATA_DIR}/raw/{c}_m.parquet", columns=["t"]).t.max()) for c in ("BTC", "ETH") if os.path.exists(f"{C.DATA_DIR}/raw/{c}_m.parquet"))
+        arch = min(int(pd.read_parquet(f"{C.DATA_DIR}/raw/{c}_m.parquet", columns=["t"]).t.max()) for c in coins if os.path.exists(f"{C.DATA_DIR}/raw/{c}_m.parquet"))   # the most-behind coin decides
         npages = 2 if dt.datetime.utcnow().timestamp() - arch > 38 * 3600 else 1
     except Exception: npages = 2
     for i in range(0, len(coins), 17):                # small batches: each relay call must finish well inside Vercel's 60 s limit

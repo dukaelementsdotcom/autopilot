@@ -36,7 +36,8 @@ def write(mem, J, timings, problems, live, t0, log=print):
     def acct(A):
         if not A: return None
         return {"cash": A.get("cash"), "equity": A.get("equity", A.get("cash")), "start": A.get("start"), "open": len(A.get("open", [])), "closed": len(A.get("closed", [])),
-                "won": sum(1 for x in A.get("closed", []) if (x.get("usd") or 0) > 0), "openList": [{k: p.get(k) for k in ("coin", "side", "entry", "mark", "stop", "sl", "target", "tp", "unreal", "t")} for p in A.get("open", [])]}
+                "won": sum(1 for x in A.get("closed", []) if (x.get("usd") or 0) > 0), "openList": [{"coin": p.get("coin"), "side": p.get("side"), "entry": p.get("entry"), "mark": p.get("mark") or p.get("livePx"), "stop": p.get("stop") or p.get("sl"),
+                                    "target": p.get("target") or p.get("tp"), "unreal": p.get("unreal"), "t": p.get("t")} for p in A.get("open", [])]}
     snap = {"at": dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M"), "secs": round(now - t0), "rssGB": round(rss, 2), "maxLagH": max(lags) if lags else None,
             "archLagH": max(alags) if alags else None, "relayCoins": (live or {}).get("coins"), "relayErr": len((live or {}).get("errors", {}) or {}),
             "problems": len(problems), "tested": (mem.get("runs") or [{}])[0].get("tested"), "referee": RA.get("equity", RA.get("cash")),
