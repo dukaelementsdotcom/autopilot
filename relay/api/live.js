@@ -14,7 +14,7 @@ const SERIES = {
 };
 
 async function get(path, params, tries = 3) {
-  const url = BASE + path + "?" + new URLSearchParams(params).toString();
+  const url = BASE + path + "?" + new URLSearchParams(params).toString(); let why = "";
   for (let i = 0; i < tries; i++) {
     try {
       const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 25000);
@@ -22,10 +22,11 @@ async function get(path, params, tries = 3) {
       clearTimeout(tm);
       if (r.ok) return await r.json();
       if (r.status === 400) return [];               // e.g. symbol not listed
+      why = "HTTP " + r.status + (r.status === 451 || r.status === 403 ? " (location blocked)" : r.status === 429 || r.status === 418 ? " (rate limit)" : "");
       await new Promise((s) => setTimeout(s, 400 * (i + 1)));
-    } catch (e) { await new Promise((s) => setTimeout(s, 400 * (i + 1))); }
+    } catch (e) { why = String(e.name || e).slice(0, 40); await new Promise((s) => setTimeout(s, 400 * (i + 1))); }
   }
-  throw new Error("failed " + path + " " + params.symbol);
+  throw new Error("failed " + path + " " + params.symbol + " " + why);
 }
 
 async function pages(path, symbol, n = 2) {            // 5-minute readings: 500 per page, newest first -> ~83 hours
