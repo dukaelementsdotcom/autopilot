@@ -22,6 +22,7 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] **Research aimed at the goal**: favour rules whose wins are >= +2%
 - [ ] **Outside world**: Nasdaq, S&P, NVIDIA, chip stocks, VIX, dollar, 10y yield (free daily); risk-on/off regime; sectors (AI, memes, L1, DeFi, exchange) + sector vs stock twin; macro calendar (Fed, CPI, jobs) + no new trades just before; news events (GDELT) tagged by AI + memory of similar past events; check 24/7 stock perps for hourly stock signal
 - [ ] **On-chain (free)**: exchange flows, stablecoin flows per chain (Coin Metrics community, DefiLlama)
+- [ ] **Relay resilience**: if both relays fail, manage open positions from spot prices (no new trades on incomplete data); look for a second free Frankfurt host that Binance does not block
 - [ ] **Coin-specific trust**: the judge learns its own record per coin (memes included) and demands more evidence where weak
 
 ## Build after (accuracy upgrades, each as a challenger)
