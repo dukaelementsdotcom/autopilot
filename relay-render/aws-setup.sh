@@ -9,8 +9,10 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y curl unattended-upgrades
 dpkg-reconfigure -f noninteractive unattended-upgrades          # automatic security updates
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs
+apt-get install -y nodejs                                         # Ubuntu's own Node.js (24.04+ ships 18 or newer)
+if ! node -e 'process.exit(parseInt(process.versions.node) >= 18 ? 0 : 1)'; then
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
+fi
 
 mkdir -p /opt/relay && cd /opt/relay
 for f in server.js live.js package.json; do
