@@ -29,6 +29,19 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] **Relay resilience**: if both relays fail, manage open positions from spot prices (no new trades on incomplete data); look for a second free Frankfurt host that Binance does not block
 - [ ] **Coin-specific trust**: the judge learns its own record per coin (memes included) and demands more evidence where weak
 
+## Fluidchain intelligence (more capable, never more constrained; each as a challenger)
+- [ ] **Best trade shape per situation**: odds for a ladder of targets (+2/+4/+8%) and horizons (4h/24h/72h); pick the highest expected profit
+- [ ] **Edge-proportional sizing**: fractional Kelly from calibrated odds; bigger when the edge is big
+- [ ] **Wake-up alarm**: AWS server watches every minute (moves, open-interest spikes, cascades) and wakes the judge immediately
+- [ ] **Missed winners count**: score skipped / early-closed trades; if caution costs money, the judge loosens itself
+- [ ] **Leverage-squeeze targets**: estimate forced-exit zones from open interest; place targets before them, hunt squeezes
+- [ ] **House money adds**: add to confirmed winners using only that trade's profit
+- [ ] **Sector rotation**: detect money moving between AI / memes / L1 / DeFi and ride the receiving side
+- [ ] **Curiosity-driven research**: the judge points the research engine at its own blind spots
+- [ ] **Session and clock effects**: Asia / EU / US opens, weekends, funding times
+- [ ] **"Similar to my past mistakes" witness**
+- [ ] **Crash rehearsal**: replay March 2020, LUNA, FTX and recent shocks to test sizing and exits
+
 ## Build after (accuracy upgrades, each as a challenger)
 - [ ] Train on every hour (3x examples)
 - [ ] Panel of 3 differently-trained judges (majority verdict)
