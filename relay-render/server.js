@@ -58,23 +58,37 @@ async function fundingTick() {
 }
 // forced liquidations (live stream only on Binance): summed per minute and coin, long vs short
 const liqBuf = new Map();
+// Binance split its futures streams in 2026: liquidations now live under /market (the old /ws address connects but stays silent)
+const LIQ_URLS = ["wss://fstream.binance.com/market/ws/!forceOrder@arr", "wss://fstream.binance.com/ws/!forceOrder@arr"];
+let liqUrl = 0, liqWs = null;
+REC.liqMsgs = 0; REC.liqLastMsg = null; REC.liqUrl = null;
 function startLiq() {
   if (typeof WebSocket === "undefined") { REC.ws = "unavailable (Node " + process.version + ")"; return; }
-  let ws;
-  try { ws = new WebSocket("wss://fstream.binance.com/ws/!forceOrder@arr"); REC.ws = "connecting"; } catch (e) { REC.ws = "error " + String(e).slice(0, 80); setTimeout(startLiq, 60000); return; }
-  ws.onopen = () => { REC.ws = "connected"; };
+  let ws; const url = LIQ_URLS[liqUrl % LIQ_URLS.length];
+  try { ws = new WebSocket(url); liqWs = ws; REC.ws = "connecting"; REC.liqUrl = url; } catch (e) { REC.ws = "error " + String(e).slice(0, 80); setTimeout(startLiq, 60000); return; }
+  ws.onopen = () => { REC.ws = "connected"; REC.liqOpened = Date.now(); };
   ws.onmessage = (m) => {
     try {
-      const o = JSON.parse(m.data).o; if (!o || !o.s.endsWith("USDT")) return;
-      const c = o.s.slice(0, -4), v = +o.ap * +o.z || +o.p * +o.q, k = c;
-      const e = liqBuf.get(k) || { long: 0, short: 0, n: 0 };
+      REC.liqMsgs++; REC.liqLastMsg = Date.now();
+      const o = JSON.parse(typeof m.data === "string" ? m.data : String(m.data)).o; if (!o || !o.s.endsWith("USDT")) return;
+      const c = o.s.slice(0, -4), v = +o.ap * +o.z || +o.p * +o.q;
+      const e = liqBuf.get(c) || { long: 0, short: 0, n: 0 };
       if (o.S === "SELL") e.long += v; else e.short += v;              // a SELL liquidation closes a long position
-      e.n++; liqBuf.set(k, e);
+      e.n++; liqBuf.set(c, e);
     } catch (e) {}
   };
-  ws.onclose = () => { REC.ws = "reconnecting"; setTimeout(startLiq, 5000); };
+  ws.onclose = () => { if (liqWs === ws) { REC.ws = "reconnecting"; setTimeout(startLiq, 5000); } };
   ws.onerror = () => { try { ws.close(); } catch (e) {} };
 }
+// watchdog: a market-wide liquidation stream is never silent for 20 minutes; if it is, reconnect (and try the other address)
+setInterval(() => {
+  if (!REC.on || REC.ws !== "connected") return;
+  const quietSince = REC.liqLastMsg || REC.liqOpened || Date.now();
+  if (Date.now() - quietSince > 20 * 60000) {
+    REC.lastError = "liquidation stream silent 20 min on " + REC.liqUrl + ", switching"; REC.errors++;
+    liqUrl++; const old = liqWs; liqWs = null; try { old && old.close(); } catch (e) {} startLiq();
+  }
+}, 60000);
 function flushLiq() {
   const t = Math.floor(Date.now() / 60000) * 60 - 60; const rows = [];
   for (const [c, e] of liqBuf) rows.push({ t, c, long: Math.round(e.long), short: Math.round(e.short), n: e.n });
