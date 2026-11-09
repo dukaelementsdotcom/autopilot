@@ -107,7 +107,7 @@ def _hl(body):
             time.sleep(1 + i)
     raise IOError("hyperliquid not answering")
 
-def update_hl(coins=None, log=print, budget_s=300):
+def update_hl(coins=None, log=print, budget_s=600):          # 10 min while back-filling; once caught up each run takes seconds
     coins = [c for c in (coins or C.COINS) if c not in C.DEAD]; t0 = time.time()
     names = {u["name"] for u in _hl({"type": "meta"}).get("universe", [])}
     start_ms = int(dt.datetime(2023, 5, 1).timestamp() * 1000); added = 0; todo = []
