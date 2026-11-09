@@ -28,6 +28,8 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] **Rules feed the judge**: fair witnesses (votes only after discovery date), rules propose / judge approves (meta-labelling), market sensor (which rule styles win now = choppy vs trending)
 - [ ] **Research aimed at the goal**: favour rules whose wins are >= +2%
 - [ ] **Outside world**: Nasdaq, S&P, NVIDIA, chip stocks, VIX, dollar, 10y yield (free daily); risk-on/off regime; sectors (AI, memes, L1, DeFi, exchange) + sector vs stock twin; macro calendar (Fed, CPI, jobs) + no new trades just before; news events (GDELT) tagged by AI + memory of similar past events; check 24/7 stock perps for hourly stock signal
+- [ ] **Own-server recorder** (the AWS box is always on): Binance liquidations (live stream), order-book depth and trade-flow summaries every minute, live Binance funding; history starts the day it is switched on
+- [ ] **Hyperliquid whales**: track the largest Hyperliquid accounts' open positions (public on-chain) as a smart-money witness
 - [ ] **On-chain (free)**: exchange flows, stablecoin flows per chain (Coin Metrics community, DefiLlama)
 - [ ] **Relay resilience**: if both relays fail, manage open positions from spot prices (no new trades on incomplete data); look for a second free Frankfurt host that Binance does not block
 - [ ] **Coin-specific trust**: the judge learns its own record per coin (memes included) and demands more evidence where weak
@@ -67,7 +69,6 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 
 ## Later / only if the evidence asks for it
 - [ ] **Re-judge open trades (parked)**: test against "leave it alone" only when the scorecard shows trades being lost to market turns; reluctant by design (confirmation, minimum hold, never tighten inside noise)
-- [ ] Liquidation + order-book recording via the Render relay
 - [ ] Bybit / OKX positioning
 - [ ] Deep-learning judge as a challenger
 - [ ] Paid data only through the **self-funded upgrade budget**: share of real profits, value measured on free samples first, proposal with expected gain vs cost and payback, auto-recommend cancel if it does not pay
