@@ -1,5 +1,7 @@
 # Build board
 
+Technical plan for the next build: BUILD_A.md in the repo.
+
 Working name: **Volvox**, powered by the **Drosophila** research engine (check trademarks / domains before going public; note the closeness to "Volvo").
 
 Guiding principles: **one judge** (the referee) makes every decision; everything else feeds it as evidence.
