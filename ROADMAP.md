@@ -34,6 +34,7 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] **Hyperliquid whales**: track the largest Hyperliquid accounts' open positions (public on-chain) as a smart-money witness
 - [ ] **On-chain (free)**: exchange flows, stablecoin flows per chain (Coin Metrics community, DefiLlama)
 - [ ] **Relay resilience**: if both relays fail, manage open positions from spot prices (no new trades on incomplete data); look for a second free Frankfurt host that Binance does not block
+- [ ] **Learn which evidence was right (skipped trades included)**: every scored candidate (traded or skipped) updates how much each witness is trusted, per market state, slowly and in batches (online combiner / Hedge); inside each witness, per-measurement attribution shows which data pushed the odds the wrong way; error types (wrong read / stopped first / over- or under-confident / bar too high) from the full price path; misleading measurements are down-weighted, missing ones become research targets; promoted only as a challenger
 - [ ] **Coin-specific trust**: the judge learns its own record per coin (memes included) and demands more evidence where weak
 
 ## Fluidchain intelligence (more capable, never more constrained; each as a challenger)
