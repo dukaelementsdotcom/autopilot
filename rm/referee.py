@@ -214,7 +214,9 @@ def step(mem, J, now_iso, log=print, problems=None):
                     look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
                                  "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd, REG.get(int(J.t[i]))),
                                  "regime": REG.get(int(J.t[i])), "need": round(be + margin_of(R, name, sd), 3), "px": float(J.O[i]), "stopPct": round(stp, 4),
-                                 "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])})
+                                 "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos]),
+                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3),        # every witness's opinion, for the "why" review later
+                      "unf": bool(S[name]["unfamiliar"][pos])})
             look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))          # sides that may trade first, closest to a trade on top
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
@@ -372,6 +374,15 @@ def _shadow_resolve(J, R, newest):
         if not len(r): x["y"] = None; continue
         y, ret = barrier(J, r[:1], 1 if x["side"] == "long" else -1, TARGET, np.array([x["stop"]]), HORIZON)
         x["y"] = int(y[0]); x["ret"] = round(float(ret[0]), 4)
+        try:                                     # the whole path, so any trade shape can be judged afterwards (not only +2%)
+            sd_ = 1 if x["side"] == "long" else -1; m = (J.coin == x["coin"]) & (J.t > x["t"]) & (J.t <= x["t"] + HORIZON * H)
+            idx = np.flatnonzero(m); idx = idx[np.argsort(J.t[idx])]; e = x["px"]
+            if len(idx):
+                fav = (J.H[idx] / e - 1) if sd_ > 0 else (1 - J.L[idx] / e); adv = (1 - J.L[idx] / e) if sd_ > 0 else (J.H[idx] / e - 1)
+                x["mfe"] = round(float(fav.max()), 4); x["mae"] = round(float(adv.max()), 4)
+                x["mfeH"] = int(np.argmax(fav)) + 1; x["maeH"] = int(np.argmax(adv)) + 1
+                x["end"] = round(float(sd_ * (J.Cl[idx[-1]] / e - 1)), 4)
+        except Exception: pass
     stats = {}
     for name in ("long", "short"):
         d = [x for x in sh if x["side"] == name and x.get("y") is not None]
@@ -460,7 +471,9 @@ def _ledger_add(J, B, R, rows, S, REG=None):
             L.append({"t": int(J.t[i]), "coin": key[0], "side": name, "prob": round(pr, 3), "be": round(be, 3), "stop": round(stp, 4), "px": float(J.O[i]),
                       "need": round(be + margin_of(R, name, sd), 3), "nfor": sum(p >= sd["base"] + 0.03 for p in fp.values()),
                       "nag": sum(p <= sd["base"] - 0.03 for p in fp.values()), "reg": (REG or {}).get(int(J.t[i])),
-                      "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])})
+                      "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos]),
+                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3),        # every witness's opinion, for the "why" review later
+                      "unf": bool(S[name]["unfamiliar"][pos])})
             seen.add(key)
     del L[:-6000]
 
@@ -472,6 +485,15 @@ def _ledger_resolve(J, R, newest):
         if not len(r): x["y"] = None; continue
         y, ret = barrier(J, r[:1], 1 if x["side"] == "long" else -1, TARGET, np.array([x["stop"]]), HORIZON)
         x["y"] = int(y[0]); x["ret"] = round(float(ret[0]), 4)
+        try:                                     # the whole path, so any trade shape can be judged afterwards (not only +2%)
+            sd_ = 1 if x["side"] == "long" else -1; m = (J.coin == x["coin"]) & (J.t > x["t"]) & (J.t <= x["t"] + HORIZON * H)
+            idx = np.flatnonzero(m); idx = idx[np.argsort(J.t[idx])]; e = x["px"]
+            if len(idx):
+                fav = (J.H[idx] / e - 1) if sd_ > 0 else (1 - J.L[idx] / e); adv = (1 - J.L[idx] / e) if sd_ > 0 else (J.H[idx] / e - 1)
+                x["mfe"] = round(float(fav.max()), 4); x["mae"] = round(float(adv.max()), 4)
+                x["mfeH"] = int(np.argmax(fav)) + 1; x["maeH"] = int(np.argmax(adv)) + 1
+                x["end"] = round(float(sd_ * (J.Cl[idx[-1]] / e - 1)), 4)
+        except Exception: pass
     done = [x for x in L if x.get("y") is not None]; bands = []
     for lo, hi in ((0, .5), (.5, .55), (.55, .6), (.6, .65), (.65, .7), (.7, .75), (.75, 1.01)):
         d = [x for x in done if lo <= x["prob"] < hi]
