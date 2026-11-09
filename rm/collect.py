@@ -33,12 +33,17 @@ def rec(log=print):
     if not url or not key: return {"skipped": "no own server configured"}
     base = url.split("/api/")[0]; out = {}
     st = S.get(base + "/rec/status", headers={"x-relay-key": key}, timeout=20).json()
-    out["status"] = {k: st.get(k) for k in ("writes", "errors", "lastError", "ws", "uptimeMin", "node")}
-    today = dt.datetime.utcnow().date()
+    out["status"] = {k: st.get(k) for k in ("writes", "errors", "lastError", "ws", "liqMsgs", "uptimeMin", "node", "sys")}
+    today = dt.datetime.utcnow().date(); os.makedirs(KEEP(""), exist_ok=True)
     for kind in ("depth", "funding", "liq"):
-        rows = []
-        for d in (today - dt.timedelta(days=1), today):
-            r = S.get(base + "/rec/get", params={"day": d.isoformat(), "kind": kind}, headers={"x-relay-key": key}, timeout=60)
+        rows = []; path = KEEP(f"rec_{kind}.parquet")
+        since = 0                                                   # only download what we do not have yet (the last stored hour is rebuilt whole)
+        if os.path.exists(path):
+            try: since = int(pd.read_parquet(path, columns=["t"]).t.max())
+            except Exception: since = 0
+        days = [d for d in (today - dt.timedelta(days=1), today) if since == 0 or d >= dt.datetime.utcfromtimestamp(since).date()]
+        for d in days:
+            r = S.get(base + "/rec/get", params={"day": d.isoformat(), "kind": kind, "since": since}, headers={"x-relay-key": key}, timeout=60)
             if r.status_code == 200 and r.text.strip():
                 rows += [json.loads(l) for l in r.text.splitlines() if l.strip()]
         if not rows: out[kind] = 0; continue
@@ -52,7 +57,7 @@ def rec(log=print):
         else:
             g = df.groupby(["c", "h"]).agg(liqL=("long", "sum"), liqS=("short", "sum"), liqN=("n", "sum")).reset_index()
         g = g.rename(columns={"c": "coin", "h": "t"})
-        path = RAW(f"rec_{kind}.parquet"); _save(_merge(path, g, ["coin", "t"]), path); out[kind] = int(len(g))
+        _save(_merge(path, g, ["coin", "t"]), path); out[kind] = int(len(g))
     log(f"recorder: {out}"); return out
 
 # ── outside world (daily) ─────────────────────────────────────────────────────────────────────────

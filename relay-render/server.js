@@ -4,6 +4,9 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const zlib = require("zlib");
+const readline = require("readline");
 const handler = require("./live.js");
 const KEY = process.env.RELAY_KEY || "";
 const okKey = (req, u) => !KEY || req.headers["x-relay-key"] === KEY || u.searchParams.get("key") === KEY;
@@ -103,6 +106,37 @@ if (REC.on) {
   try { fs.mkdirSync(REC.dir, { recursive: true }); } catch (e) {}
   safeEvery(60000, depthTick); safeEvery(300000, fundingTick); setInterval(flushLiq, 60000); startLiq();
 }
+// ── HOUSEKEEPING: the disk can never fill up ──────────────────────────────────────────────────────────
+// finished days are gzipped (~8x smaller), days older than KEEP_DAYS are deleted, and if free space ever drops
+// below 2 GB the oldest days go first. GitHub keeps the hourly summaries forever, so nothing important is lost.
+const KEEP_DAYS = +(process.env.REC_KEEP_DAYS || 120);
+function dirMB(d) { let s = 0; try { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); s += f.isDirectory() ? dirMB(p) : fs.statSync(p).size / 1e6; } } catch (e) {} return s; }
+function diskFreeGB() { try { const st = fs.statfsSync(REC.dir); return (st.bavail * st.bsize) / 1e9; } catch (e) { return null; } }
+function housekeep() {
+  try {
+    const today = day(Date.now()); const days = fs.readdirSync(REC.dir).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).sort();
+    for (const d of days) {
+      if (d >= today) continue;
+      for (const f of fs.readdirSync(path.join(REC.dir, d))) {
+        if (!f.endsWith(".jsonl")) continue;
+        const p = path.join(REC.dir, d, f);
+        fs.writeFileSync(p + ".gz", zlib.gzipSync(fs.readFileSync(p))); fs.unlinkSync(p);
+      }
+    }
+    const cutoff = day(Date.now() - KEEP_DAYS * 86400000);
+    for (const d of days) if (d < cutoff) fs.rmSync(path.join(REC.dir, d), { recursive: true, force: true });
+    let left = fs.readdirSync(REC.dir).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).sort();
+    while (left.length > 2 && (diskFreeGB() ?? 99) < 2) { fs.rmSync(path.join(REC.dir, left.shift()), { recursive: true, force: true }); }
+    REC.housekept = new Date().toISOString().slice(0, 16);
+  } catch (e) { REC.errors++; REC.lastError = "housekeeping: " + String(e).slice(0, 150); }
+}
+if (REC.on) { setTimeout(housekeep, 30000); setInterval(housekeep, 6 * 3600000); }
+function sysStats() {
+  return { diskFreeGB: diskFreeGB() == null ? null : +diskFreeGB().toFixed(2), recMB: +dirMB(REC.dir).toFixed(1), memFreeMB: Math.round(os.freemem() / 1e6),
+           memTotalMB: Math.round(os.totalmem() / 1e6), rssMB: Math.round(process.memoryUsage().rss / 1e6), load1: +os.loadavg()[0].toFixed(2),
+           load15: +os.loadavg()[2].toFixed(2), cpus: os.cpus().length, keepDays: KEEP_DAYS, housekept: REC.housekept || null };
+}
+
 process.on("unhandledRejection", (e) => { REC.errors++; REC.lastError = "unhandled: " + String(e).slice(0, 150); });
 process.on("uncaughtException", (e) => { REC.errors++; REC.lastError = "uncaught: " + String(e).slice(0, 150); });
 
@@ -119,14 +153,23 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/rec/status") {
     let days = []; try { days = fs.readdirSync(REC.dir).sort(); } catch (e) {}
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ ...REC, dir: undefined, days, node: process.version, uptimeMin: Math.round((Date.now() - REC.started) / 60000) })); return;
+    res.end(JSON.stringify({ ...REC, dir: undefined, days, node: process.version, uptimeMin: Math.round((Date.now() - REC.started) / 60000), sys: sysStats() })); return;
   }
   if (u.pathname === "/rec/get") {
     const d = u.searchParams.get("day") || "", kind = u.searchParams.get("kind") || "";
     if (!/^\d{4}-\d\d-\d\d$/.test(d) || !["depth", "funding", "liq"].includes(kind)) { res.statusCode = 400; res.end("bad request"); return; }
-    const f = path.join(REC.dir, d, kind + ".jsonl");
-    if (!fs.existsSync(f)) { res.statusCode = 404; res.end("none"); return; }
-    res.setHeader("content-type", "application/x-ndjson"); fs.createReadStream(f).pipe(res); return;
+    const since = +(u.searchParams.get("since") || 0);
+    const f = path.join(REC.dir, d, kind + ".jsonl"), fz = f + ".gz";
+    const src = fs.existsSync(f) ? fs.createReadStream(f) : fs.existsSync(fz) ? fs.createReadStream(fz).pipe(zlib.createGunzip()) : null;
+    if (!src) { res.statusCode = 404; res.end("none"); return; }
+    // only rows newer than `since`, compressed on the way out (keeps data transfer tiny)
+    const gz = /gzip/.test(req.headers["accept-encoding"] || "");
+    res.setHeader("content-type", "application/x-ndjson"); if (gz) res.setHeader("content-encoding", "gzip");
+    const out = gz ? zlib.createGzip() : res; if (gz) out.pipe(res);
+    const rl = readline.createInterface({ input: src, crlfDelay: Infinity });
+    rl.on("line", (l) => { if (!since) { out.write(l + "\n"); return; } const m = /"t":(\d+)/.exec(l); if (m && +m[1] >= since) out.write(l + "\n"); });
+    rl.on("close", () => out.end()); src.on("error", () => out.end());
+    return;
   }
   if (u.pathname !== "/api/live") { res.statusCode = 404; res.end("not found"); return; }
   req.query = Object.fromEntries(u.searchParams);

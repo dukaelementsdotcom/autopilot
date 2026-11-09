@@ -86,8 +86,20 @@ def write(mem, J, timings, problems, live, t0, log=print):
             stt = x.get("status") or {}
             chk("own-server recorder (order book, funding, liquidations)", "error" not in x and stt.get("ws") == "connected" and (stt.get("writes") or {}).get("depth", 0) > 0,
                 warn=True, detail=json.dumps({k: x.get(k) for k in ("depth", "funding", "liq", "error")} | {"ws": stt.get("ws"), "writes": stt.get("writes"), "lastError": stt.get("lastError")})[:300])
+            sy = stt.get("sys") or {}
+            if sy:
+                chk("own server resources (disk, memory, CPU)", (sy.get("diskFreeGB") or 0) > 3 and (sy.get("memFreeMB") or 0) > 150 and (sy.get("load15") or 0) < 1.0,
+                    warn=(sy.get("diskFreeGB") or 0) > 1 and (sy.get("memFreeMB") or 0) > 60,
+                    detail=f"disk free {sy.get('diskFreeGB')} GB, recordings {sy.get('recMB')} MB (old days compressed, kept {sy.get('keepDays')} days, oldest auto-deleted if space runs low), "
+                           f"memory free {sy.get('memFreeMB')}/{sy.get('memTotalMB')} MB, load {sy.get('load15')} on {sy.get('cpus')} CPUs")
         else:
             chk(f"collector: {nm}", "error" not in x, warn=True, detail=json.dumps(x)[:200])
+    # saved memory must stay far below GitHub's 100 MB per-file limit (a bigger file could not be saved at all)
+    try:
+        sizes = {f: os.path.getsize(os.path.join(dp, f)) / 1e6 for dp, _, fs in os.walk(C.STATE_DIR) for f in fs}
+        big = max(sizes.items(), key=lambda kv: kv[1]) if sizes else ("-", 0); tot = sum(sizes.values())
+        chk("saved memory size", big[1] < 40 and tot < 400, warn=big[1] < 70, detail=f"total {tot:.1f} MB, largest file {big[0]} {big[1]:.1f} MB (GitHub limit 100 MB per file)")
+    except Exception as e: chk("saved memory size", False, warn=True, detail=str(e))
     cal = (mem.get("referee") or {}).get("calibration") or {}
     chk("calibration ledger", cal.get("recorded", 0) > 0, warn=True, detail=f"{cal.get('recorded', 0)} candidates recorded, {cal.get('scored', 0)} scored")
     chk("no broken parts", not problems, warn=len(problems) <= 2, detail="; ".join(problems[:6]) or "none")

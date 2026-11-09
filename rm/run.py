@@ -24,6 +24,7 @@ def due(mem, name, hours):
 def now_iso(): return dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M")
 
 SEEN_MAX = 1_000_000
+FAM_MAX = 400_000                                        # research families remembered (~4 MB compressed)
 def load_memory():
     p = f"{C.STATE_DIR}/memory.json"
     if os.path.exists(p):
@@ -33,6 +34,11 @@ def load_memory():
             import gzip
             with gzip.open(sp, "rt") as f: mem["seen"] = f.read().split()
         mem.setdefault("seen", [])
+        fp = f"{C.STATE_DIR}/families.json.gz"
+        if "families" not in mem and os.path.exists(fp):
+            import gzip
+            with gzip.open(fp, "rt") as f: mem["families"] = json.load(f)
+        mem.setdefault("families", {})
         return mem
     return {"version": 1, "born": now_iso(), "tests": {}, "seen": [], "families": {}, "cursor": 0, "runs": [], "lessons": [], "events": [], "ai": {}, "total_tests": 0}
 
@@ -40,13 +46,19 @@ def save_memory(mem):
     os.makedirs(C.STATE_DIR, exist_ok=True)
     import gzip
     seen = mem.pop("seen", [])[-SEEN_MAX:]
+    fam = mem.pop("families", {})
+    if len(fam) > FAM_MAX:                                   # bounded: the least-tried families that never worked are forgotten first
+        keep = sorted(fam, key=lambda k: (fam[k]["ok"] > 0, fam[k]["n"], fam[k]["best"]), reverse=True)[:FAM_MAX]
+        fam = {k: fam[k] for k in keep}
     try:
         with gzip.open(f"{C.STATE_DIR}/seen.txt.gz.tmp", "wt") as f: f.write("\n".join(seen))
         os.replace(f"{C.STATE_DIR}/seen.txt.gz.tmp", f"{C.STATE_DIR}/seen.txt.gz")
+        with gzip.open(f"{C.STATE_DIR}/families.json.gz.tmp", "wt") as f: json.dump(fam, f, separators=(",", ":"))
+        os.replace(f"{C.STATE_DIR}/families.json.gz.tmp", f"{C.STATE_DIR}/families.json.gz")
         tmp = f"{C.STATE_DIR}/memory.json.tmp"
         with open(tmp, "w") as f: json.dump(mem, f, separators=(",", ":"))
         os.replace(tmp, f"{C.STATE_DIR}/memory.json")
-    finally: mem["seen"] = seen
+    finally: mem["seen"] = seen; mem["families"] = fam
 
 def compact(mem):
     """keep knowledge, drop detail: old dead tests are folded into their family's counters (already counted) and removed"""
