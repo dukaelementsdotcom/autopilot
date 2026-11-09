@@ -143,7 +143,7 @@ def update_live(log=print, prefer=None):
         last = None
         for url in urls:                                  # first relay that answers wins; the others are backups
             try:
-                r = S.get(url, params={"coins": ",".join(part), "pages": npages, "kl": 72}, timeout=90); r.raise_for_status(); x = r.json()
+                r = S.get(url, params={"coins": ",".join(part), "pages": npages, "kl": 72}, timeout=90, headers={"x-relay-key": os.environ.get("RM_RELAY_KEY", "")}); r.raise_for_status(); x = r.json()
                 if not x.get("coins"): raise RuntimeError("empty answer")
                 d["coins"].update(x.get("coins", {})); d["errors"].update(x.get("errors", {})); d["region"] = x.get("region") or d["region"]
                 d.setdefault("via", {})[url.split("/")[2]] = d.get("via", {}).get(url.split("/")[2], 0) + 1; last = None; break
@@ -155,7 +155,7 @@ def update_live(log=print, prefer=None):
         part = retry[i:i + 6]
         for url in urls:
             try:
-                r = S.get(url, params={"coins": ",".join(part), "pages": npages, "kl": 72}, timeout=90); r.raise_for_status(); x = r.json()
+                r = S.get(url, params={"coins": ",".join(part), "pages": npages, "kl": 72}, timeout=90, headers={"x-relay-key": os.environ.get("RM_RELAY_KEY", "")}); r.raise_for_status(); x = r.json()
                 got = x.get("coins", {})
                 if got:
                     d["coins"].update(got)

@@ -35,7 +35,7 @@ LEVERAGE = 10                   # 10x  -> a $50 margin controls a $500 position
 # live relay (Vercel function in Frankfurt, see relay/). Empty = archive only (about a day behind).
 RELAY_URL = os.environ.get("RM_RELAY_URL", "https://btc-relay-two.vercel.app/api/live")
 # several relays may be listed (comma-separated, best first): each batch tries them in order, so one host going down changes nothing
-RELAY_URLS = [u.strip() for u in os.environ.get("RM_RELAY_URLS", "").split(",") if u.strip()] or [
+RELAY_URLS = [u.strip() for u in os.environ.get("RM_RELAY_URLS", "").split(",") if u.strip()] or ([os.environ["RM_OWN_RELAY"]] if os.environ.get("RM_OWN_RELAY") else []) + [
     "https://research-machine-relay.onrender.com/api/live",      # Render, Frankfurt, free (main)
     RELAY_URL]                                                    # Vercel, Frankfurt, free (backup)
 DEAD = ("LUNA", "FTT", "SRM")       # collapsed coins: history only, nothing live

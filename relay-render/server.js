@@ -12,6 +12,9 @@ http.createServer(async (req, res) => {
     return;
   }
   if (u.pathname !== "/api/live") { res.statusCode = 404; res.end("not found"); return; }
+  // optional shared key: on our own server only the research machine may use the relay (protects the IP from abuse and bans)
+  const need = process.env.RELAY_KEY || "";
+  if (need && req.headers["x-relay-key"] !== need && u.searchParams.get("key") !== need) { res.statusCode = 403; res.end("forbidden"); return; }
   req.query = Object.fromEntries(u.searchParams);
   try { await handler(req, res); } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: String(e) })); }
 }).listen(process.env.PORT || 10000);
