@@ -1,5 +1,7 @@
 # Build board
 
+Working name: **Volvox**, powered by the **Drosophila** research engine (check trademarks / domains before going public; note the closeness to "Volvo").
+
 Guiding principles: **one judge** (the referee) makes every decision; everything else feeds it as evidence.
 **Fluidity:** no hard-coded numbers, every setting is learned and re-tuned from live evidence.
 **Every addition is a challenger:** a cloned judge with the new ability is scored on the same live cases and takes over only if it is more accurate **and** finds at least as many Grade A trades.
@@ -20,6 +22,7 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 - [ ] **Fast execution (real money)**: the AWS server places orders within seconds of each decision; stops/targets live on the exchange
 - [ ] **Runners**: learned runner targets (+6-10% when evidence supports), trail width by evidence
 - [ ] **Honest timing**: paper fills at the real price at decision time (not the hour's open)
+- [ ] **Branding**: dashboard renamed to Volvox; research engine shown as Drosophila
 - [ ] **Account clean-up**: remove team + all-in accounts; keep best-rule account
 - [ ] **Live lab**: every champion paper-traded in shadow; best-rule account picks its champion by live record
 - [ ] **Rules feed the judge**: fair witnesses (votes only after discovery date), rules propose / judge approves (meta-labelling), market sensor (which rule styles win now = choppy vs trending)
