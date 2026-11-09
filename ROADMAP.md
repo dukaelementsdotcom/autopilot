@@ -7,13 +7,17 @@ Guiding principles: **one judge** (the referee) makes every decision; everything
 ## Status
 - [x] Stage 1: referee account, ~50 coins, exams, exchange-style UI, health report
 - [x] Stage 2: spot vs futures, Hyperliquid, self-adapting referee, live scorecard, post-mortems, monthly report
-- [x] Render relay (main) + Vercel (backup), Vercel/cron/Upstash clean-up
+- [x] Own relay server (AWS Stockholm, fixed IP, free plan until 2027-05-09) first; Render + Vercel as backups
+- [x] Vercel/cron/Upstash clean-up
 - [ ] Baseline: ~2 clean nights + ~40 scored calls (expected Tue/Wed)
 
 ## Next build (after the baseline)
 - [ ] **Challenger system**: cloned judge in shadow; promotion = more accurate + at least as many Grade A + no worse calibration; "upgrade under test" line on the dashboard
 - [ ] **Fluid pacing**: learned trade pace (no hard 1/day or 7/week), several trades a day allowed, weekly pace by count **and** profit, surplus carries into next week, new top tier **Grade S**
 - [ ] **Fluid risk**: total open-risk cap, same-bet (correlation) guard, daily and weekly brakes, all learned and slow-moving
+- [ ] **Calibration ledger**: quietly record every scanned candidate (once per coin/side/day), score it after 48h, show one small table of predicted odds vs what really happened; tunes the bar from data
+- [ ] **Trade shape adapts to volatility**: in wild markets the target grows with the stop (e.g. +3-4% when stops hit 4%), so a wild market does not force an 80% bar
+- [ ] **Fast execution (real money)**: the AWS server places orders within seconds of each decision; stops/targets live on the exchange
 - [ ] **Runners**: learned runner targets (+6-10% when evidence supports), trail width by evidence
 - [ ] **Honest timing**: paper fills at the real price at decision time (not the hour's open)
 - [ ] **Account clean-up**: remove team + all-in accounts; keep best-rule account
