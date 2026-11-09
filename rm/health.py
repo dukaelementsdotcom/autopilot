@@ -79,6 +79,17 @@ def write(mem, J, timings, problems, live, t0, log=print):
     chk("spot data (real money vs leverage)", sl.get("ok", 0) >= 35 and "error" not in (md.get("spot") or {}), warn=sl.get("ok", 0) > 0,
         detail=f"live spot {sl.get('ok', 0)} coins (not on spot: {', '.join(sl.get('missing', [])[:8]) or 'none'}); archive {json.dumps(md.get('spot'))[:120]}")
     chk("Hyperliquid data", "error" not in hl and hl.get("coins", 0) > 20, warn=True, detail=json.dumps(hl)[:160])
+    co = mem.get("collect") or {}
+    for nm in ("recorder", "macro", "onchain", "whales", "news"):
+        x = co.get(nm) or {}
+        if nm == "recorder":
+            stt = x.get("status") or {}
+            chk("own-server recorder (order book, funding, liquidations)", "error" not in x and stt.get("ws") == "connected" and (stt.get("writes") or {}).get("depth", 0) > 0,
+                warn=True, detail=json.dumps({k: x.get(k) for k in ("depth", "funding", "liq", "error")} | {"ws": stt.get("ws"), "writes": stt.get("writes"), "lastError": stt.get("lastError")})[:300])
+        else:
+            chk(f"collector: {nm}", "error" not in x, warn=True, detail=json.dumps(x)[:200])
+    cal = (mem.get("referee") or {}).get("calibration") or {}
+    chk("calibration ledger", cal.get("recorded", 0) > 0, warn=True, detail=f"{cal.get('recorded', 0)} candidates recorded, {cal.get('scored', 0)} scored")
     chk("no broken parts", not problems, warn=len(problems) <= 2, detail="; ".join(problems[:6]) or "none")
     age = None
     try: age = (now - time.mktime(time.strptime(RM.get("trainedAt"), "%Y-%m-%d %H:%M"))) / 86400 if RM.get("trainedAt") else None
@@ -93,6 +104,7 @@ def write(mem, J, timings, problems, live, t0, log=print):
                                          "coins": int(J.P.coin.nunique()) if J is not None else None, "valBar": C.VAL_T},
            "freshness": fresh, "live": live and {k: v for k, v in live.items() if k != "errors"}, "liveErrors": (live or {}).get("errors"),
            "referee": {"model": RM, "account": acct(RA), "paused": RA.get("paused"), "look": R.get("look"),
+                       "calibration": R.get("calibration"), "collect": mem.get("collect"),
                        "scorecard": {"calls": len(R.get("shadow") or []), "scored": sum(1 for x in (R.get("shadow") or []) if x.get("y") is not None),
                                      "stats": R.get("shadowStats"), "callRate": R.get("callRateBySide"), "override": R.get("override"),
                                      "regimeOverride": R.get("regimeOverride"), "adapt": R.get("adapt"), "regimeNow": R.get("regimeNow")}, "trainings": R.get("trainings"), "lastDecisions": (RA.get("decisions") or [])[-10:]},

@@ -219,6 +219,7 @@ def step(mem, J, now_iso, log=print, problems=None):
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
             _shadow_add(J, B, R, rows, S, REG)
+            _ledger_add(J, B, R, rows, S, REG)
             for pos in np.argsort(J.t[rows], kind="stable"):
                 i = int(rows[pos]); day = int(J.t[i] // 86400)
                 if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
@@ -234,7 +235,7 @@ def step(mem, J, now_iso, log=print, problems=None):
                 if best:
                     _open(J, B, A, i, best, stp, be, S, pos, V.get(i, []), now_iso, R); A["open"][-1]["regime"] = REG.get(int(J.t[i])); _manage(J, B, A["open"][-1], A, newest)
     A["lastT"] = max(A["lastT"], newest)
-    _shadow_resolve(J, R, newest); adapt(R)
+    _shadow_resolve(J, R, newest); adapt(R); _ledger_resolve(J, R, newest)
     for x in A["closed"][-10:]:
         if "pm" not in x:
             try: x["pm"] = postmortem(J, x)
@@ -444,3 +445,36 @@ def adapt(R):
             hit = np.mean([x["y"] for x in d]); be = np.mean([x["be"] for x in d]); avg = np.mean([x["ret"] for x in d])
             rov.setdefault(name, {})[reg] = {"live": bool(avg > 0 and hit >= be), "n": len(d), "hit": round(float(hit), 3), "be": round(float(be), 3), "avg": round(float(avg) * 100, 3)}
     R["adapt"] = ad; R["regimeOverride"] = rov
+
+
+# ── calibration ledger: EVERY scanned candidate (both sides, all grades), scored 48h later. Recording only. ──────
+def _ledger_add(J, B, R, rows, S, REG=None):
+    L = R.setdefault("ledger", []); seen = {(x["coin"], x["side"], x["t"] // 86400) for x in L[-3000:]}
+    newest = int(J.t[rows].max())
+    for pos in np.flatnonzero(J.t[rows] == newest):              # the newest hour only, one entry per coin, side and day
+        i = int(rows[pos]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
+        for name, sd in B["sides"].items():
+            key = (str(J.coin[i]), name, int(J.t[i]) // 86400)
+            if key in seen: continue
+            fp = {f: float(v[pos]) for f, v in S[name]["fams"].items()}; pr = float(S[name]["prob"][pos])
+            L.append({"t": int(J.t[i]), "coin": key[0], "side": name, "prob": round(pr, 3), "be": round(be, 3), "stop": round(stp, 4), "px": float(J.O[i]),
+                      "need": round(be + margin_of(R, name, sd), 3), "nfor": sum(p >= sd["base"] + 0.03 for p in fp.values()),
+                      "nag": sum(p <= sd["base"] - 0.03 for p in fp.values()), "reg": (REG or {}).get(int(J.t[i])),
+                      "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])})
+            seen.add(key)
+    del L[:-6000]
+
+def _ledger_resolve(J, R, newest):
+    L = R.get("ledger") or []
+    for x in L:
+        if "y" in x or x["t"] + HORIZON * H > newest + H: continue
+        r = np.flatnonzero((J.coin == x["coin"]) & (J.t == x["t"]))
+        if not len(r): x["y"] = None; continue
+        y, ret = barrier(J, r[:1], 1 if x["side"] == "long" else -1, TARGET, np.array([x["stop"]]), HORIZON)
+        x["y"] = int(y[0]); x["ret"] = round(float(ret[0]), 4)
+    done = [x for x in L if x.get("y") is not None]; bands = []
+    for lo, hi in ((0, .5), (.5, .55), (.55, .6), (.6, .65), (.65, .7), (.7, .75), (.75, 1.01)):
+        d = [x for x in done if lo <= x["prob"] < hi]
+        if d: bands.append({"band": f"{int(lo*100)}-{min(100, int(hi*100))}%", "n": len(d), "pred": round(float(np.mean([x["prob"] for x in d])), 3),
+                            "hit": round(float(np.mean([x["y"] for x in d])), 3), "avg": round(float(np.mean([x["ret"] for x in d])) * 100, 3)})
+    R["calibration"] = {"recorded": len(L), "scored": len(done), "bands": bands}

@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np, pandas as pd
-from . import config as C, fetch, fetch_more, fetch_ext, features, ideas, report, account, referee, health
+from . import config as C, collect, fetch, fetch_more, fetch_ext, features, ideas, report, account, referee, health
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -107,6 +107,7 @@ def run(budget=None, log=print):
     # relays are tried in the fixed order (Render first, so Vercel's metered free tier is only the backup); a rate-limited
     # Render answers instantly with "cooling down", so trying it first costs nothing when it is out
     live = safe("live data (relay)", fetch.update_live, log=log) or {}
+    mem["collect"] = safe("collectors (recorder, macro, on-chain, whales, news)", collect.run, log=log) or {}
     mem["live"] = {"at": now_iso(), **{k: v for k, v in live.items() if k != "errors"}, "errors": len(live.get("errors", {}))}
     blocks = mem.setdefault("blocks", [])
     for b in blocks: DESC[b["id"]] = f"invented measurement '{b.get('name') or b['id']}' = {b['expr']}"

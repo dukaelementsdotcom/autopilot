@@ -191,6 +191,7 @@ class Judge:
         u = UNI[h.get("uni", "ALL")]
         if u: m &= P.coin.isin(u).values
         for c in h.get("when", []):
+            if c["f"] not in P.columns: return np.zeros(len(P), bool)     # a measurement that is missing right now: the rule simply does not fire
             x = P[c["f"]].values; m &= (x >= c["lo"]) & (x <= c["hi"])
         return m
 
