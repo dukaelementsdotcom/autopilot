@@ -221,6 +221,7 @@ def step(mem, J, now_iso, log=print, problems=None):
             _shadow_add(J, B, R, rows, S, REG)
             for pos in np.argsort(J.t[rows], kind="stable"):
                 i = int(rows[pos]); day = int(J.t[i] // 86400)
+                if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
                 if any(int(x["t"] // 86400) == day for x in A["open"] + A["closed"][-5:]) : continue      # max one new trade per UTC day
                 if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
                 stp = float(stop_pct(J.dvol[i])); be = breakeven(stp); best = None

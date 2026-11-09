@@ -54,6 +54,9 @@ def write(mem, J, timings, problems, live, t0, log=print):
             if g > 1.6: gaps.append(f"{b['at']} → {a['at']} ({g:.1f}h)")
         except Exception: pass
     chk("hourly runs happen", not gaps, warn=len(gaps) <= 2, detail=("missed hours: " + "; ".join(gaps[:8])) if gaps else f"{len(hist)} runs on record, no gaps")
+    outs = [h["at"] for h in hist[:24] if (h.get("maxLagH") or 0) > 3]
+    chk("no live-data outages (last 24 runs)", not outs, warn=len(outs) <= 2,
+        detail=(f"{len(outs)} runs without fresh live data: {', '.join(outs[-1:] + outs[:1])} … (no new trades are made on stale data)") if outs else "live data arrived every run")
     chk("run finishes in time", snap["secs"] < 50 * 60, warn=snap["secs"] < 70 * 60, detail=f"this run {snap['secs']/60:.1f} min (limit 100)")
     chk("memory", rss < 10, warn=rss < 13, detail=f"peak {rss:.1f} GB of ~16 GB")
     chk("live data fresh", lags and max(lags) <= 2.5, warn=lags and max(lags) <= 6,
