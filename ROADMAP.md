@@ -14,7 +14,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 ## Timeline
 - **Now (paper):** baseline running since Nov 7; new data recording since Nov 9
 - **Wed Nov 11: Build A** (foundation, honest scoring, trade shape, risk, learning, new evidence, clean-up, Volvox dashboard)
-- **About 2 to 3 weeks later: Build B** (accuracy upgrades), started when Build A's challengers have been judged
+- **About 1 week after A: Build B** (accuracy upgrades), once Build A has run cleanly for a few days; its challengers join the queue as test slots free up
 - **At least 1 month of paper AND the gate passed: Build C** (real money), earliest around mid-December
 - **By April 2027:** decide how the AWS server is paid for after the free credits end on May 9, 2027 (from profits, or move)
 
@@ -84,7 +84,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Crash rehearsal: replay March 2020, LUNA, FTX and recent shocks through sizing and exits
 - [ ] Deploy once, watch the first 3 runs, then the daily health reports
 
-## Build B (accuracy, about 2 to 3 weeks after A; each one a challenger)
+## Build B (accuracy, about 1 week after A; each one a challenger)
 - [ ] Market states: hidden-Markov regimes, change-point detection, a specialist judge per state (may bring longs back)
 - [ ] Three time frames (1h / 4h / daily) must not contradict each other
 - [ ] Panel of 3 differently trained judges; disagreement raises the bar
