@@ -248,7 +248,8 @@ def step(mem, J, now_iso, log=print, problems=None):
     if len(done) >= 20 and not A.get("paused"):
         exp = np.mean([x["prob"] for x in done[-20:]]); act = np.mean([1.0 if x["hitTarget"] else 0.0 for x in done[-20:]])
         if act < exp - 0.20: A["paused"] = f"{now_iso}: live hit rate {act:.0%} far below the predicted {exp:.0%} over 20 trades; paused until retrained"
-    A["closed"] = A["closed"][-300:]; A["curve"] = A["curve"][-1000:]; A["decisions"] = A["decisions"][-60:]
+    from . import archive                                     # trimmed history goes to the permanent archive, never lost
+    archive.trim(A["closed"], 300, "referee_trades"); archive.trim(A["curve"], 1000, "referee_curve"); archive.trim(A["decisions"], 60, "referee_decisions")
     R["model"] = None if B is None else {"trainedAt": B["trainedAt"], "secs": B.get("secs"), "coins": B.get("coins"),
                                           **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
     log(f"referee: ${A.get('equity', A['cash'])} ({len(A['open'])} open, {len(A['closed'])} closed){' PAUSED' if A.get('paused') else ''}{' (no model yet)' if B is None else ''}")
@@ -364,7 +365,7 @@ def _shadow_add(J, B, R, rows, S, REG=None):
             sh.append({"t": int(J.t[i]), "coin": key[0], "side": name, "grade": g, "prob": round(float(S[name]["prob"][pos]), 3), "be": round(be, 3), "stop": round(stp, 4),
                        "reg": (REG or {}).get(int(J.t[i])), "px": float(J.O[i])})
             recent[key] = int(J.t[i])
-    del sh[:-3000]
+    from . import archive; archive.trim(sh, 3000, "scorecard")
 
 def _shadow_resolve(J, R, newest):
     sh = R.get("shadow") or []
@@ -475,7 +476,7 @@ def _ledger_add(J, B, R, rows, S, REG=None):
                       "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3),        # every witness's opinion, for the "why" review later
                       "unf": bool(S[name]["unfamiliar"][pos])})
             seen.add(key)
-    del L[:-6000]
+    from . import archive; archive.trim(L, 6000, "ledger")
 
 def _ledger_resolve(J, R, newest):
     L = R.get("ledger") or []

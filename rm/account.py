@@ -131,6 +131,7 @@ def step(mem, J, now_iso, log=print, key="account", team=False, lev=LEV, frac=MA
                                  "why": f"best record after its exams: {s['n']} trades, avg {s['mean']:+}% per trade, {s['hit']}% won (t {s['t']})"})
             A["leader"] = k
     elif lead and (lead not in tests or tests[lead]["status"] != "champion"): A["leader"] = None
-    A["closed"] = A["closed"][-400:]; A["curve"] = A["curve"][-1000:]; A["leaders"] = A["leaders"][-50:]
+    from . import archive; nm = key
+    archive.trim(A["closed"], 400, f"{nm}_trades"); archive.trim(A["curve"], 1000, f"{nm}_curve"); A["leaders"] = A["leaders"][-50:]
     log(f"{key}: ${A['equity']} (cash ${A['cash']}, {len(A['open'])} open, {len(A['closed'])} closed), rules {[tests[k].get('no') for k in (A.get('team') or ([A['leader']] if A.get('leader') else []))]}")
     return A

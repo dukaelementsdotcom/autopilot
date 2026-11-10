@@ -145,7 +145,7 @@ def _rss(xml):
 def news(log=print):
     import hashlib
     t = int(time.time()) // H * H; d = KEEP("news"); os.makedirs(d, exist_ok=True)
-    for old in sorted(f for f in os.listdir(d) if f.endswith(".jsonl.gz"))[:-60]: os.remove(os.path.join(d, old))     # keep 60 days
+    # every day's headlines are kept (about 50 KB a day compressed): the shock memory needs years, not weeks
     sp = os.path.join(d, "seen.txt"); seen = set(open(sp).read().split()) if os.path.exists(sp) else set()
     n, ok, bad = 0, 0, []
     with gzip.open(os.path.join(d, f"{dt.datetime.utcnow():%Y-%m-%d}.jsonl.gz"), "at") as f:

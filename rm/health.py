@@ -98,7 +98,8 @@ def write(mem, J, timings, problems, live, t0, log=print):
     try:
         sizes = {f: os.path.getsize(os.path.join(dp, f)) / 1e6 for dp, _, fs in os.walk(C.STATE_DIR) for f in fs}
         big = max(sizes.items(), key=lambda kv: kv[1]) if sizes else ("-", 0); tot = sum(sizes.values())
-        chk("saved memory size", big[1] < 40 and tot < 400, warn=big[1] < 70, detail=f"total {tot:.1f} MB, largest file {big[0]} {big[1]:.1f} MB (GitHub limit 100 MB per file)")
+        from . import archive
+        chk("saved memory size", big[1] < 40 and tot < 400, warn=big[1] < 70, detail=f"total {tot:.1f} MB, largest file {big[0]} {big[1]:.1f} MB (GitHub limit 100 MB per file); permanent archive {archive.sizes()}")
     except Exception as e: chk("saved memory size", False, warn=True, detail=str(e))
     cal = (mem.get("referee") or {}).get("calibration") or {}
     chk("calibration ledger", cal.get("recorded", 0) > 0, warn=True, detail=f"{cal.get('recorded', 0)} candidates recorded, {cal.get('scored', 0)} scored")
