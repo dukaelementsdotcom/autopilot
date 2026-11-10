@@ -68,10 +68,15 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] On-chain witness (exchange flows; stablecoin flows per chain from DefiLlama)
 - [ ] Sectors (AI, memes, L1, DeFi, exchange tokens) and sector rotation
 - [ ] News witness: headlines tagged by the AI (type, who, severity) plus a memory of similar past events; tested last, because it is the noisiest
+- [ ] **Shock memory**: every past sudden move (BTC and Nasdaq since 2020, found from prices, the cause labelled from news where possible), split by bull/bear state, scheduled (Fed, CPI) vs surprise, and whether it was already priced in (drift before). It records how fast the reaction came (minutes / hours / at the next stock-market open) and whether it lasted or faded within 4h, 24h and 72h
+- [ ] **Shock response for open trades** (challenger): when a shock hits against an open trade, the shock memory decides exit / take profit / hold, based on what similar shocks did. This is the only case where an open trade is re-judged
+- [ ] Shock detector on the own server (data only for now): records every minute-level shock with the market's reaction
 
 **A6. Rules feed the judge**
 - [ ] Account clean-up: remove the team and all-in accounts; keep the best-rule account as the testing ground
-- [ ] Live lab: every champion rule paper-traded in shadow; the best-rule account picks its champion by live record
+- [ ] Live lab: every champion rule paper-traded in shadow; the best-rule account picks its champion **per market state** by live record (no dip-buy longs in a falling market unless they have proven themselves there)
+- [ ] Highest standard for rules reaching the judge: a rule's vote counts only in the market states where its live and after-discovery record is good; a rule that keeps failing in a state becomes a **warning sign** there (its firing counts against its own side); rules that add nothing in the subtraction test are not fed at all
+- [ ] Research looks for rules that know the market state (a rule can include "only in a falling, wild market"), so rules are specialists instead of islands
 - [ ] Rules as fair witnesses (votes count only after their discovery date); rules propose and the judge approves; market sensor (which rule styles win now)
 - [ ] Research aimed at the goal: favour rules whose wins are at least +2%; curiosity-driven research pointed at the judge's blind spots
 
@@ -94,7 +99,8 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Fluid stops: per-coin wick depth, close-based stops, time stops, wider stop with smaller size; permanent disaster stop
 - [ ] Trapped-trader levels and leverage-squeeze targets from open interest and recorded liquidations
 - [ ] Lead-lag network (which coins and markets move first, stocks to crypto included); 24/7 stock perps as an hourly stock signal
-- [ ] Session and clock effects (Asia / EU / US opens, weekends, funding times)
+- [ ] Session and clock effects (Asia / EU / US opens, weekends, funding times, US data releases)
+- [ ] Wake-up on paper: the own server triggers an immediate run when a shock hits, so open paper trades react within minutes instead of at the next hour
 - [ ] "Similar to my past mistakes" witness; shape matching for the similar-moments witness
 - [ ] Exit choice per market state; runner modelling
 - [ ] Best case of the day (bar eases through the day)
@@ -105,7 +111,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 Gate (fluid): Grade A about daily, live hit rate close to predicted over 25+ calls (counted as independent bets), at least 1 month of paper.
 - [ ] Binance USDT-M futures on your own verified account; API key futures-only, no withdrawals, locked to the AWS server's IP
 - [ ] Execution service on the AWS server: orders within seconds of each decision; stop-loss and take-profit placed on the exchange with every entry; permanent disaster stop
-- [ ] Wake-up alarm: the server watches every minute (sharp moves, open-interest spikes, liquidation cascades) and wakes the judge immediately
+- [ ] Wake-up alarm with real orders: the server watches every minute (sharp moves, open-interest spikes, liquidation cascades) and wakes the judge immediately
 - [ ] The judge sets margin mode and leverage per trade (liquidation at least about 2.5x the stop distance) and size by risk
 - [ ] Rollout: you confirm, then small automatic, then full automatic
 - [ ] Paper vs real reconciliation (slippage, fees, funding); size shrinks automatically if reality is worse
