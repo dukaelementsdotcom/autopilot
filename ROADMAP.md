@@ -113,7 +113,9 @@ Gate (fluid): Grade A about daily, live hit rate close to predicted over 25+ cal
 - [ ] Execution service on the AWS server: orders within seconds of each decision; stop-loss and take-profit placed on the exchange with every entry; permanent disaster stop
 - [ ] Wake-up alarm with real orders: the server watches every minute (sharp moves, open-interest spikes, liquidation cascades) and wakes the judge immediately
 - [ ] The judge sets margin mode and leverage per trade (liquidation at least about 2.5x the stop distance) and size by risk
-- [ ] Rollout: you confirm, then small automatic, then full automatic
+- [ ] Rollout: **fully autonomous from day one, no approvals** (your choice: approvals delay trades). Stage 1 = a **$67 test account**: the referee sizes, enters, sets exchange stop and take-profit, accounts for fees and funding, manages and exits on its own; the budget grows only after the test account's real results match paper
+- [ ] Hard safety limits that sit outside the referee and that it cannot change: permanent exchange-side disaster stop on every position, maximum leverage, maximum loss per day / week (trading pauses itself), kill switch, never more than the test budget in the futures wallet
+- [ ] Small-account details: exchange minimum order sizes per coin, fees (about 0.1% round trip, which is large relative to a small account at leverage), funding payments, all included in every trade decision
 - [ ] Paper vs real reconciliation (slippage, fees, funding); size shrinks automatically if reality is worse
 - [ ] Relay resilience: if the live data fails, manage open positions from spot prices; no new trades on incomplete data
 - [ ] Heartbeat alert if runs stop while positions are open; extra position check at :47
