@@ -32,7 +32,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [x] On-chain, daily: BTC and ETH exchange inflows, outflows and balances, active addresses (Coin Metrics)
 - [x] Hyperliquid whales, hourly: positions of the 50 largest accounts
 - [x] Calibration ledger: every scanned candidate with each witness's opinion and the full price path afterwards
-- [ ] News headlines: GDELT refuses GitHub; switch to the outlets' public news feeds
+- [x] News headlines, hourly: crypto, macro, geopolitics and regulation (public news feeds and Google News searches)
 - [ ] Add NVIDIA, chip index and other daily stock data (Stooq or similar) so it also has history by the time it is used
 
 ## Build A (Wed Nov 11), in build order
