@@ -34,7 +34,7 @@ challenger proves itself.
 ## 3. New evidence (A5): each one optional (missing data means NaN, never a crash) and each with a health check
 | Witness | Source (already recording) | Features (hourly) |
 |---|---|---|
-| Recorder | own server `/rec/get` (incremental, compressed) | liquidations long/short (1h, 4h, z-score), book imbalance 0.2%/1%, spread, live funding, premium |
+| Recorder | own server `/rec/get` (incremental, compressed) | liquidations long/short (1h, 4h, z-score), book imbalance 0.2%/1%, **order-flow imbalance (change in bid vs ask depth between minutes, summed per hour)**, spread, live funding, premium. Literature: book imbalance predicts mostly milliseconds ahead and mostly within the spread, so expect it to be weak at our hourly horizon; the subtraction test decides |
 | Outside world | FRED (+ stock data source to add) | 1d/5d changes, VIX level/change, risk-on/off state, days to Fed/CPI/jobs |
 | Whales | Hyperliquid clearinghouseState, top 50 | net whale position per coin, change over 24h, whale count |
 | On-chain | Coin Metrics, DefiLlama | exchange net flow BTC/ETH (z-score), stablecoin supply change |
@@ -56,7 +56,9 @@ Data with less than about 3 weeks of history is used only as a challenger with "
 - Trade shape: target ladder (+2/+3/+4/+8%) x horizon (4/24/72h) from the champion's odds per shape; pick the highest expected value after fees;
   the stop stays volatility-based (1.25x daily volatility, clipped 1.5% to 4%, the clip itself learned later in Build B).
 - Pacing: learned opportunity rate (rolling 14 days), several trades a day allowed, weekly pace by count and profit, carry-over, Grade S (top tier, conformal later).
-- Risk: total open-risk cap, same-bet guard (correlation of open positions), daily and weekly brakes; fractional Kelly sizing capped by margin_cap.
+- Risk: total open-risk cap measured as **tail loss (CVaR: the average of the worst 5% of outcomes)**, not variance, because crypto returns have fat tails;
+  same-bet guard from a **shrunk correlation matrix** (stable with few observations); daily and weekly brakes; fractional Kelly sizing capped by margin_cap.
+- Consistency tests: a challenger with its one change switched off must reproduce the champion's odds exactly (catches hidden differences).
 - Honest timing: entry at the live mark price at decision time (relay/recorder), never the hour's open.
 
 ## 6. Safety and testing (A8)

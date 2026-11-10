@@ -91,7 +91,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Deploy once, watch the first 3 runs, then the daily health reports
 
 ## Build B (accuracy, about 1 week after A; each one a challenger)
-- [ ] Market states: hidden-Markov regimes, change-point detection, a specialist judge per state (may bring longs back)
+- [ ] Market states: hidden-Markov and Gaussian-mixture regimes (competing), change-point detection, linked to macro data; a specialist judge per state (may bring longs back)
 - [ ] Three time frames (1h / 4h / daily) must not contradict each other
 - [ ] Panel of 3 differently trained judges; disagreement raises the bar
 - [ ] Train on every hour (3x examples)
