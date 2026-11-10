@@ -44,8 +44,12 @@ Data with less than about 3 weeks of history is used only as a challenger with "
 
 ## 4. Learning (A2 + A4)
 - Calibration bands per side, market state and coin group; skipped-trade error types from mfe/mae/mfeH/maeH/end (recorded since Nov 10).
-- Online combiner: per market state, a slow logistic update of witness weights from every scored candidate (small learning rate, batch
-  every 24h, weights shrink toward the trained combiner). Measurement-level attribution inside each witness (permutation / tree contributions)
+- Online combiner: per market state, witness weights updated from every scored candidate with a **recursive (Kalman-style) logistic
+  update**: the logistic version of recursive least squares, i.e. weights treated as slowly drifting states, with an uncertainty
+  matrix so well-known witnesses move little and uncertain ones move more. A **forgetting factor** sets how fast old evidence fades;
+  it is not hand-set: 2-3 challengers with different forgetting speeds compete and the evidence picks. Updates use effective bets
+  (clustered calls) so one market move cannot swing the weights; weights shrink toward the trained combiner. Cheap: 9 witnesses,
+  so each update is a 9x9 matrix step (microseconds). Only the combiner learns online; the family models stay weekly-trained. Measurement-level attribution inside each witness (permutation / tree contributions)
   on wrong calls, aggregated weekly. Misleading measurements get a down-weight challenger; blind spots go to the research engine as targets.
 
 ## 5. Policy (A3): all learned, none hard-coded

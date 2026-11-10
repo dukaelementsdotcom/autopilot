@@ -57,7 +57,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Edge-proportional sizing: fractional Kelly from calibrated odds, bigger only when the edge is proven
 
 **A4. Learning which evidence was right**
-- [ ] Every scored candidate, traded or skipped, adjusts how much each witness is trusted, per market state, slowly and in batches
+- [ ] Every scored candidate, traded or skipped, adjusts how much each witness is trusted, per market state (recursive, Kalman-style online learning with a forgetting factor; the forgetting speed itself is chosen by competing challengers)
 - [ ] Inside each witness: which measurement pushed the odds the wrong way; misleading measurements are down-weighted, and missing ones become research targets
 - [ ] Coin-specific trust: the judge learns its record per coin and coin group and demands more evidence where it is weak
 
