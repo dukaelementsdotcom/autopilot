@@ -110,7 +110,8 @@ def write(mem, J, timings, problems, live, t0, log=print):
     chk("referee brain trained and recent", age is not None and age < 9, warn=age is not None and age < 15, detail=f"trained {RM.get('trainedAt')} ({R.get('trainNote')})")
     chk("referee kill switch", not RA.get("paused"), detail=RA.get("paused") or "not triggered")
     ai = mem.get("aiStatus") or {}
-    chk("AI (Groq) answers", not ai or ai.get("ok", True), warn=True, detail=json.dumps(ai)[:200] if ai else "no AI calls recorded this run")
+    last_ok = bool(ai.get("last")) and ai["last"][-1].get("ok")          # one model failing is fine when the fallback model answered
+    chk("AI (Groq) answers", not ai or ai.get("ok", True) or last_ok, warn=True, detail=json.dumps(ai)[:200] if ai else "no AI calls recorded this run")
     worst = "FAIL" if any(c["status"] == "FAIL" for c in checks) else "WARN" if any(c["status"] == "WARN" for c in checks) else "OK"
     rep = {"what": "Research Machine health report. Download and send it to Claude to diagnose problems.", "generated": snap["at"] + " UTC", "overall": worst,
            "checks": checks, "thisRun": {**snap, "timings": timings, "problems": problems, "panelRows": int(len(J.P)) if J is not None else None,

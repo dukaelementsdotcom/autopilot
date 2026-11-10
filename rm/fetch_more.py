@@ -134,6 +134,9 @@ def update_hl(coins=None, log=print, budget_s=600):          # 10 min while back
             _save(_merge(path, df.drop_duplicates("t", keep="last")), path); added += len(df)
         if time.time() - t0 >= budget_s: break
     behind = sum(1 for c, v in reach.items() if v < (time.time() - 3 * H) * 1000)
+    # the data cache is saved only when a version file changes: while back-filling, mark progress every run so it is never re-downloaded
+    try: open(f"{C.DATA_DIR}/raw/version_hl.txt", "w").write(dt.datetime.utcnow().strftime("%Y-%m-%d %H" if (behind or added > 5000) else "%Y-%m-%d"))
+    except Exception: pass
     log(f"hyperliquid: {added} hours added, {len(todo)} coins listed there, {behind} still back-filling ({time.time()-t0:.0f}s)")
     return {"added": added, "coins": len(todo), "backfilling": behind}
 
