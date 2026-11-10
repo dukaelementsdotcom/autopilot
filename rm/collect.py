@@ -4,7 +4,7 @@ Nothing here changes any decision yet. Every source is optional, time-boxed and 
   macro    the outside world, daily: Nasdaq-100, S&P 500, VIX, US 10-year yield, dollar index (FRED, free, full history)
   onchain  exchange inflows / outflows / exchange balances and active addresses for BTC and ETH (Coin Metrics community, free)
   whales   what the 50 largest Hyperliquid accounts hold right now, per coin (public on-chain positions)
-  news     crypto and macro headlines of the last hour with their tone (GDELT, free)"""
+  news     crypto, macro, geopolitics and regulation headlines (public RSS feeds and Google News searches, free)"""
 import os, io, json, time, gzip, datetime as dt
 import numpy as np, pandas as pd, requests
 from . import config as C
@@ -122,21 +122,44 @@ def whales(log=print, top=50):
     log(f"whales: {len(addrs)} accounts, {len(df)} coins"); return {"accounts": len(addrs), "coins": int(len(df))}
 
 # ── news (hourly) ─────────────────────────────────────────────────────────────────────────────────
-NEWS_Q = {"crypto": "(bitcoin OR crypto OR ethereum OR binance)", "macro": "(\"federal reserve\" OR inflation OR nasdaq OR tariffs)",
-          "regulation": "(SEC crypto OR crypto ban OR crypto regulation)"}
+# public RSS feeds (GDELT refuses GitHub's machines). Google News searches cover the outside world (Fed, wars, deals, tariffs).
+GN = "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q="
+NEWS_FEEDS = {
+    "crypto": ["https://cointelegraph.com/rss", "https://decrypt.co/feed", "https://www.theblock.co/rss.xml",
+               "https://www.coindesk.com/arc/outboundfeeds/rss/", GN + "bitcoin+OR+crypto+OR+ethereum+when:1d"],
+    "macro": ["https://feeds.content.dowjones.io/public/rss/mw_topstories", GN + "%22federal+reserve%22+OR+inflation+OR+nasdaq+OR+%22stock+market%22+when:1d"],
+    "geopolitics": [GN + "Iran+OR+China+OR+Russia+OR+tariffs+OR+sanctions+OR+war+OR+ceasefire+when:1d"],
+    "regulation": [GN + "SEC+crypto+OR+%22crypto+regulation%22+OR+%22crypto+ban%22+OR+%22bitcoin+ETF%22+when:1d"],
+}
+def _rss(xml):
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+    out = []
+    for it in ET.fromstring(xml).iter("item"):
+        g = lambda k: (it.findtext(k) or "").strip()
+        try: pub = int(parsedate_to_datetime(g("pubDate")).timestamp())
+        except Exception: pub = None
+        src = it.find("source"); out.append({"title": g("title"), "url": g("link"), "pub": pub, "src": (src.text if src is not None else None)})
+    return out
+
 def news(log=print):
-    t = int(time.time()) // H * H; path = KEEP(f"news/{dt.datetime.utcnow():%Y-%m-%d}.jsonl.gz"); os.makedirs(os.path.dirname(path), exist_ok=True); n = 0
-    for old in sorted(os.listdir(os.path.dirname(path)))[:-60]: os.remove(os.path.join(os.path.dirname(path), old))     # keep 60 days
-    with gzip.open(path, "at") as f:
-        for topic, q in NEWS_Q.items():
-            try:
-                r = S.get("https://api.gdeltproject.org/api/v2/doc/doc", params={"query": q + " sourcelang:english", "mode": "artlist", "format": "json", "maxrecords": 75, "timespan": "1h", "sort": "datedesc"}, timeout=40, headers={"User-Agent": "curl/8.5.0"})
-                if r.status_code != 200 or not r.text.lstrip().startswith("{"): log(f"   news {topic}: HTTP {r.status_code}"); time.sleep(6); continue
-                for a in (r.json().get("articles") or []):
-                    f.write(json.dumps({"t": t, "topic": topic, "title": a.get("title"), "url": a.get("url"), "domain": a.get("domain"), "seen": a.get("seendate")}) + "\n"); n += 1
-            except Exception as e: log(f"   news {topic}: {str(e)[:100]}")
-            time.sleep(6)                                   # GDELT allows one request every 5 seconds
-    log(f"news: {n} headlines"); return {"headlines": n}
+    import hashlib
+    t = int(time.time()) // H * H; d = KEEP("news"); os.makedirs(d, exist_ok=True)
+    for old in sorted(f for f in os.listdir(d) if f.endswith(".jsonl.gz"))[:-60]: os.remove(os.path.join(d, old))     # keep 60 days
+    sp = os.path.join(d, "seen.txt"); seen = set(open(sp).read().split()) if os.path.exists(sp) else set()
+    n, ok, bad = 0, 0, []
+    with gzip.open(os.path.join(d, f"{dt.datetime.utcnow():%Y-%m-%d}.jsonl.gz"), "at") as f:
+        for topic, urls in NEWS_FEEDS.items():
+            for u in urls:
+                try:
+                    r = S.get(u, timeout=20, headers={"User-Agent": "Mozilla/5.0 (research-machine)"}); r.raise_for_status(); items = _rss(r.content); ok += 1
+                except Exception as e: bad.append(f"{u.split('/')[2]}: {str(e)[:60]}"); continue
+                for a in items:
+                    key = hashlib.sha1((a["title"] or a["url"]).lower().encode()).hexdigest()[:16]
+                    if key in seen or not a["title"]: continue
+                    seen.add(key); f.write(json.dumps({"t": t, "topic": topic, **a}) + "\n"); n += 1
+    open(sp, "w").write("\n".join(list(seen)[-20000:]))
+    log(f"news: {n} new headlines from {ok} feeds"); return {"headlines": n, "feeds": ok, **({"failed": bad[:5]} if bad else {})}
 
 def run(log=print):
     info = {}
