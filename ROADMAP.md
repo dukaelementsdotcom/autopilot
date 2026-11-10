@@ -70,7 +70,8 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] News witness: headlines tagged by the AI (type, who, severity) plus a memory of similar past events; tested last, because it is the noisiest
 - [ ] **Shock memory**: every past sudden move (BTC and Nasdaq since 2020, found from prices, the cause labelled from news where possible), split by bull/bear state, scheduled (Fed, CPI) vs surprise, and whether it was already priced in (drift before). It records how fast the reaction came (minutes / hours / at the next stock-market open) and whether it lasted or faded within 4h, 24h and 72h
 - [ ] **Shock response for open trades** (challenger): when a shock hits against an open trade, the shock memory decides exit / take profit / hold, based on what similar shocks did. This is the only case where an open trade is re-judged
-- [ ] Shock detector on the own server (data only for now): records every minute-level shock with the market's reaction
+- [ ] Shock detector on the own server: records every minute-level shock with the market's reaction
+- [ ] **Server guard (speed)**: each hourly run hands the own server the open trades plus a ready-made plan ("if a shock of this size hits against this trade: exit / take profit / hold"); the server watches every minute and acts on paper within about a minute, without waiting for the next hourly run. GitHub does the thinking, the server does the reacting
 
 **A6. Rules feed the judge**
 - [ ] Account clean-up: remove the team and all-in accounts; keep the best-rule account as the testing ground
@@ -100,7 +101,6 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Trapped-trader levels and leverage-squeeze targets from open interest and recorded liquidations
 - [ ] Lead-lag network (which coins and markets move first, stocks to crypto included); 24/7 stock perps as an hourly stock signal
 - [ ] Session and clock effects (Asia / EU / US opens, weekends, funding times, US data releases)
-- [ ] Wake-up on paper: the own server triggers an immediate run when a shock hits, so open paper trades react within minutes instead of at the next hour
 - [ ] "Similar to my past mistakes" witness; shape matching for the similar-moments witness
 - [ ] Exit choice per market state; runner modelling
 - [ ] Best case of the day (bar eases through the day)
