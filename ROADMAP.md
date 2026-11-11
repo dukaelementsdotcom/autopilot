@@ -103,6 +103,8 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 - [x] Promotions need proof (a consistent lead over 40+ separate 6-hour windows and 10+ days); self-adjustment counts separate market moves, not correlated calls
 - [x] **A bar per trend state** (challenger, live Nov 11): on the newest four months it took ~2.6x the trades with a higher win rate (local test: 3.7 trades/week, +10.3%/month vs 1.4 and +2.3% for the single bar; deeper worst drop 22% vs 8%). Longs return only in rising and sideways markets
 - [x] Pullback entries: tested, failed (missed more than half the trades, no better quality); not built
+- [x] Walk-forward audit (7 past periods, Nov 11): shorts positive in 5 of 7, about +2% a month on average as the exam scores them (about +0.8% as traded); lost 12% a month in the 2025 rally. Longs about zero. The Nov 7 brain no longer matched the data: retrained early
+- [x] Pyramiding lab test (Nov 11): fails on shorts (the Arbiter's short signals are quick small drops, only 3% became 20% moves); passes on longs through rare very large winners -> **runner** challenger (live Nov 11)
 - [ ] Honest status of the goal: evidence supports ~1-4 good trades a week; lowering the bar to trade daily lost money in the test. More good trades must come from better evidence (trend reader, Compass, long-side edge), not from a lower bar
 
 ## NEXT (top priority): an accurate trend reader, shared by every part

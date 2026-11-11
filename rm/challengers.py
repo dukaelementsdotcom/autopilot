@@ -33,6 +33,7 @@ def registry(B=None):
     reg["statebar"] = ({"statebar": True}, "A bar per trend state: asks for less evidence in the market states where the Arbiter proved accurate, more elsewhere, and trades longs only in the states where they worked (learned on one year, examined on the newest months)", "policy")
     reg["trend2"] = ({"trend": "v2"}, "Compass trend reader: market direction from many views that must agree (Bitcoin's 20/50/200-day trends, breadth across coins, stocks, the dollar), five states incl. sideways, smoothed so noise cannot flip it", "policy")
     reg["pairs"] = ({"spec": "pairs"}, "Pair trades: long the coin it likes most, short the one it dislikes most, among coins that move together (the market's swings cancel; tight stop even in wild markets)", "policy")
+    reg["runner"] = ({"spec": "runner"}, "Runner: on long signals, a small first risk, then one more unit at every further +2% with the stop one step behind, held up to 14 days (rare, very large winners; most attempts lose the first risk)", "policy")
     reg["news"] = ({"spec": "news"}, "News drift: after a sudden market-wide shock, ride the move in its direction on the coin whose evidence agrees most (24h limit)", "policy")
     reg["range"] = ({"spec": "range"}, "Range trades: in wild but sideways markets, short near the top of a coin's 3-day range and buy near the bottom (+1% target, stop just outside)", "policy")
     reg["lock"] = ({"lock": True}, "Profit lock: once a trade is well on its way the stop goes to break-even, and after the first target it always keeps at least half of the best open profit", "policy")
@@ -94,7 +95,7 @@ def sync(R, B, log=print, Hd=None):
         full = dict(change) if kind == "full" else {**champ, **change}
         if full == champ: chal.pop(n, None); continue
         if n in chal: chal[n].update(what=what, kind=("policy" if any(k != "odds" for k in change if change.get(k) != champ.get(k)) else "odds"))
-        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 16 or kind == "odds":
+        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 20 or kind == "odds":
             chal[n] = {"change": change if kind != "full" else {k: v for k, v in change.items() if champ.get(k) != v}, "what": what,
                        "kind": "policy" if kind in ("policy", "full") and any(k != "odds" for k in change) else "odds", "born": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
     for n in [n for n in chal if n not in reg]: chal.pop(n)

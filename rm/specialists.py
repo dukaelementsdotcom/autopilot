@@ -19,6 +19,7 @@ def trade(J, B, R, A, cfg, rows, S, REG, V, now_iso, newest, ctx):
     if not len(pos_new): return
     kind = cfg.get("spec")
     if kind == "pairs": return _pairs(J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
+    if kind == "runner": return _runner(J, B, R, A, rows, S, pos_new, newest, ctx)
     if any(int(x["t"] // 86400) == newest // 86400 for x in A["open"] + A["closed"][-10:]) or len(A["open"]) >= 2: return
     reg = REG.get(newest) or ""
     if kind == "news":
@@ -103,3 +104,44 @@ def manage_pairs(J, A, newest):
                                     "pct": round(spread * 100, 2), "hitTarget": how == "target", "roe": round(pnl / max(1e-9, p["margin"]) * 100, 1)})
                 A["curve"].append([t + H, A["cash"]]); break
     A["equity"] = A["cash"] + sum(0 for _ in A.get("pairs", []))
+
+
+# ── runner: small first risk, then pyramid into a long that keeps going ──────────────────────────────────────────────────
+STEP, HOLD_H, CAP = 0.02, 336, 6.0
+def _runner(J, B, R, A, rows, S, pos_new, newest, ctx):
+    """LONG signals as the exam scores them (odds above break-even + the learned margin, not unfamiliar), one new run a day, two at most.
+    First unit risks 4% of the account at its stop. Every further +2% adds one more unit and lifts the stop to one step behind,
+    so a run that keeps going is held with growing size and a failed one costs the first risk. Lab test Nov 11: beat the +2% exit
+    on the validation year and the newest months, but through a few very large winners (about 1 in 9 trades)."""
+    from . import referee as RF
+    runs = A.setdefault("runs", [])
+    if "long" not in B["sides"] or len(runs) >= 2 or any(int(x["t"] // 86400) == newest // 86400 for x in runs + [c for c in A["closed"][-10:] if c.get("run")]): return
+    sd = B["sides"]["long"]; p = np.asarray(S["long"]["prob"])[pos_new]; unf = np.asarray(S["long"]["unfamiliar"])[pos_new]
+    stp = RF.stop_pct(J.dvol[rows[pos_new]]); edge = np.where(unf, -1, p - (RF.breakeven(stp) + sd["margin"]))
+    k = int(np.argmax(edge))
+    if edge[k] < 0: return
+    i = int(rows[pos_new[k]]); coin = str(J.coin[i])
+    if any(r["coin"] == coin for r in runs): return
+    e = float((ctx.get("live") or {}).get(coin) or J.O[i]); s_ = float(stp[k]); eq = A["cash"]; n0 = min(RF.RISK["A"] / s_, RF.MAX_MARGIN * 20) * eq
+    runs.append({"run": True, "coin": coin, "side": "LONG", "t": int(newest), "entry": e, "stopPct": round(s_, 4), "stop": e * (1 - s_), "n0": round(n0, 2), "units": [[e, round(n0, 2)]],
+                 "lvl": 0, "cap": round(CAP * eq, 2), "lastBar": int(newest), "prob": round(float(p[k]), 3), "grade": "A", "margin": round(n0 / 20, 2),
+                 "why": "runner: pyramids into a long that keeps going (+2% steps)"})
+
+def manage_runs(J, A, newest):
+    for r in list(A.get("runs", [])):
+        T, O, Hh, Ll, Cc = J._bars(r["coin"]); j = int(np.searchsorted(T, r["lastBar"] + H)); e = r["entry"]; done = None
+        while j < len(T) and T[j] <= newest and done is None:
+            t = int(T[j]); r["lastBar"] = t
+            if Ll[j] <= r["stop"]: done = (r["stop"], "stop" if r["lvl"] == 0 else f"trailing stop after {r['lvl']} steps", t)
+            else:
+                while Hh[j] / e - 1 >= (r["lvl"] + 1) * STEP:
+                    r["lvl"] += 1; px = e * (1 + r["lvl"] * STEP)
+                    if sum(n for _, n in r["units"]) + r["n0"] <= r["cap"]: r["units"].append([px, r["n0"]])
+                    r["stop"] = e * (1 + (r["lvl"] - 1) * STEP)
+                if t + H - r["t"] >= HOLD_H * H: done = (float(Cc[j]), "time (14 days)", t)
+            j += 1
+        if done:
+            px, how, t = done; pnl = sum(n * (px / p - 1 - C.FEE) for p, n in r["units"]); A["cash"] = round(A["cash"] + pnl, 2); A["runs"].remove(r)
+            A["closed"].append({**{k: v for k, v in r.items() if k != "units"}, "exitT": t + H, "how": how, "usd": round(pnl, 2), "after": A["cash"], "steps": r["lvl"],
+                                "pct": round((px / e - 1) * 100, 2), "hitTarget": r["lvl"] >= 1, "roe": round(pnl / max(1e-9, r["margin"]) * 100, 1)})
+            A["curve"].append([t + H, A["cash"]])

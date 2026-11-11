@@ -213,6 +213,8 @@ def step(mem, J, now_iso, log=print, problems=None):
         for p in list(AA["open"]): _manage(J, B, p, AA, newest)
         if AA.get("pairs"):
             from . import specialists; specialists.manage_pairs(J, AA, newest)
+        if AA.get("runs"):
+            from . import specialists; specialists.manage_runs(J, AA, newest)
     # 2) look for trades in the hours that arrived since the last run
     if B is not None and newest > A["lastT"]:
         live = liquid_coins(J)
