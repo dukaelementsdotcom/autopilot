@@ -91,11 +91,13 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 - [x] Crash rehearsal: replay March 2020, LUNA, FTX and recent shocks through sizing and exits
 - [x] Deploy once, watch the first 3 runs, then the daily health reports
 
+- [x] Leverage per trade up to 20x (liquidation always at least 2.5x the stop away; wild coins get less), Nov 11
+
 ## Next pass (from your Nov 11 notes): aim for the daily percentage, not a trade count
-- [ ] **Daily-goal allocator** (challenger): one margin budget per opportunity window (learned, up to ~30% of the account inside the hard safety limits), spent either on ONE strong trade (and let it run) or split across 2-4 coins when several good-but-smaller edges appear at once; split only across trades that are NOT the same bet (correlation-aware: four shorts on coins that move together count as one trade). Judged on account growth (compounding), not number of trades
+- [x] **Daily-goal allocator** (challenger, live Nov 11): one margin budget per opportunity window (learned, up to ~30% of the account inside the hard safety limits), spent either on ONE strong trade (and let it run) or split across 2-4 coins when several good-but-smaller edges appear at once; split only across trades that are NOT the same bet (correlation-aware: four shorts on coins that move together count as one trade). Judged on account growth (compounding), not number of trades
 - [ ] **Smaller targets when that is where the edge is** (challenger): +1% / +1.5% targets allowed when their odds are high enough to pay after fees (two +1% trades = one +2% day)
 - [ ] **Opportunity-sized risk**: Grade S + Kelly + allocator together: much bigger when the evidence is strong and proven, small or none when it is not
-- [ ] **Never too cautious by design**: promotions already require at least as many Grade A trades and at least as much profit (a "safer but idle" upgrade cannot win); missed-winners count loosens the bar when caution costs money; a challenger with a LOWER bar runs alongside so over-caution is caught live
+- [x] **Never too cautious by design** (lower-bar challenger live Nov 11): promotions already require at least as many Grade A trades and at least as much profit (a "safer but idle" upgrade cannot win); missed-winners count loosens the bar when caution costs money; a challenger with a LOWER bar runs alongside so over-caution is caught live
 
 ## Build B (accuracy, about 1 week after A; each one a challenger)
 - [ ] Market states: hidden-Markov and Gaussian-mixture regimes (competing), change-point detection, linked to macro data; a specialist judge per state (may bring longs back)

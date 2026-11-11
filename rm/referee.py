@@ -324,6 +324,7 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         if cfg.get("rules") and R.get("ruleTrust"):                # research rules as fair witnesses: only their LIVE record, per market state
             V_ = ctx_votes(R, J, rows, name)
             if V_ is not None: prob = 1 / (1 + np.exp(-(np.log(np.clip(prob, 1e-3, 1 - 1e-3) / (1 - np.clip(prob, 1e-3, 1 - 1e-3))) + V_)))
+        if cfg.get("lowbar"): mg = mg * 0.5                        # the "less cautious" challenger: half the safety margin
         if cfg.get("doubt"):                                       # split jury: when the witnesses disagree, demand more
             F = np.column_stack([np.asarray(v) for v in fams.values()]); mg = mg + np.std(F, 1)
         T = np.full(n, TARGET); Hz = np.full(n, HORIZON); ev = prob * TARGET - (1 - prob) * stp - C.FEE; ptarget = prob
@@ -340,8 +341,43 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         out[name] = {"prob": prob, "pt": ptarget, "T": T, "Hz": Hz, "ev": ev, "grade": g, "stop": stp, "be": be}
     return out
 
+def _allocate(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, K):
+    """DAILY-GOAL ALLOCATOR: one budget per opportunity window. One very strong setup takes the whole budget (and runs);
+    several good setups share it, but only if they are NOT the same bet (same side and moving together = one trade).
+    Budget: up to 30% margin and 6% risk of the account per window, split by edge; nothing qualifies -> nothing spent."""
+    newest_pos = np.flatnonzero(J.t[rows] == newest)
+    if not len(newest_pos) or newest < time.time() - 4 * H or len(A["open"]) >= 4: return
+    c = []
+    for pos in newest_pos:
+        i = int(rows[pos])
+        if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
+        for name, sd in B["sides"].items():
+            if not side_live(R, name, sd, REG.get(int(J.t[i]))): continue
+            g = K[name]["grade"][pos]
+            if not g or (g == "B" and int(J.t[i] % 86400 // H) < 18): continue
+            edge = float(K[name]["pt"][pos] - K[name]["be"][pos])
+            if edge > 0: c.append((edge * (2 if g == "S" else 1), name, g, pos, i))
+    if not c: return
+    c.sort(reverse=True); pick = []
+    corr = ctx.get("corr") or {}
+    for e_, name, g, pos, i in c:
+        coin = str(J.coin[i])
+        same = [q for q in pick if q[1] == name and corr.get(coin, {}).get(str(J.coin[q[4]]), 0) >= 0.6]
+        same += [p for p in A["open"] if p["side"] == name.upper() and corr.get(coin, {}).get(p["coin"], 0) >= 0.6]
+        if same: continue
+        pick.append((e_, name, g, pos, i))
+        if len(pick) + len(A["open"]) >= 4 or g == "S": break
+    tot = sum(p[0] for p in pick); risk_budget, margin_budget = 0.06, 0.30
+    for e_, name, g, pos, i in pick:
+        share = e_ / tot
+        c2 = {**cfg, "_risk": max(0.01, risk_budget * share), "_budget": margin_budget * share}
+        _open(J, B, A, i, (name, g, float(K[name]["pt"][pos]), float(K[name]["ev"][pos])), float(K[name]["stop"][pos]), float(K[name]["be"][pos]), S, pos,
+              V.get(i, []), now_iso, R, c2, T=float(K[name]["T"][pos]), Hz=int(K[name]["Hz"][pos]), ctx=ctx)
+        A["open"][-1]["regime"] = REG.get(int(J.t[i])); A["open"][-1]["alloc"] = round(share, 2)
+
 def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print):
     K = _cands(J, B, R, Hd, cfg, rows, S, REG)
+    if cfg.get("alloc"): return _allocate(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, K)
     fluid = cfg.get("pace") == "fluid"; guard = cfg.get("risk") == "guard"
     rate = sum(((R.get("callRateBySide") or {}).get(n) or {}).get("A", 0) for n in B["sides"] if side_live(R, n, B["sides"][n], R.get("regimeNow")))
     cap_day = max(1, int(round(2 * rate))) if fluid else 1
@@ -376,6 +412,11 @@ def _guard_ok(A, side, coin, stp, ctx):
     now = time.time(); dayP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 86400); wkP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 7 * 86400)
     return dayP > -0.05 * eq and wkP > -0.10 * eq
 
+MAX_LEV = 20
+def lev_for(stp):
+    """leverage per trade: as high as 20x, but the liquidation price always stays at least 2.5x the stop distance away"""
+    return int(max(2, min(MAX_LEV, math.floor(1 / (2.5 * stp + 0.005)))))
+
 def margin_cap(A):
     """your plan: 20% of the account as margin while it is small, easing to 10% as it grows (2x start -> 4x start)"""
     g = A["cash"] / A["start"]
@@ -395,18 +436,20 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     if cfg.get("size") == "kelly":                            # fractional (quarter) Kelly from the calibrated odds, kept within 0.5x-1.5x of plan
         b = (T - C.FEE) / (stp + C.FEE); f = (prob * b - (1 - prob)) / b
         risk = float(np.clip(f / 4, 0.5 * risk, 1.5 * risk)) if f > 0 else 0.5 * risk
-    notional = min(risk * eq / stp, margin_cap(A) * eq * LEV); margin = notional / LEV
+    lev = lev_for(stp); cap = (cfg.get("_budget") or margin_cap(A)) * eq * lev
+    if cfg.get("_risk") is not None: risk = cfg["_risk"]
+    notional = min(risk * eq / stp, cap); margin = notional / lev
     fams = {f: round(float(v[pos]), 3) for f, v in S[name]["fams"].items()}; base = B["sides"][name]["base"]
     card = {"for": sorted([f for f, p in fams.items() if p >= base + 0.03], key=lambda f: -fams[f]), "against": [f for f, p in fams.items() if p <= base - 0.03],
             "similar": round(fams.get("similar", 0) * 100), "rules": votes_}
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
-         "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": LEV, "units": [[e, notional]],
+         "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": lev, "units": [[e, notional]],
          "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
          "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}}
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False}
 
 def ctx_votes(R, J, rows, side):
     """logit adjustment from the rules firing on these rows: +0.3 per rule live-trusted in this market state, -0.3 per rule that keeps failing there"""
@@ -489,7 +532,7 @@ def _manage(J, B, p, A, newest):
                 elif not p["added"] and gain >= 0.01 and cont >= 0.6:
                     p["units"].append([px, _size(p) * 0.5]); p["added"] = True
                     p["stop"] = p["entry"] if sd > 0 else p["entry"]                    # whole position now stops at the first entry
-                    p["margin"] = round(_size(p) / LEV, 2)
+                    p["margin"] = round(_size(p) / p.get("lev", LEV), 2)
         j += 1
 
 def _mark(A):
@@ -499,7 +542,7 @@ def _mark(A):
         px = lp.get(p["coin"]) or p.get("mark") or p["entry"]; p["mark"] = px
         p["unreal"] = round(_size(p) * (p["sd"] * (px / _avg(p) - 1)) - _size(p) * C.FEE, 2); unreal += p["unreal"]
         p["size"] = round(_size(p) / _avg(p), 6); p["avgEntry"] = _avg(p); p["notional"] = round(_size(p), 2)
-        p["liq"] = _avg(p) * (1 - p["sd"] * (1 / LEV - 0.005))       # isolated 10x: ~9.5% against the average entry (0.5% maintenance)
+        p["liq"] = _avg(p) * (1 - p["sd"] * (1 / p.get("lev", LEV) - 0.005))       # isolated margin: liquidation ~(1/leverage - 0.5%) against the average entry
         p["roe"] = round(p["unreal"] / max(1e-9, p["margin"]) * 100, 2); p["hours"] = round((time.time() - p["t"]) / H, 1)
     A["equity"] = round(A["cash"] + unreal, 2)
 
@@ -696,7 +739,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
