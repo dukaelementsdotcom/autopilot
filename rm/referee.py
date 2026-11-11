@@ -242,11 +242,17 @@ def step(mem, J, now_iso, log=print, problems=None):
             _shadow_add(J, B, R, rows, S, REG)
             _ledger_add(J, B, R, rows, S, REG, Hd, V)
             ctx = {"corr": _corr(J, newest), "live": None}
+            REG2 = None
+            try:
+                from . import compass
+                REG2 = compass.regimes2(J, np.unique(J.t[rows])); R["trend2Now"] = REG2.get(int(J.t[rows].max()))
+            except Exception as e: R["trend2Now"] = f"unavailable: {e}"
             for n, AA, cfg in accts:
                 if AA.get("paused"): continue
+                RG = REG2 if (cfg.get("trend") == "v2" and REG2) else REG             # the trend-reader challenger sees the market through the new reader
                 if cfg.get("spec"):
-                    from . import specialists; specialists.trade(J, B, R, AA, cfg, rows, S, REG, V, now_iso, newest, ctx)
-                else: _trade(J, B, R, Hd, AA, cfg, rows, S, REG, V, now_iso, newest, ctx, log)
+                    from . import specialists; specialists.trade(J, B, R, AA, cfg, rows, S, RG, V, now_iso, newest, ctx)
+                else: _trade(J, B, R, Hd, AA, cfg, rows, S, RG, V, now_iso, newest, ctx, log)
     for _, AA, _cfg in accts: AA["lastT"] = max(AA["lastT"], newest)
     newly = _ledger_resolve(J, R, newest, Hd)
     _shadow_resolve(J, R, newest); adapt(R)
@@ -272,6 +278,9 @@ def step(mem, J, now_iso, log=print, problems=None):
                                           **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
     if Hd: R["shapeExam"] = {n: {"exam": v["exam"], "k": v.get("k"), "margin": v.get("margin"), "fixedExam": v.get("champExam")} for n, v in Hd["sides"].items()}
     R["champCfg"] = champ_cfg; R.pop("_votes", None)
+    try:
+        from . import compass; R["upcoming"] = compass.upcoming()
+    except Exception: pass
     _journal(R, A)
     try:
         from . import guard; R["guardSync"] = guard.sync(R, log)
@@ -458,7 +467,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1"}
 
 def unf_key(side, fams, base, reg):
     """the 'kind' of an unfamiliar situation: side, market state and which two witnesses lean hardest each way"""
@@ -634,6 +643,9 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
         if (R_.get("crash") is None or R_.get("crashFor") != B["trainedAt"]) and time_left > 6 * 60:     # once per brain
             try: R_["crash"] = crash_rehearsal(J, B, log); R_["crashFor"] = B["trainedAt"]
             except Exception as e: log(f"crash rehearsal failed: {e}")
+            try:
+                from . import compass; R_["trendAcc"] = compass.trend_accuracy(J)
+            except Exception as e: log(f"trend accuracy failed: {e}")
         return False
     if B is None: return False
     if time_left < 10 * 60: log("shape models: postponed (not enough time this run)"); return False

@@ -24,6 +24,9 @@ WITNESSES = {
     "macro":   {"cols": ["w_ndx1", "w_ndx5", "w_spx5", "w_vix", "w_vix5", "w_y10_5", "w_dxy5"], "what": "Outside-world witness: Nasdaq, S&P 500, VIX, US yields and the dollar (risk-on / risk-off), known only from the next day"},
     "onchain": {"cols": ["w_btcnet", "w_btcsup7", "w_ethnet", "w_ethsup7"], "what": "On-chain witness: Bitcoin and Ethereum flowing into / out of exchanges, and exchange balances"},
     "sectors": {"cols": ["w_sec24", "w_secrank", "w_insec", "w_sec168"], "what": "Sector witness: money rotating between AI, memes, layer-1s, DeFi and exchange tokens"},
+    "global":  {"cols": [f"w_g_{x}{n}" for x in ("spx", "ndx", "dax", "nikkei", "hsi", "dxy", "gold", "oil", "nvda", "chips", "coin") for n in (5, 20)] + ["w_g_link"],
+                "what": "Compass global-markets witness: US, European and Asian stocks, the dollar, gold, oil, NVIDIA and chips, Coinbase, and how tightly Bitcoin follows stocks right now"},
+    "mood":    {"cols": ["w_g_fng", "w_g_fng7"], "what": "Compass mood witness: the crypto Fear & Greed index and how fast it is changing"},
     "shock":   {"cols": ["w_shock1", "w_shock4", "w_shockN"], "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)"},
 }
 WAITING = {"recorder": "Recorder witness: liquidations, order-book and order-flow imbalance, live funding (own server)",
@@ -53,6 +56,9 @@ def panel_extras(P, log=print):
             if col in m: t_, r_ = chg(col, n, diff); put(nm, _daily_to_hourly(ts, t_, r_))
         if "vix" in m: x = m[["t", "vix"]].dropna(); put("w_vix", _daily_to_hourly(ts, x.t.values, x.vix.values))
     except Exception as e: log(f"   witness macro features skipped: {e}")
+    try:
+        from . import compass; compass.features(P, ts, put, log)
+    except Exception as e: log(f"   compass features skipped: {e}")
     try:
         o = pd.read_parquet(f"{C.DATA_DIR}/raw/onchain.parquet")
         for a in ("btc", "eth"):

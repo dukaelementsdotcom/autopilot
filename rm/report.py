@@ -352,6 +352,8 @@ renderAcct(D.account,"box",false);
   <div><div class="mute" style="font-size:13px">Live calls (shorts)</div><div class="big">${p(S.hit)}</div><div class="mute" style="font-size:13px">won, vs ${p(S.pred)} predicted · ${S.n||0} calls scored</div>${spark(J.map(x=>x.hit),"acc")}</div>
   <div><div class="mute" style="font-size:13px">Version in charge</div><div style="font-size:17px;font-weight:650;margin-top:4px">${esc(champName)}</div><div class="mute" style="font-size:13px">${Object.keys(R.chal||{}).length} upgrades competing to replace it</div></div></div>
  <div style="margin-top:12px">${now}</div><div class="mute" style="margin-top:4px;font-size:14px">${sharp}</div>
+ <div class="mute" style="margin-top:6px;font-size:14px">Compass trend reader (many views): <b>${esc(R.trend2Now||"–")}</b>${R.trendAcc&&R.trendAcc[(R.trend2Now||"").replace(" wild","")]?` · historically the next week averaged ${R.trendAcc[(R.trend2Now||"").replace(" wild","")]["7d"].avg}% for Bitcoin`:""}</div>
+ ${(R.upcoming||[]).length?`<h3 style="margin-top:14px">Coming up (Compass calendar)</h3>${R.upcoming.slice(0,6).map(e=>`<div class="mute" style="font-size:13px">${esc(e.when)} · ${esc(e.what)}</div>`).join("")}`:""}
  <h3 style="margin-top:14px">Who is in charge, and why</h3>${promo}
  <h3>Closest challengers</h3>${raceH}
  <div class="mute" style="font-size:12.5px;margin-top:10px">Updated every hour (this page refreshes itself). Details: <a href="#accounts" data-go="accounts" style="color:var(--acc)">Accounts → Upgrades under test</a>. The Drosophila research engine and its best-rule testing ground are summarised below.</div></div>`})();
@@ -538,7 +540,7 @@ def write(mem, J=None, log=print):
                          "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1],
                          "chal": {n: {"what": c.get("what"), "kind": c.get("kind"), "born": c.get("born"), **({"acct": {k: c["acct"].get(k) for k in ("cash", "equity", "start")}} if c.get("acct") else {})} for n, c in (R.get("chal") or {}).items()},
                          "chalScores": R.get("chalScores"), "chalStats": R.get("chalStats"), "chalRejected": R.get("chalRejected"), "champ": {k: (R.get("champ") or {}).get(k) for k in ("cfg", "since", "history")},
-                         "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses"), "journal": (R.get("journal") or [])[-60:], "crash": R.get("crash"), "attrib": R.get("attrib"), "coinTrust": R.get("coinTrust"),
+                         "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses"), "journal": (R.get("journal") or [])[-60:], "trend2Now": R.get("trend2Now"), "trendAcc": R.get("trendAcc"), "upcoming": R.get("upcoming"), "crash": R.get("crash"), "attrib": R.get("attrib"), "coinTrust": R.get("coinTrust"),
                          "ruleTrust": {no: {rg: v for rg, v in regs.items() if v["state"] != "learning"} for no, regs in (R.get("ruleTrust") or {}).items() if any(v["state"] != "learning" for v in regs.values())}}
     d["healthSummary"] = mem.get("healthSummary")
     d["roadmap"] = _roadmap()

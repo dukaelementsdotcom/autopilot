@@ -80,7 +80,7 @@ def write(mem, J, timings, problems, live, t0, log=print):
         detail=f"live spot {sl.get('ok', 0)} coins (not on spot: {', '.join(sl.get('missing', [])[:8]) or 'none'}); archive {json.dumps(md.get('spot'))[:120]}")
     chk("Hyperliquid data", "error" not in hl and hl.get("coins", 0) > 20, warn=True, detail=json.dumps(hl)[:160])
     co = mem.get("collect") or {}
-    for nm in ("recorder", "macro", "onchain", "whales", "news"):
+    for nm in ("recorder", "macro", "onchain", "whales", "news", "compass"):
         x = co.get(nm) or {}
         if nm == "recorder":
             stt = x.get("status") or {}
