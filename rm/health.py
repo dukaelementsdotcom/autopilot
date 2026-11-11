@@ -103,6 +103,17 @@ def write(mem, J, timings, problems, live, t0, log=print):
     except Exception as e: chk("saved memory size", False, warn=True, detail=str(e))
     cal = (mem.get("referee") or {}).get("calibration") or {}
     chk("calibration ledger", cal.get("recorded", 0) > 0, warn=True, detail=f"{cal.get('recorded', 0)} candidates recorded, {cal.get('scored', 0)} scored")
+    try:                                                   # the new evidence must keep arriving, or its challengers judge on stale data
+        lagd = {}
+        for nm, f, mx in (("macro", "macro.parquet", 5), ("on-chain", "onchain.parquet", 4)):
+            t_ = pd.read_parquet(f"{C.DATA_DIR}/raw/{f}", columns=["t"]).t.max(); lagd[nm] = round((now - t_) / 86400, 1)
+        wn = [c for c in (J.P.columns if J is not None else []) if c.startswith("w_")]
+        wnow = float(J.P.loc[J.P.t == J.P.t.max(), wn].notna().mean().mean()) if wn else 0
+        chk("new evidence keeps arriving (macro, on-chain, sectors, shocks)", lagd.get("macro", 99) <= 5 and lagd.get("on-chain", 99) <= 4 and wnow >= 0.7, warn=True,
+            detail=f"newest macro day {lagd.get('macro')} days ago (weekends have no stock data), on-chain {lagd.get('on-chain')} days ago; {wnow:.0%} of witness measurements present at the newest hour")
+    except Exception as e: chk("new evidence keeps arriving (macro, on-chain, sectors, shocks)", False, warn=True, detail=str(e)[:150])
+    gs = (mem.get("referee") or {}).get("guardSync") or {}
+    chk("server guard (minute-by-minute watch)", "error" not in gs and "skipped" not in gs, warn=True, detail=f"watching {gs.get('watching')} open positions; last events: {json.dumps((mem.get('referee') or {}).get('guardApply'))[:120]}")
     chs = (mem.get("referee") or {}).get("chal") or {}; rj = (mem.get("referee") or {}).get("chalRejected") or {}; cst = (mem.get("referee") or {}).get("chalStats") or {}
     chk("challengers (upgrades under test)", len(chs) > 0, warn=True, detail=f"{len(chs)} being scored ({sum(1 for c in chs.values() if c.get('acct'))} with shadow accounts), "
         f"{cst.get('rows', 0)} scored candidates, not admitted: {', '.join(f'{k} ({v[:60]})' for k, v in rj.items()) or 'none'}; guard: {json.dumps((mem.get('referee') or {}).get('guardSync'))[:80]}")

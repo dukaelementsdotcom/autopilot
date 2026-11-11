@@ -266,6 +266,7 @@ def step(mem, J, now_iso, log=print, problems=None):
                                           **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
     if Hd: R["shapeExam"] = {n: {"exam": v["exam"], "k": v.get("k"), "margin": v.get("margin"), "fixedExam": v.get("champExam")} for n, v in Hd["sides"].items()}
     R["champCfg"] = champ_cfg
+    _journal(R, A)
     try:
         from . import guard; R["guardSync"] = guard.sync(R, log)
     except Exception as e: R["guardSync"] = {"error": str(e)[:120]}
@@ -274,6 +275,23 @@ def step(mem, J, now_iso, log=print, problems=None):
     except Exception: pass
     log(f"referee: ${A.get('equity', A['cash'])} ({len(A['open'])} open, {len(A['closed'])} closed){' PAUSED' if A.get('paused') else ''}{' (no model yet)' if B is None else ''}; "
         f"{len(chal)} challengers ({sum(1 for c in chal.values() if c.get('acct'))} with shadow accounts)")
+
+def _journal(R, A):
+    """one line a day: how the Arbiter is doing and learning (equity, honest odds, live hit rate, who leads the challengers)"""
+    day = time.strftime("%Y-%m-%d", time.gmtime()); Jl = R.setdefault("journal", [])
+    sc = R.get("chalScores") or {}; st = (R.get("shadowStats") or {}).get("short") or {}
+    lead = sorted([(n, s) for n, s in sc.items() if n != "champion" and s.get("me", {}).get("ll") is not None],
+                  key=lambda kv: kv[1]["me"]["ll"] - kv[1]["champion"]["ll"])[:1]
+    bands = (R.get("calibration") or {}).get("bands") or []; n = sum(b["n"] for b in bands)
+    calerr = round(sum(abs(b["hit"] - b["pred"]) * b["n"] for b in bands) / n, 3) if n else None
+    row = {"day": day, "equity": A.get("equity", A["cash"]), "trades": len(A["closed"]), "regime": R.get("regimeNow"),
+           "hit": st.get("hit"), "pred": st.get("pred"), "calls": st.get("n"), "calErr": calerr, "scored": (R.get("calibration") or {}).get("scored"),
+           "challengers": len(R.get("chal") or {}), "leader": lead[0][0] if lead else None,
+           "leaderGap": round(lead[0][1]["champion"]["ll"] - lead[0][1]["me"]["ll"], 4) if lead else None,
+           "champion": {k: v for k, v in (R.get("champCfg") or {}).items() if v != CHAMP_DEFAULT.get(k)}}
+    if Jl and Jl[-1]["day"] == day: Jl[-1] = row
+    else: Jl.append(row)
+    del Jl[:-400]
 
 def _corr(J, newest, days=14):
     """hourly-return correlations between coins over the last two weeks, shrunk halfway toward the average (stable with little data)"""
@@ -299,6 +317,8 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         elif cfg.get("odds", "weekly") != "weekly":
             prob = np.array([CH.odds(R, B, None if not Hd else Hd, cfg, name, {f: float(v[k]) for f, v in fams.items()}, REG.get(int(J.t[rows[k]])), prob[k]) for k in range(n)])
         sup, ag = CH._support(fams, sd["base"]); unf = np.asarray(S[name]["unfamiliar"])
+        if cfg.get("doubt"):                                       # split jury: when the witnesses disagree, demand more
+            F = np.column_stack([np.asarray(v) for v in fams.values()]); mg = mg + np.std(F, 1)
         T = np.full(n, TARGET); Hz = np.full(n, HORIZON); ev = prob * TARGET - (1 - prob) * stp - C.FEE; ptarget = prob
         if cfg.get("shape") == "vol" and Hd and Hd["sides"].get(name, {}).get("k"):
             bs = CH.best_shape(Hd, name, fams, sd["order"], stp); h = Hd["sides"][name]
@@ -379,7 +399,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False}
 
 def _size(p): return sum(n for _, n in p["units"])
 def _avg(p): return sum(px * n for px, n in p["units"]) / max(1e-9, _size(p))
@@ -592,7 +612,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or n == "shape" or "odds" in c.get("change", {}) or "shape" in c.get("change", {})})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)

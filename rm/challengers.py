@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -30,6 +30,7 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
+    reg["doubt"] = ({"doubt": True}, "Split jury: when the witnesses disagree with each other, the bar rises by how much they disagree", "policy")
     reg["shock"] = ({"shock": True}, "Shock exits: the own server watches every minute and exits a trade when a sudden move hits it (threshold learned from past shocks)", "policy")
     if B is not None:
         for f in B["sides"][next(iter(B["sides"]))]["order"]:

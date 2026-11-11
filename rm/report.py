@@ -88,6 +88,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="roadmap">Build board</button><button data-t="help">Help</button></nav>
 
 <section data-tab="home">
+<div id="arb" style="margin-top:12px"></div>
 <div class="card story" id="story" style="margin-top:12px"></div>
 <div id="hcheck"></div>
 <h2>Signals now</h2><div id="signals"></div>
@@ -98,7 +99,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </section>
 
 <section data-tab="accounts">
-<h2>The referee: one judge, every kind of evidence</h2>
+<h2>Arbiter: one judge, every kind of evidence</h2>
 <p class="help">One brain instead of many rules. For each of the ~40 most liquid coins it asks "will this reach +2% before its stop?", long and short. Seven independent kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +2% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
 <div id="rbox"></div>
 <h2>Upgrades under test</h2><p class="help">Every new ability is a clone of the referee that differs by exactly one thing. It is scored on the same live candidates and takes over only when it is more accurate, finds at least as many Grade A trades, keeps honest odds and earns at least as much, over at least 40 independent bets (calls made in the same market move count as one).</p><div id="chalbox"></div>
@@ -165,7 +166,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
  const lead=A1&&A1.leaderNo?`It is currently trading <b>Rule #${A1.leaderNo}</b>: ${esc(A1.leaderText||"")}`:"It is waiting for a rule with enough of a track record.";
  const lastRun=D.runs[0];
  const RG_={"up-calm":"rising, calm","up-wild":"rising, wild","down-calm":"falling, calm","down-wild":"falling, wild"},rc=A2?A2.closed||[]:[];
- $("story").innerHTML=`The referee is at <b>${A2?fmtUsd(A2.equity):"$500"}</b> (${sgn(pct(A2))}) after <b>${rc.length}</b> closed trade${rc.length==1?"":"s"} (${rc.filter(r=>r.usd>0).length} won)${A2&&A2.open.length?`, ${A2.open.length} open now`:""}. Market now: <b>${esc(RG_[D.referee&&D.referee.regimeNow]||"–")}</b>.
+ $("story").innerHTML=`The Arbiter is at <b>${A2?fmtUsd(A2.equity):"$500"}</b> (${sgn(pct(A2))}) after <b>${rc.length}</b> closed trade${rc.length==1?"":"s"} (${rc.filter(r=>r.usd>0).length} won)${A2&&A2.open.length?`, ${A2.open.length} open now`:""}. Market now: <b>${esc(RG_[D.referee&&D.referee.regimeNow]||"–")}</b>.
  <br><span style="font-size:15px">Research (Drosophila) has tested <b>${D.total.toLocaleString()}</b> ideas; <b>${D.champions.length}</b> passed every exam. The best-rule testing ground is at ${A1?fmtUsd(A1.equity):"$500"} (${sgn(pct(A1))}).</span>
  <div class="mute" style="font-size:13px;margin-top:8px">Last run tested ${lastRun?lastRun.tested.toLocaleString():0} ideas${lastRun&&lastRun.validated?`, ${lastRun.validated} passed validation`:""}. ${c1<30?"Judge the accounts only after 30+ closed trades; early results are mostly luck.":""}</div>`;
  const mini=(A,title)=>{if(!A)return`<div class="card"><b>${title}</b><p class="mute">Starts on the next run.</p></div>`;
@@ -176,7 +177,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
   <div class="big">${fmtUsd(A.equity)}</div><div class="mute" style="font-size:13px">${cl.length} closed · ${w} won · ${cl.length-w} lost · ${A.open.length} open</div>
   ${path?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;margin-top:6px"><path d="${path}" fill="none" stroke="var(--${p[p.length-1][1]>=A.start?"good":"bad"})" stroke-width="2"/></svg><div class="mute" style="font-size:12px">closed trades only${A.open.length?"; open trades are counted in the value above":""}</div>`:'<div class="mute" style="font-size:13px;margin-top:6px">Chart appears after the first closed trade.</div>'}
   <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">See trades →</a></div>`};
- $("minis").innerHTML=mini(D.referee&&D.referee.acct,"The referee (10x)")+mini(A1,"Best-rule testing ground (10x)")})();
+ $("minis").innerHTML=mini(D.referee&&D.referee.acct,"Arbiter (10x)")+mini(A1,"Best-rule testing ground (10x)")})();
 (()=>{const fmt=x=>x==null?"–":(x>=100?x.toLocaleString(undefined,{maximumFractionDigits:2}):Number(x.toPrecision(5)));const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"–";
  const S=D.signals||[],L=D.live||{};const age=D.newest?Math.round((Date.now()/1000-D.newest-3600)/60):null;
  const fresh=L.coins?`Live data from Binance (via our own relay server), newest complete hour closed ${age!=null?Math.max(0,age-60)+" min ago":"?"}. These are signals from the research rules that the best-rule account trades, <b>not</b> the referee's decisions (those are on the Accounts tab).`:`<span style="color:var(--warn)">The live relay is not connected yet: data is about a day behind, so these signals are too late to trade.</span>`;
@@ -321,6 +322,34 @@ renderAcct(D.account,"box",false);
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
+
+
+// ── ARBITER: the trading judge (overview) ───────────────────────────
+(()=>{const R=D.referee||{},A=R.acct,J=R.journal||[],S=(R.shadow||{}).short||{},sc=R.chalScores||{},ch=R.champ||{},L=(R.look||{}).rows||[];if(!A)return;
+ const RG={"up-calm":"rising and calm","up-wild":"rising and wild","down-calm":"falling and calm","down-wild":"falling and wild"};
+ const usd=x=>"$"+(x??0).toFixed(2),p=x=>x==null?"–":Math.round(x*100)+"%";
+ const spark=(vals,col)=>{const v=vals.filter(x=>x!=null);if(v.length<2)return"";const W=260,H=44,a=Math.min(...v),b=Math.max(...v);return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:44px"><path d="${v.map((y,i)=>(i?"L":"M")+(i/(v.length-1)*W).toFixed(1)+","+(H-4-(y-a)/(b-a||1)*(H-8)).toFixed(1)).join("")}" fill="none" stroke="var(--${col})" stroke-width="2"/></svg>`};
+ const best=L.filter(x=>!x.off)[0];
+ const now=A.open.length?`Holding ${A.open.map(o=>`<b>${o.side} ${o.coin}</b> (${o.unreal>=0?"+":""}${usd(o.unreal)})`).join(", ")}.`
+  :best?`No trade open. Best candidate now: <b>${best.side} ${best.coin}</b> at ${p(best.prob)} odds; it needs ${p(best.need)} and at least two witnesses agreeing${best.grade?` (qualifies as Grade ${best.grade})`:", so it waits"}.`:"No trade open; scanning every hour.";
+ const champName=(ch.history||[]).length?(ch.history[ch.history.length-1].promoted):"the original Arbiter";
+ const promo=(ch.history||[]).slice(-3).reverse().map(h=>`<div style="margin-top:4px">📈 ${esc(h.at.slice(0,10))}: <b>${esc(h.promoted)}</b> took over (${esc(h.what)}). It beat the previous version on live candidates: more accurate odds, at least as many Grade A trades, at least as much profit.</div>`).join("")||`<div class="mute">No promotions yet: every upgrade must first win on at least 40 independent live bets.</div>`;
+ const race=Object.entries(sc).filter(([n])=>n!="champion").map(([n,s])=>({n,s,prog:Math.min(1,(s.bets||0)/(n in (R.chal||{})&&(R.chal[n].kind=="policy")&&s.me&&s.me.trades!=null?15:40))})).sort((a,b)=>(b.s.better-a.s.better)||(b.prog-a.prog)).slice(0,4);
+ const raceH=race.length?race.map(r=>`<div style="display:flex;align-items:center;gap:8px;margin-top:5px"><div style="width:150px;font-size:13px"><b>${esc(r.n)}</b></div><div style="flex:1;height:8px;background:var(--soft);border-radius:4px"><div style="width:${Math.round(r.prog*100)}%;height:8px;border-radius:4px;background:var(--${r.s.better?"good":"acc"})"></div></div><div style="width:120px;font-size:12.5px" class="mute">${r.s.better?"ahead so far":"not ahead"} · ${Math.round(r.prog*100)}%</div></div>`).join("")
+  :`<div class="mute">${Object.keys(R.chal||{}).length} upgrades are being scored; the race board fills in as candidates are scored (48 hours after they are seen).</div>`;
+ const jl=J[J.length-1]||{},j0=J.length>7?J[J.length-8]:J[0]||{};
+ const sharp=jl.calErr!=null?`Its odds are off by <b>${Math.round(jl.calErr*100)} points</b> on average${j0.calErr!=null&&J.length>1?` (${jl.calErr<=j0.calErr?"sharper":"less sharp"} than a week ago: ${Math.round(j0.calErr*100)})`:""}.`:"Its honesty score (predicted odds vs what really happened) appears once the first candidates are scored.";
+ $("arb").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px"><div><span style="font-size:20px;font-weight:700">Arbiter</span> <span class="mute">· the trading judge</span></div><div class="mute" style="font-size:13px">Market: <b>${esc(RG[R.regimeNow]||"–")}</b></div></div>
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px">
+  <div><div class="mute" style="font-size:13px">Paper account</div><div class="big">${usd(A.equity??A.cash)}</div><div class="mute" style="font-size:13px">${((A.equity??A.cash)/A.start*100-100).toFixed(1)}% since ${esc((A.born||"").slice(0,10))} · ${A.closed.length} trades (${A.closed.filter(x=>x.usd>0).length} won)</div>${spark(J.map(x=>x.equity),"good")}</div>
+  <div><div class="mute" style="font-size:13px">Live calls (shorts)</div><div class="big">${p(S.hit)}</div><div class="mute" style="font-size:13px">won, vs ${p(S.pred)} predicted · ${S.n||0} calls scored</div>${spark(J.map(x=>x.hit),"acc")}</div>
+  <div><div class="mute" style="font-size:13px">Version in charge</div><div style="font-size:17px;font-weight:650;margin-top:4px">${esc(champName)}</div><div class="mute" style="font-size:13px">${Object.keys(R.chal||{}).length} upgrades competing to replace it</div></div></div>
+ <div style="margin-top:12px">${now}</div><div class="mute" style="margin-top:4px;font-size:14px">${sharp}</div>
+ <h3 style="margin-top:14px">Who is in charge, and why</h3>${promo}
+ <h3>Closest challengers</h3>${raceH}
+ <div class="mute" style="font-size:12.5px;margin-top:10px">Updated every hour (this page refreshes itself). Details: <a href="#accounts" data-go="accounts" style="color:var(--acc)">Accounts → Upgrades under test</a>. The Drosophila research engine and its best-rule testing ground are summarised below.</div></div>`})();
+// refresh by itself when a newer run is published
+setInterval(()=>{fetch("summary.json?"+Date.now()).then(r=>r.json()).then(x=>{if(x.built&&x.built!==D.built)location.reload()}).catch(()=>{})},300000);
 
 // ── upgrades under test + honest odds ───────────────────────────────
 (()=>{const R=D.referee||{},C=R.chal||{},S=R.chalScores||{},rej=R.chalRejected||{},W=R.witnesses||{},ch=R.champ||{},f2=x=>x==null?"–":x;
@@ -499,7 +528,7 @@ def write(mem, J=None, log=print):
                          "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1],
                          "chal": {n: {"what": c.get("what"), "kind": c.get("kind"), "born": c.get("born"), **({"acct": {k: c["acct"].get(k) for k in ("cash", "equity", "start")}} if c.get("acct") else {})} for n, c in (R.get("chal") or {}).items()},
                          "chalScores": R.get("chalScores"), "chalStats": R.get("chalStats"), "chalRejected": R.get("chalRejected"), "champ": {k: (R.get("champ") or {}).get(k) for k in ("cfg", "since", "history")},
-                         "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses")}
+                         "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses"), "journal": (R.get("journal") or [])[-60:]}
     d["healthSummary"] = mem.get("healthSummary")
     d["roadmap"] = _roadmap()
     d["analyst"] = mem.get("analyst")
