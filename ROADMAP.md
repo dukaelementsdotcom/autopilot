@@ -102,10 +102,10 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 ## Wild-market specialists (from your Nov 11 notes; each a challenger, used only when the Arbiter judges the odds good)
 - [x] Profit lock (live Nov 11): break-even once a trade is well on its way; after the first target it keeps at least half of the best open profit
 - [x] Curious about unfamiliar situations (live Nov 11): every unfamiliar candidate is recorded and scored, grouped by kind; a kind with a proven record becomes tradable, a failing kind is avoided, a mixed kind stays "it is what it is"
-- [ ] **Pair trades** (next): long the strongest coin, short the weakest, same dollar amount; the market's swings cancel, the gap is the profit; tight stops even in wild markets
+- [x] **Pair trades** (live Nov 11): long the strongest coin, short the weakest, same dollar amount; the market's swings cancel, the gap is the profit; tight stops even in wild markets
 - [ ] Liquidation-cascade fades (needs ~3 weeks of recorded liquidations)
-- [ ] Range trades in wild-but-sideways markets (+1% at the edges of a range)
-- [ ] News drift: trade the move after the first 15 minutes of CPI / Fed / big headlines, using the shock memory
+- [x] Range trades in wild-but-sideways markets (+1% at the edges of a range)
+- [x] News drift: trade the move after the first 15 minutes of CPI / Fed / big headlines, using the shock memory
 - [ ] Weekly goal with carry-over: a strong day or week banks a head start; quiet days are fine when the week is on pace
 
 ## Build B (accuracy, about 1 week after A; each one a challenger)

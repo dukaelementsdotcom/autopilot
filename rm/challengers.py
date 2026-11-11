@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -30,6 +30,9 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
+    reg["pairs"] = ({"spec": "pairs"}, "Pair trades: long the coin it likes most, short the one it dislikes most, among coins that move together (the market's swings cancel; tight stop even in wild markets)", "policy")
+    reg["news"] = ({"spec": "news"}, "News drift: after a sudden market-wide shock, ride the move in its direction on the coin whose evidence agrees most (24h limit)", "policy")
+    reg["range"] = ({"spec": "range"}, "Range trades: in wild but sideways markets, short near the top of a coin's 3-day range and buy near the bottom (+1% target, stop just outside)", "policy")
     reg["lock"] = ({"lock": True}, "Profit lock: once a trade is well on its way the stop goes to break-even, and after the first target it always keeps at least half of the best open profit", "policy")
     reg["curious"] = ({"curious": True}, "Curious: unfamiliar situations are grouped by kind; a kind with a proven live record becomes tradable (its own witness)", "policy")
     reg["alloc"] = ({"alloc": True}, "Daily-goal allocator: one budget per opportunity (up to 30% margin, 6% risk), all-in on one strong setup or split across 2-4 coins that are NOT the same bet; judged on account growth", "policy")
@@ -84,7 +87,7 @@ def sync(R, B, log=print, Hd=None):
         full = dict(change) if kind == "full" else {**champ, **change}
         if full == champ: chal.pop(n, None); continue
         if n in chal: chal[n].update(what=what, kind=("policy" if any(k != "odds" for k in change if change.get(k) != champ.get(k)) else "odds"))
-        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 12 or kind == "odds":
+        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 16 or kind == "odds":
             chal[n] = {"change": change if kind != "full" else {k: v for k, v in change.items() if champ.get(k) != v}, "what": what,
                        "kind": "policy" if kind in ("policy", "full") and any(k != "odds" for k in change) else "odds", "born": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
     for n in [n for n in chal if n not in reg]: chal.pop(n)

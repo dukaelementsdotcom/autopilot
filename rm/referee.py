@@ -211,6 +211,8 @@ def step(mem, J, now_iso, log=print, problems=None):
     # 1) manage open trades hour by hour on the new bars (every account)
     for _, AA, _cfg in accts:
         for p in list(AA["open"]): _manage(J, B, p, AA, newest)
+        if AA.get("pairs"):
+            from . import specialists; specialists.manage_pairs(J, AA, newest)
     # 2) look for trades in the hours that arrived since the last run
     if B is not None and newest > A["lastT"]:
         live = liquid_coins(J)
@@ -241,7 +243,10 @@ def step(mem, J, now_iso, log=print, problems=None):
             _ledger_add(J, B, R, rows, S, REG, Hd, V)
             ctx = {"corr": _corr(J, newest), "live": None}
             for n, AA, cfg in accts:
-                if not AA.get("paused"): _trade(J, B, R, Hd, AA, cfg, rows, S, REG, V, now_iso, newest, ctx, log)
+                if AA.get("paused"): continue
+                if cfg.get("spec"):
+                    from . import specialists; specialists.trade(J, B, R, AA, cfg, rows, S, REG, V, now_iso, newest, ctx)
+                else: _trade(J, B, R, Hd, AA, cfg, rows, S, REG, V, now_iso, newest, ctx, log)
     for _, AA, _cfg in accts: AA["lastT"] = max(AA["lastT"], newest)
     newly = _ledger_resolve(J, R, newest, Hd)
     _shadow_resolve(J, R, newest); adapt(R)
@@ -453,7 +458,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None}
 
 def unf_key(side, fams, base, reg):
     """the 'kind' of an unfamiliar situation: side, market state and which two witnesses lean hardest each way"""
