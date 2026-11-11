@@ -107,6 +107,16 @@ Today the market state comes from ONE measure (BTC above/below its 50-day averag
 - [ ] Measured honestly: how often each state correctly called the next 1, 3 and 7 days, shown on the dashboard
 - [ ] ONE trend reading feeds everything (the Arbiter, every challenger and specialist, the best-rule account), so no part can disagree with another about the market; enters as a challenger against today's reader
 
+## NEXT, together with the trend reader: "Compass", a market-intelligence engine feeding the Arbiter
+Bitcoin alone is ~20% of the picture. Compass reads the whole world every hour and hands the Arbiter (and the trend reader) evidence, never decisions.
+- [ ] Global markets (long free history, trainable now): S&P 500, Nasdaq, Dow, Europe (DAX, FTSE), Asia (Nikkei, Hang Seng), dollar index, gold, oil, US 2y/10y yields, VIX; NVIDIA and chip stocks; crypto vs each (who leads whom, how tight the link is right now)
+- [ ] Money flows: Bitcoin / Ethereum ETF daily flows (history since Jan 2024), stablecoin supply (DefiLlama), exchange flows (Coin Metrics, recording)
+- [ ] Mood: Fear & Greed index (history since 2018), funding and positioning across coins, options mood (Deribit, recording from now)
+- [ ] Calendar: Fed, CPI, jobs (economic calendar feed), big earnings (NVIDIA...), IPOs (Nasdaq IPO calendar), token unlocks; the Arbiter knows what is coming and how similar events moved crypto before
+- [ ] News digest: headlines from Reuters / Bloomberg / CNBC / Yahoo Finance / MarketWatch / CoinDesk / The Block via public feeds; the AI tags each (type, assets, sectors such as AI coins, direction, severity) and writes a short daily market brief on the dashboard
+- [ ] Event memory: every tagged event stored with what crypto and each sector did after 1h / 1d / 1w (e.g. how AI coins moved around big AI news and AI IPOs), so a new event is judged by what similar ones did
+- [ ] Each Compass input enters as a witness challenger (no noise allowed in); the global-risk state also feeds the trend reader
+
 ## Wild-market specialists (from your Nov 11 notes; each a challenger, used only when the Arbiter judges the odds good)
 - [x] Profit lock (live Nov 11): break-even once a trade is well on its way; after the first target it keeps at least half of the best open profit
 - [x] Curious about unfamiliar situations (live Nov 11): every unfamiliar candidate is recorded and scored, grouped by kind; a kind with a proven record becomes tradable, a failing kind is avoided, a mixed kind stays "it is what it is"
