@@ -27,7 +27,7 @@ def trade(J, B, R, A, cfg, rows, S, REG, V, now_iso, newest, ctx):
         sh = float(J.P["w_shock1"].values[b[0]])
         if not np.isfinite(sh) or abs(sh) < 3: return
         side = "long" if sh > 0 else "short"
-        if side not in B["sides"]: return
+        if side not in B["sides"] or not RF.side_live(R, side, B["sides"][side], reg): return     # only a side the Arbiter itself trusts right now
         k = int(np.argmax(np.asarray(S[side]["prob"])[pos_new])); pos = int(pos_new[k]); i = int(rows[pos])
         pr = float(S[side]["prob"][pos])
         if pr < B["sides"][side]["base"]: return                     # the evidence must at least lean the same way
@@ -46,7 +46,8 @@ def trade(J, B, R, A, cfg, rows, S, REG, V, now_iso, newest, ctx):
             if r24 > width * 0.6: continue                               # trending inside the window, not a range
             where = (px - lo) / (hi - lo)
             for side, ok in (("short", where >= 0.85), ("long", where <= 0.15)):
-                if not ok or side not in B["sides"]: continue
+                if not ok or side not in B["sides"] or not RF.side_live(R, side, B["sides"][side], reg): continue
+                if (reg.startswith("down") and side == "long") or (reg.startswith("up") and side == "short"): continue   # with the trend only
                 pr = float(S[side]["prob"][pos])
                 if pr < B["sides"][side]["base"]: continue
                 stp = (hi * 1.005 / px - 1) if side == "short" else (1 - lo * 0.995 / px)
