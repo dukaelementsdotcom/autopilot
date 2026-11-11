@@ -82,7 +82,7 @@ def sync(R, B, log=print, Hd=None):
         full = dict(change) if kind == "full" else {**champ, **change}
         if full == champ: chal.pop(n, None); continue
         if n in chal: chal[n].update(what=what, kind=("policy" if any(k != "odds" for k in change if change.get(k) != champ.get(k)) else "odds"))
-        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 8 or kind == "odds":
+        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 12 or kind == "odds":
             chal[n] = {"change": change if kind != "full" else {k: v for k, v in change.items() if champ.get(k) != v}, "what": what,
                        "kind": "policy" if kind in ("policy", "full") and any(k != "odds" for k in change) else "odds", "born": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
     for n in [n for n in chal if n not in reg]: chal.pop(n)
