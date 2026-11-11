@@ -554,13 +554,19 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
     """the trade-shape models and subtraction combiners for the CURRENT brain (refit whenever the brain is retrained)"""
     from . import challengers as CH
     B = load()
-    if B is None or CH.load_heads(B) is not None: return False
+    if B is not None and CH.load_heads(B) is not None:
+        R_ = mem.setdefault("referee", {})
+        if (R_.get("crash") is None or R_.get("crashFor") != B["trainedAt"]) and time_left > 6 * 60:     # once per brain
+            try: R_["crash"] = crash_rehearsal(J, B, log); R_["crashFor"] = B["trainedAt"]
+            except Exception as e: log(f"crash rehearsal failed: {e}")
+        return False
+    if B is None: return False
     if time_left < 10 * 60: log("shape models: postponed (not enough time this run)"); return False
     Hd = CH.fit_heads(J, B, log); CH.save_heads(Hd); mem.setdefault("referee", {})["headsNote"] = f"fitted {Hd['fitAt']} UTC in {Hd['secs']}s"
     try:
         from . import guard; mem["referee"]["guardRule"] = guard.learn(J, log)
     except Exception as e: log(f"shock memory failed: {e}")
-    try: mem["referee"]["crash"] = crash_rehearsal(J, B, log)
+    try: mem["referee"]["crash"] = crash_rehearsal(J, B, log); mem["referee"]["crashFor"] = B["trainedAt"]
     except Exception as e: log(f"crash rehearsal failed: {e}")
     return True
 
