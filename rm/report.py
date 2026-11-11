@@ -20,9 +20,11 @@ def _summary(mem):
             "families": [[k, v["n"], round(v["best"], 2), v["ok"]] for k, v in fam[:80]], "nfam": len(fam), "status": status}
 
 PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Volvox</title><style>
+<title>Volvox</title><script>try{const t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script><style>
 :root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#6b6a64;--line:#e4e2da;--good:#1f7a4d;--bad:#b23b2e;--warn:#9a6a00;--acc:#2f5fd0;--soft:#efede6}
-@media (prefers-color-scheme:dark){:root{--bg:#121211;--card:#1c1c1a;--ink:#ecebe6;--mute:#9b9a93;--line:#2c2c29;--good:#4cc28a;--bad:#ff7a6b;--warn:#e0b04a;--acc:#7ea2ff;--soft:#242422}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#121211;--card:#1c1c1a;--ink:#ecebe6;--mute:#9b9a93;--line:#2c2c29;--good:#4cc28a;--bad:#ff7a6b;--warn:#e0b04a;--acc:#7ea2ff;--soft:#242422}}
+:root[data-theme=dark]{--bg:#121211;--card:#1c1c1a;--ink:#ecebe6;--mute:#9b9a93;--line:#2c2c29;--good:#4cc28a;--bad:#ff7a6b;--warn:#e0b04a;--acc:#7ea2ff;--soft:#242422}
+.themebtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:5px 12px;cursor:pointer;font:inherit;font-size:13px}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 main{max-width:1000px;margin:0 auto;padding:18px 16px 60px}h1{font-size:24px;margin:0}h2{font-size:17px;margin:26px 0 8px}h3{font-size:15px;margin:14px 0 6px}
 .mute{color:var(--mute)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
@@ -82,7 +84,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .fam{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:99px;margin:1px 2px;border:1px solid var(--line)}.fam.y{color:var(--good);border-color:var(--good)}.fam.n{color:var(--bad);border-color:var(--bad)}
 .meter{height:6px;background:var(--soft);border-radius:99px;position:relative;min-width:90px}.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--acc)}.meter u{position:absolute;top:-3px;width:2px;height:12px;background:var(--ink)}
 </style></head><body><main>
-<div class="top"><div><h1>Volvox</h1><div class="mute" style="font-size:13px;margin-top:-2px">powered by the Drosophila research engine</div><div class="mute" id="sub" style="font-size:13px"></div></div>
+<div class="top"><button class="themebtn" id="themebtn" style="float:right" title="Light / dark / follow my device"></button><div><h1>Volvox</h1><div class="mute" style="font-size:13px;margin-top:-2px">powered by the Drosophila research engine</div><div class="mute" id="sub" style="font-size:13px"></div></div>
 <div class="pill" id="statuspill"><span class="dot" id="sdot"></span><span id="stext"></span><span class="mute">·</span><span>next run in <span class="cd" id="cd">–</span></span></div></div>
 <div id="health"></div>
 <nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="roadmap">Build board</button><button data-t="help">Help</button></nav>
@@ -324,6 +326,11 @@ renderAcct(D.account,"box",false);
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
 
 
+
+// light / dark / follow the device (remembered in this browser)
+(()=>{const b=$("themebtn"),L={light:"☀︎ Light",dark:"☾ Dark","":"◐ Auto"},nx={"":"light",light:"dark",dark:""};
+ const cur=()=>document.documentElement.dataset.theme||"";b.textContent=L[cur()];
+ b.onclick=()=>{const t=nx[cur()];if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;try{t?localStorage.setItem("theme",t):localStorage.removeItem("theme")}catch(e){};b.textContent=L[t]}})();
 // ── ARBITER: the trading judge (overview) ───────────────────────────
 (()=>{const R=D.referee||{},A=R.acct,J=R.journal||[],S=(R.shadow||{}).short||{},sc=R.chalScores||{},ch=R.champ||{},L=(R.look||{}).rows||[];if(!A)return;
  const RG={"up-calm":"rising and calm","up-wild":"rising and wild","down-calm":"falling and calm","down-wild":"falling and wild"};
