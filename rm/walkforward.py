@@ -47,7 +47,8 @@ def main(folds=8):
         if v0 - int(J.t.min()) < 500 * DAY: break                 # needs at least ~1.4 years to learn from
         if time.time() - t0 > 150 * 60: print("time budget reached"); break
         J.t_end, J.hold0, J.val0 = te, h0, v0
-        Bk = RF.train(J, log=lambda *a: None); res = exam_both(J, Bk, h0, te - RF.HORIZON * 3600)
+        try: Bk = RF.train(J, log=lambda *a: None); res = exam_both(J, Bk, h0, te - RF.HORIZON * 3600)
+        except Exception as e: print("fold skipped (too little data that far back):", str(e)[:120]); break
         f = {"exam": f"{pd.to_datetime(h0, unit='s').date()} to {pd.to_datetime(te, unit='s').date()}", "btc": None, "sides": res, "secs": Bk.get("secs")}
         try:
             T, O, Hh, Ll, Cc = J._bars("BTC"); s = pd.Series(Cc, index=T); f["btc"] = round(float(s.asof(te) / s.asof(h0) - 1) * 100, 1)

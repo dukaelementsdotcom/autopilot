@@ -593,6 +593,8 @@ def _mark(A):
     A["equity"] = round(A["cash"] + unreal, 2)
 
 
+RETRAIN_BEFORE = "2026-11-11 21:00"     # Hyperliquid history finished downloading after the Nov 7 training; the walk-forward audit showed the old brain no longer matches the data
+
 def maybe_train(J, mem, log=print, time_left=1e9):
     """retrain once a week (or when there is no model yet), only if there is enough time left in this run.
     A failed training keeps the previous model; with no model at all the referee simply waits."""
@@ -600,6 +602,7 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     if B is not None:
         try: age = (time.time() - time.mktime(time.strptime(B["trainedAt"], "%Y-%m-%d %H:%M"))) / 86400
         except Exception: age = 99
+    if B is not None and B["trainedAt"] < RETRAIN_BEFORE: age = 99      # the brain predates a data change: retrain now, not at the weekly slot
     fresh_fams = set(fam_cols(J.P)) - {"invented"}
     if B is not None and age < 7 and fresh_fams <= set(B["fams"]): return False      # also retrain when new kinds of evidence appear
     if time_left < 20 * 60: log(f"referee: training postponed ({time_left/60:.0f} min left in this run)"); R["trainNote"] = "postponed: not enough time this run"; return False
