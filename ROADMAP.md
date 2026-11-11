@@ -99,6 +99,12 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 - [ ] **Opportunity-sized risk**: Grade S + Kelly + allocator together: much bigger when the evidence is strong and proven, small or none when it is not
 - [x] **Never too cautious by design** (lower-bar challenger live Nov 11): promotions already require at least as many Grade A trades and at least as much profit (a "safer but idle" upgrade cannot win); missed-winners count loosens the bar when caution costs money; a challenger with a LOWER bar runs alongside so over-caution is caught live
 
+## Audit, Nov 11 (what the evidence says about the goal)
+- [x] Promotions need proof (a consistent lead over 40+ separate 6-hour windows and 10+ days); self-adjustment counts separate market moves, not correlated calls
+- [x] **A bar per trend state** (challenger, live Nov 11): on the newest four months it took ~2.6x the trades with a higher win rate (local test: 3.7 trades/week, +10.3%/month vs 1.4 and +2.3% for the single bar; deeper worst drop 22% vs 8%). Longs return only in rising and sideways markets
+- [x] Pullback entries: tested, failed (missed more than half the trades, no better quality); not built
+- [ ] Honest status of the goal: evidence supports ~1-4 good trades a week; lowering the bar to trade daily lost money in the test. More good trades must come from better evidence (trend reader, Compass, long-side edge), not from a lower bar
+
 ## NEXT (top priority): an accurate trend reader, shared by every part
 Today the market state comes from ONE measure (BTC above/below its 50-day average, plus volatility): slow to turn, and it can flip on noise.
 - [ ] Several views that must agree: BTC vs its 20/50/200-day averages and their slopes, 7- and 30-day moves, breadth (share of coins below their own averages, new lows vs new highs), funding and open interest across coins, Nasdaq trend

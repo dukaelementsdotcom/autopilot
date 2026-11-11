@@ -356,6 +356,11 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         else:
             g = np.where(unf, None, np.where((prob >= be + 2 * mg) & (sup >= 3) & (ag == 0), "S", np.where((prob >= be + mg) & (sup >= 2) & (ag <= 1), "A",
                          np.where((prob >= be + mg / 2) & (sup >= 2) & (ag <= 2), "B", None))))
+        if cfg.get("statebar") and Hd and (Hd.get("statebar") or {}).get("plan"):        # the bar depends on the trend state; a side trades only in its planned states
+            from . import compass
+            plan = Hd["statebar"]["plan"]; st = compass.states_for(J, J.t[rows]); mgs = np.array([plan.get(f"{name}|{x}", np.nan) for x in st])
+            okp = np.isfinite(mgs) & ~unf & (sup >= 2) & (ag <= 1); mg0 = np.nan_to_num(mgs, nan=9.0)
+            g = np.where(okp & (prob >= be + mg0 + 0.08) & (sup >= 3) & (ag == 0), "S", np.where(okp & (prob >= be + mg0), "A", None))
         out[name] = {"prob": prob, "pt": ptarget, "T": T, "Hz": Hz, "ev": ev, "grade": g, "stop": stp, "be": be}
     return out
 
@@ -406,7 +411,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
         today = [x for x in A["open"] + A["closed"][-20:] if int(x["t"] // 86400) == day]
         best = None
         for name, sd in B["sides"].items():
-            if not side_live(R, name, sd, REG.get(int(J.t[i]))): continue
+            if not (cfg.get("statebar") or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
             if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
             if not g: continue
@@ -467,7 +472,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1"}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False}
 
 def unf_key(side, fams, base, reg):
     """the 'kind' of an unfamiliar situation: side, market state and which two witnesses lean hardest each way"""
@@ -644,6 +649,10 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
             try: R_["crash"] = crash_rehearsal(J, B, log); R_["crashFor"] = B["trainedAt"]
             except Exception as e: log(f"crash rehearsal failed: {e}")
 
+        Hd_ = CH.load_heads(B)
+        if "statebar" not in Hd_ and time_left > 8 * 60:                 # once per brain
+            try: Hd_["statebar"] = CH.fit_statebar(J, B, log); CH.save_heads(Hd_); R_["stateBar"] = {k: Hd_["statebar"].get(k) for k in ("plan", "exam", "val", "todayExam", "fitAt")}
+            except Exception as e: log(f"state bars failed: {e}")
         if R_.get("trendAccFor") != B["trainedAt"]:
             try:
                 from . import compass; R_["trendAcc"] = compass.trend_accuracy(J); R_["trendAccFor"] = B["trainedAt"]
@@ -651,7 +660,10 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
         return False
     if B is None: return False
     if time_left < 10 * 60: log("shape models: postponed (not enough time this run)"); return False
-    Hd = CH.fit_heads(J, B, log); CH.save_heads(Hd); mem.setdefault("referee", {})["headsNote"] = f"fitted {Hd['fitAt']} UTC in {Hd['secs']}s"
+    Hd = CH.fit_heads(J, B, log)
+    try: Hd["statebar"] = CH.fit_statebar(J, B, log); mem.setdefault("referee", {})["stateBar"] = {k: Hd["statebar"].get(k) for k in ("plan", "exam", "val", "todayExam", "fitAt")}
+    except Exception as e: log(f"state bars failed: {e}")
+    CH.save_heads(Hd); mem.setdefault("referee", {})["headsNote"] = f"fitted {Hd['fitAt']} UTC in {Hd['secs']}s"
     try:
         from . import guard; mem["referee"]["guardRule"] = guard.learn(J, log)
     except Exception as e: log(f"shock memory failed: {e}")
@@ -793,7 +805,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "statebar"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)

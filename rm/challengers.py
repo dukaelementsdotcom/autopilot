@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1"}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -30,6 +30,7 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
+    reg["statebar"] = ({"statebar": True}, "A bar per trend state: asks for less evidence in the market states where the Arbiter proved accurate, more elsewhere, and trades longs only in the states where they worked (learned on one year, examined on the newest months)", "policy")
     reg["trend2"] = ({"trend": "v2"}, "Compass trend reader: market direction from many views that must agree (Bitcoin's 20/50/200-day trends, breadth across coins, stocks, the dollar), five states incl. sideways, smoothed so noise cannot flip it", "policy")
     reg["pairs"] = ({"spec": "pairs"}, "Pair trades: long the coin it likes most, short the one it dislikes most, among coins that move together (the market's swings cancel; tight stop even in wild markets)", "policy")
     reg["news"] = ({"spec": "news"}, "News drift: after a sudden market-wide shock, ride the move in its direction on the coin whose evidence agrees most (24h limit)", "policy")
@@ -78,6 +79,10 @@ def sync(R, B, log=print, Hd=None):
     a challenger identical to the champion has nothing left to prove and retires)"""
     reg = registry(B); chal = R.setdefault("chal", {}); champ = (R.get("champ") or {}).get("cfg") or CHAMP
     rej = exam_gate(Hd, B) if B is not None else {}
+    sb = (Hd or {}).get("statebar") if B is not None else None
+    if not sb: rej["statebar"] = "waiting for its plan and exam"
+    elif not sb.get("plan") or not sb.get("exam") or (sb["exam"]["monthly"] <= ((sb.get("todayExam") or {}).get("monthly") or 0)):
+        rej["statebar"] = f"failed its final exam: {(sb.get('exam') or {}).get('monthly')}%/month vs today's {(sb.get('todayExam') or {}).get('monthly')}%/month"
     gr = R.get("guardRule") or {}
     if not any((gr.get(n) or {}).get("x") for n in ("long", "short")): rej["shock"] = "shock memory found no exit rule that beats holding" if gr else "waiting for the shock memory"
     R["chalRejected"] = rej
@@ -150,6 +155,47 @@ def fit_heads(J, B, log=print):
         out["sides"][name] = {"k": k, "margin": mg, "pt": mt, "valMonthly": round(g, 2), "exam": exam, "champExam": sd.get("exam"), "sub": sub, "V": Vc}
         log(f"   shape model {name}: target = max(2%, {k} x stop), margin {mg}, exam {exam} (fixed +2%: {sd.get('exam', {}).get('monthly')}%/month)")
     out["secs"] = round(time.time() - t0)
+    return out
+
+def fit_statebar(J, B, log=print):
+    """A BAR PER TREND STATE. For each side and each trend state (strong down / down / sideways / up / strong up) the bar that worked best
+    on the validation year (at least 12 trades and clearly profitable there); otherwise that side stays off in that state.
+    Then the frozen plan takes the FINAL EXAM on the newest months, next to today's single bar, both scored the same way."""
+    import math, pandas as pd
+    from . import referee as RF, compass
+    def prep(a, b):
+        X = RF._rows(J, a, b); S = RF.score(J, B, X); D = {"X": X, "st": compass.states_for(J, J.t[X]), "span": (J.t[X].max() - J.t[X].min()) / 86400}
+        for n, sd in B["sides"].items():
+            stp = RF.stop_pct(J.dvol[X]); y, r = RF.barrier(J, X, 1 if n == "long" else -1, RF.TARGET, stp, RF.HORIZON); sup, ag = _support(S[n]["fams"], sd["base"])
+            D[n] = {"p": np.asarray(S[n]["prob"]), "be": RF.breakeven(stp), "stp": stp, "r": r, "ok0": (sup >= 2) & (ag <= 1) & ~np.asarray(S[n]["unfamiliar"])}
+        return D
+    def run(D, picks):
+        fr = [pd.DataFrame({"t": J.t[D["X"]][m], "r": D[n]["r"][m], "s": D[n]["stp"][m], "p": (D[n]["p"] - D[n]["be"])[m]}) for n, m in picks]
+        df = pd.concat(fr) if fr else pd.DataFrame()
+        if not len(df): return None
+        df["day"] = df.t // 86400; df = df.sort_values(["t", "p"], ascending=[True, False]).groupby("day").head(1)
+        acct = np.maximum(df.r.values * np.minimum(RF.RISK["A"] / df.s.values, RF.MAX_MARGIN * RF.LEV), -RF.MAX_MARGIN); eq = np.cumprod(1 + acct)
+        return {"trades": int(len(df)), "perWeek": round(float(len(df) / D["span"] * 7), 1), "win": round(float(100 * (df.r > 0).mean()), 1), "avg": round(float(df.r.mean() * 100), 2),
+                "monthly": round(math.expm1(np.log1p(acct).sum() / D["span"] * 30.4) * 100, 1), "maxDrop": round(float(((np.maximum.accumulate(eq) - eq) / np.maximum.accumulate(eq)).max()) * 100, 1)}
+    V = prep(J.val0, J.hold0); X = prep(J.hold0, J.t_end - 72 * H); plan = {}; from .compass import STATES
+    for n in B["sides"]:
+        for st in STATES:
+            best = None
+            for mg in (0.0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15):
+                res = run(V, [(n, V[n]["ok0"] & (V[n]["p"] >= V[n]["be"] + mg) & (V["st"] == st))])
+                if res and res["trades"] >= 12 and res["avg"] > 0.15 and (best is None or res["monthly"] > best[1]): best = (mg, res["monthly"])
+            if best: plan[f"{n}|{st}"] = best[0]
+    def planned(D):
+        out = []
+        for n in B["sides"]:
+            m = np.zeros(len(D["X"]), bool)
+            for k, mg in plan.items():
+                if k.split("|")[0] == n: m |= D[n]["ok0"] & (D[n]["p"] >= D[n]["be"] + mg) & (D["st"] == k.split("|")[1])
+            out.append((n, m))
+        return out
+    today = lambda D: [(n, D[n]["ok0"] & (D[n]["p"] >= D[n]["be"] + sd["margin"])) for n, sd in B["sides"].items() if sd.get("live") and not sd.get("off")]
+    out = {"plan": plan, "exam": run(X, planned(X)), "val": run(V, planned(V)), "todayExam": run(X, today(X)), "fitAt": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
+    log(f"   bar per trend state: plan {plan}; exam {out['exam']} vs today {out['todayExam']}")
     return out
 
 def _barrier_T(RF, J, rows, side, T, stop, hz):

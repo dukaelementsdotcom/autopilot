@@ -113,6 +113,7 @@ def trend_scores(J):
     """per hour: a score from -1 (strong down) to +1 (strong up) from views that must agree:
     BTC vs its 20/50/200-day averages, the 50-day average's slope, BTC's 7- and 30-day move, breadth (share of coins above their own
     50-day average), the S&P 500 and Nasdaq over 20 days, the dollar (inverse). Smoothed over 12h so noise cannot flip it."""
+    if getattr(J, "_trend_sc", None) is not None: return J._trend_sc
     P = J.P; T, O, Hh, Ll, Cc = J._bars("BTC"); s = pd.Series(Cc, index=T)
     v = []
     for d in (20, 50, 200):
@@ -124,7 +125,12 @@ def trend_scores(J):
     for c, w in (("w_g_spx20", 0.5), ("w_g_ndx20", 0.5), ("w_g_dxy20", -0.5)):
         if c in P: g = P.loc[P.coin.values == "BTC", ["t", c]].set_index("t")[c].reindex(T); v.append(np.sign(g) * w)
     sc = pd.concat(v, axis=1).mean(1).ewm(span=12, min_periods=1).mean()
+    try: J._trend_sc = sc
+    except Exception: pass
     return sc
+
+def states_for(J, ts):
+    sc = trend_scores(J); return np.array([state_of(float(sc.get(int(t), 0.0)), False) for t in ts])
 
 def state_of(score, wild):
     i = 0 if score <= -0.5 else 1 if score <= -0.15 else 2 if score < 0.15 else 3 if score < 0.5 else 4
