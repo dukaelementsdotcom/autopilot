@@ -415,7 +415,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
             g = K[name]["grade"][pos]
             if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
             if not g: continue
-            if len(today) >= cap_day and g != "S": continue                   # pace: Grade S is always allowed
+            if len(today) >= cap_day and not (fluid and g == "S"): continue   # the champion keeps one trade a day; only the fluid-pace challenger lets Grade S through
             if fluid and len(A["open"]) >= 3 and g != "S": continue
             score_ = K[name]["ev"][pos]
             if best is None or score_ > best[3]: best = (name, g, float(K[name]["pt"][pos]), float(score_))

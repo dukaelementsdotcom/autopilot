@@ -86,8 +86,9 @@ def sync(R, B, log=print, Hd=None):
     gr = R.get("guardRule") or {}
     if not any((gr.get(n) or {}).get("x") for n in ("long", "short")): rej["shock"] = "shock memory found no exit rule that beats holding" if gr else "waiting for the shock memory"
     R["chalRejected"] = rej
-    for n in rej:
-        if not ((R.get("champ") or {}).get("cfg") or {}).get(n): reg.pop(n, None)
+    for n in rej:                                                    # not admitted (unless it already IS the champion's setting)
+        ch_ = reg.get(n, ({},))[0]
+        if not all(champ.get(k) == v for k, v in ch_.items()): reg.pop(n, None)
     if (R.get("champ") or {}).get("prev"): reg["previous"] = ((R["champ"]["prev"]), "The previous champion (a promotion that proves worse is reversed)", "full")
     for n, (change, what, kind) in reg.items():
         full = dict(change) if kind == "full" else {**champ, **change}
