@@ -1,0 +1,43 @@
+name: audit
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: audit
+  cancel-in-progress: true
+jobs:
+  walkforward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: restore market data
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: rawdata-audit-${{ github.run_id }}
+          restore-keys: rawdata-
+      - name: restore referee models
+        uses: actions/cache/restore@v4
+        with:
+          path: data/models
+          key: models-audit-${{ github.run_id }}
+          restore-keys: models-
+      - name: restore memory (read only)
+        run: |
+          mkdir -p state
+          git fetch --depth 1 origin state && git --work-tree=state checkout FETCH_HEAD -- . && git reset -q || true
+      - name: walk-forward audit
+        run: python -W ignore -m rm.walkforward 8
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walkforward
+          path: walkforward.json
