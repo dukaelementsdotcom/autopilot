@@ -99,6 +99,14 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 - [ ] **Opportunity-sized risk**: Grade S + Kelly + allocator together: much bigger when the evidence is strong and proven, small or none when it is not
 - [x] **Never too cautious by design** (lower-bar challenger live Nov 11): promotions already require at least as many Grade A trades and at least as much profit (a "safer but idle" upgrade cannot win); missed-winners count loosens the bar when caution costs money; a challenger with a LOWER bar runs alongside so over-caution is caught live
 
+## NEXT (top priority): an accurate trend reader, shared by every part
+Today the market state comes from ONE measure (BTC above/below its 50-day average, plus volatility): slow to turn, and it can flip on noise.
+- [ ] Several views that must agree: BTC vs its 20/50/200-day averages and their slopes, 7- and 30-day moves, breadth (share of coins below their own averages, new lows vs new highs), funding and open interest across coins, Nasdaq trend
+- [ ] Five states with a confidence: strong down / down / sideways / up / strong up (sideways is real and matters)
+- [ ] Turn detection (change points) so a real reversal is caught early, and hysteresis so noise does not flip it back and forth
+- [ ] Measured honestly: how often each state correctly called the next 1, 3 and 7 days, shown on the dashboard
+- [ ] ONE trend reading feeds everything (the Arbiter, every challenger and specialist, the best-rule account), so no part can disagree with another about the market; enters as a challenger against today's reader
+
 ## Wild-market specialists (from your Nov 11 notes; each a challenger, used only when the Arbiter judges the odds good)
 - [x] Profit lock (live Nov 11): break-even once a trade is well on its way; after the first target it keeps at least half of the best open profit
 - [x] Curious about unfamiliar situations (live Nov 11): every unfamiliar candidate is recorded and scored, grouped by kind; a kind with a proven record becomes tradable, a failing kind is avoided, a mixed kind stays "it is what it is"
