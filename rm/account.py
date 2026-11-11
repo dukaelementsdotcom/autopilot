@@ -31,7 +31,10 @@ def ranked(mem, J, kinds=("event", "union")):
     return sorted(out, key=lambda x: (x[0], str(x[1])), reverse=True)
 
 def pick_leader(mem, J, kinds=("event", "union")):
-    r = ranked(mem, J, kinds); return r[0] if r else None
+    """the best-ranked champion, skipping rules whose LIVE record in the current market state says they fail here"""
+    R = mem.get("referee") or {}; reg = str(R.get("regimeNow")); T = R.get("ruleTrust") or {}
+    r = [x for x in ranked(mem, J, kinds) if ((T.get(str(mem["tests"][x[1]].get("no"))) or {}).get(reg) or {}).get("state") != "warning"]
+    return r[0] if r else None
 
 def pick_team(mem, J, size=5, max_overlap=0.35):
     """up to 5 champions that trade DIFFERENT situations (little overlap), best first"""

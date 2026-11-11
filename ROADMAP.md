@@ -36,7 +36,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Add NVIDIA, chip index and other daily stock data (Stooq or similar) so it also has history by the time it is used
 
 ## Build A (Wed Nov 11), in build order
-Built Nov 11. Still open from A: measurement-level attribution inside witnesses, coin-specific trust, rules as fair witnesses / live lab, AI tagging of news, research aimed at +2% wins (next pass).
+Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto-trained at ~21 days). Still open: measurement-level attribution, live lab (every champion in its own shadow account), state-aware research and research aimed at +2% (the research engine is the testing ground; changed last).
 **A1. Foundation**
 - [x] Split the referee into brain / policy / ledger / challengers
 - [x] Challenger system: registry, promotion rule, one-click rollback, an on/off switch for every challenger. Challengers are scored on **every ledger candidate** (about 100 a day), not only on traded calls, so they are judged in days instead of months
@@ -59,8 +59,8 @@ Built Nov 11. Still open from A: measurement-level attribution inside witnesses,
 
 **A4. Learning which evidence was right**
 - [x] Every scored candidate, traded or skipped, adjusts how much each witness is trusted, per market state (recursive, Kalman-style online learning with a forgetting factor; the forgetting speed itself is chosen by competing challengers)
-- [ ] Inside each witness: which measurement pushed the odds the wrong way; misleading measurements are down-weighted, and missing ones become research targets
-- [ ] Coin-specific trust: the judge learns its record per coin and coin group and demands more evidence where it is weak
+- [ ] Inside each witness (witness-level 'which one misled' is live; measurement-level needs the raw values stored, next): which measurement pushed the odds the wrong way; misleading measurements are down-weighted, and missing ones become research targets
+- [x] Coin-specific trust: the judge learns its record per coin and coin group and demands more evidence where it is weak
 
 **A5. New evidence (each one a separate challenger witness)**
 - [ ] Recorder witness: liquidation bursts, order-book imbalance, live funding and premium
@@ -77,9 +77,9 @@ Built Nov 11. Still open from A: measurement-level attribution inside witnesses,
 **A6. Rules feed the judge**
 - [x] Account clean-up: remove the team and all-in accounts; keep the best-rule account as the testing ground
 - [ ] Live lab: every champion rule paper-traded in shadow; the best-rule account picks its champion **per market state** by live record (no dip-buy longs in a falling market unless they have proven themselves there)
-- [ ] Highest standard for rules reaching the judge: a rule's vote counts only in the market states where its live and after-discovery record is good; a rule that keeps failing in a state becomes a **warning sign** there (its firing counts against its own side); rules that add nothing in the subtraction test are not fed at all
+- [x] Highest standard for rules reaching the judge: a rule's vote counts only in the market states where its live and after-discovery record is good; a rule that keeps failing in a state becomes a **warning sign** there (its firing counts against its own side); rules that add nothing in the subtraction test are not fed at all
 - [ ] Research looks for rules that know the market state (a rule can include "only in a falling, wild market"), so rules are specialists instead of islands
-- [ ] Rules as fair witnesses (votes count only after their discovery date); rules propose and the judge approves; market sensor (which rule styles win now)
+- [x] Rules as fair witnesses (votes count only after their discovery date); rules propose and the judge approves; market sensor (which rule styles win now)
 - [ ] Research aimed at the goal: favour rules whose wins are at least +2%; curiosity-driven research pointed at the judge's blind spots
 
 **A7. Dashboard**
@@ -87,9 +87,9 @@ Built Nov 11. Still open from A: measurement-level attribution inside witnesses,
 - [x] Upgrade-under-test panel, calibration table, Grade A pace, recorder and server status
 
 **A8. Test and deploy**
-- [ ] Local end-to-end run on real data (memory and time), a 10-day replay through the whole policy, phone and desktop screenshots
-- [ ] Crash rehearsal: replay March 2020, LUNA, FTX and recent shocks through sizing and exits
-- [ ] Deploy once, watch the first 3 runs, then the daily health reports
+- [x] Local end-to-end run on real data (memory and time), a 10-day replay through the whole policy, phone and desktop screenshots
+- [x] Crash rehearsal: replay March 2020, LUNA, FTX and recent shocks through sizing and exits
+- [x] Deploy once, watch the first 3 runs, then the daily health reports
 
 ## Build B (accuracy, about 1 week after A; each one a challenger)
 - [ ] Market states: hidden-Markov and Gaussian-mixture regimes (competing), change-point detection, linked to macro data; a specialist judge per state (may bring longs back)

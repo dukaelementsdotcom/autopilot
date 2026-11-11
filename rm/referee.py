@@ -217,6 +217,7 @@ def step(mem, J, now_iso, log=print, problems=None):
         rows = np.flatnonzero((J.t > A["lastT"]) & (J.t <= newest) & np.isin(J.coin, list(live)) & np.isfinite(J.dvol) & np.isfinite(J.O))
         if len(rows):
             S = score(J, B, rows); V = votes(mem, J, rows); REG = regimes(J, np.unique(J.t[rows])); R["regimeNow"] = REG.get(int(J.t[rows].max()))
+            R["_votes"] = {int(k): v for k, v in V.items() if v}
             look = []; newest_rows = np.flatnonzero(J.t[rows] == J.t[rows].max())
             for pos in newest_rows:
                 i = int(rows[pos]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
@@ -237,7 +238,7 @@ def step(mem, J, now_iso, log=print, problems=None):
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
             _shadow_add(J, B, R, rows, S, REG)
-            _ledger_add(J, B, R, rows, S, REG, Hd)
+            _ledger_add(J, B, R, rows, S, REG, Hd, V)
             ctx = {"corr": _corr(J, newest), "live": None}
             for n, AA, cfg in accts:
                 if not AA.get("paused"): _trade(J, B, R, Hd, AA, cfg, rows, S, REG, V, now_iso, newest, ctx, log)
@@ -245,7 +246,7 @@ def step(mem, J, now_iso, log=print, problems=None):
     newly = _ledger_resolve(J, R, newest, Hd)
     _shadow_resolve(J, R, newest); adapt(R)
     try:
-        CH.online_update(R, B, newly); CH.evaluate(R, log); CH.promote(R, log)
+        CH.online_update(R, B, newly); trust_tables(R); CH.evaluate(R, log); CH.promote(R, log)
     except Exception as e:
         if problems is not None: problems.append(f"challengers: {e}")
     for x in A["closed"][-10:]:
@@ -265,7 +266,7 @@ def step(mem, J, now_iso, log=print, problems=None):
     R["model"] = None if B is None else {"trainedAt": B["trainedAt"], "secs": B.get("secs"), "coins": B.get("coins"),
                                           **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
     if Hd: R["shapeExam"] = {n: {"exam": v["exam"], "k": v.get("k"), "margin": v.get("margin"), "fixedExam": v.get("champExam")} for n, v in Hd["sides"].items()}
-    R["champCfg"] = champ_cfg
+    R["champCfg"] = champ_cfg; R.pop("_votes", None)
     _journal(R, A)
     try:
         from . import guard; R["guardSync"] = guard.sync(R, log)
@@ -317,6 +318,12 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         elif cfg.get("odds", "weekly") != "weekly":
             prob = np.array([CH.odds(R, B, None if not Hd else Hd, cfg, name, {f: float(v[k]) for f, v in fams.items()}, REG.get(int(J.t[rows[k]])), prob[k]) for k in range(n)])
         sup, ag = CH._support(fams, sd["base"]); unf = np.asarray(S[name]["unfamiliar"])
+        if cfg.get("cointrust"):                                   # demand more where its own live record on this group of coins is weak
+            from .witnesses import SECTOR_OF
+            ct = R.get("coinTrust") or {}; mg = mg + np.array([ct.get(SECTOR_OF.get(str(c), "other"), 0.0) for c in J.coin[rows]])
+        if cfg.get("rules") and R.get("ruleTrust"):                # research rules as fair witnesses: only their LIVE record, per market state
+            V_ = ctx_votes(R, J, rows, name)
+            if V_ is not None: prob = 1 / (1 + np.exp(-(np.log(np.clip(prob, 1e-3, 1 - 1e-3) / (1 - np.clip(prob, 1e-3, 1 - 1e-3))) + V_)))
         if cfg.get("doubt"):                                       # split jury: when the witnesses disagree, demand more
             F = np.column_stack([np.asarray(v) for v in fams.values()]); mg = mg + np.std(F, 1)
         T = np.full(n, TARGET); Hz = np.full(n, HORIZON); ev = prob * TARGET - (1 - prob) * stp - C.FEE; ptarget = prob
@@ -399,7 +406,47 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False}
+
+def ctx_votes(R, J, rows, side):
+    """logit adjustment from the rules firing on these rows: +0.3 per rule live-trusted in this market state, -0.3 per rule that keeps failing there"""
+    T = R.get("ruleTrust") or {}; vt = R.get("_votes") or {}; reg = R.get("regimeNow")
+    out = np.zeros(len(rows))
+    for k, i in enumerate(rows):
+        for no in vt.get(int(i), []):
+            if no[0] != ("L" if side == "long" else "S"): continue
+            st = (T.get(no[1:]) or {}).get(reg) or {}
+            out[k] += 0.3 if st.get("state") == "trusted" else -0.3 if st.get("state") == "warning" else 0.0
+    return out
+
+def trust_tables(R):
+    """from every scored candidate: each rule's live record per market state, each coin group's calibration, and which witness misled"""
+    from . import archive
+    from .witnesses import SECTOR_OF
+    L = [x for x in archive.read("ledger") + (R.get("ledger") or []) if x.get("y") is not None]
+    base = {}
+    for x in L: base.setdefault((x["side"], x.get("reg")), []).append(x["y"])
+    rt = {}
+    for x in L:
+        for no in x.get("rules") or []: rt.setdefault(no, {}).setdefault(x.get("reg"), []).append((x["y"], x["side"], x.get("reg")))
+    trust = {}
+    for no, regs in rt.items():
+        for reg, ys in regs.items():
+            n = len(ys); hit = float(np.mean([y for y, _, _ in ys])); b = float(np.mean(base.get((ys[0][1], reg), [0.5])))
+            state = "trusted" if n >= 20 and hit >= b + 0.08 else "warning" if n >= 20 and hit <= b - 0.08 else "learning"
+            trust.setdefault(no, {})[str(reg)] = {"n": n, "hit": round(hit, 3), "base": round(b, 3), "state": state}
+    R["ruleTrust"] = trust
+    ct = {}
+    for g in set(SECTOR_OF.values()) | {"other"}:
+        d = [x for x in L if SECTOR_OF.get(x["coin"], "other") == g]
+        if len(d) >= 30: ct[g] = round(float(np.clip(np.mean([x["prob"] for x in d]) - np.mean([x["y"] for x in d]), 0, 0.10)), 3)
+    R["coinTrust"] = ct
+    mis = {}
+    for x in L:
+        for f, p in (x.get("fams") or {}).items():
+            mis.setdefault(f, []).append((p - x.get("base", 0.5)) * (1 if x["y"] == 0 else -1))
+    R["attrib"] = {f: round(float(np.mean(v)) * 100, 2) for f, v in mis.items() if len(v) >= 30}     # > 0: this witness pushed the odds the wrong way on average
+
 
 def _size(p): return sum(n for _, n in p["units"])
 def _avg(p): return sum(px * n for px, n in p["units"]) / max(1e-9, _size(p))
@@ -474,6 +521,35 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     return True
 
 
+CRASHES = {"May 2021 crash": ("2021-05-10", "2021-05-25"), "LUNA collapse": ("2022-05-05", "2022-05-20"), "FTX collapse": ("2022-11-05", "2022-11-20"),
+           "Aug 2024 carry unwind": ("2024-08-01", "2024-08-12"), "Nov 2026 sell-off": ("2026-11-01", "2026-11-09")}
+
+def crash_rehearsal(J, B, log=print):
+    """replay the champion's policy through past shocks: trades, wins, worst single trade and worst drop of the account.
+    Shocks before the final-exam months were inside its training years (marked: optimistic)."""
+    import datetime as dt
+    out = {}
+    for name, (a, b) in CRASHES.items():
+        t0 = int(dt.datetime.fromisoformat(a).replace(tzinfo=dt.timezone.utc).timestamp()); t1 = int(dt.datetime.fromisoformat(b).replace(tzinfo=dt.timezone.utc).timestamp())
+        rows = _rows(J, t0, t1, every=1)
+        if not len(rows): continue
+        S = score(J, B, rows); stp = stop_pct(J.dvol[rows]); be = breakeven(stp); picks = []
+        for nm, sd in B["sides"].items():
+            if not (sd.get("live") and not sd.get("off")): continue
+            fams = S[nm]["fams"]; sup, ag = (lambda F: ((F >= sd["base"] + 0.03).sum(1), (F <= sd["base"] - 0.03).sum(1)))(np.column_stack([np.asarray(v) for v in fams.values()]))
+            ok = (S[nm]["prob"] >= be + sd["margin"]) & (sup >= 2) & (ag <= 1) & ~np.asarray(S[nm]["unfamiliar"])
+            y, r = barrier(J, rows[ok], 1 if nm == "long" else -1, TARGET, stp[ok], HORIZON)
+            picks += [(int(J.t[i]), float(rr), float(s_)) for i, rr, s_ in zip(rows[ok], r, stp[ok])]
+        picks.sort(); seen = set(); eq = 1.0; peak = 1.0; dd = 0.0; worst = 0.0; n = w = 0
+        for t, rr, s_ in picks:
+            if t // 86400 in seen: continue
+            seen.add(t // 86400); ch = max(rr * min(RISK["A"] / s_, MAX_MARGIN * LEV), -MAX_MARGIN)
+            eq *= 1 + ch; peak = max(peak, eq); dd = max(dd, 1 - eq / peak); worst = min(worst, ch); n += 1; w += rr > 0
+        out[name] = {"trades": n, "won": w, "result": round((eq - 1) * 100, 1), "worstTrade": round(worst * 100, 1), "maxDrop": round(dd * 100, 1),
+                     "inTraining": t1 < J.hold0}
+    log(f"   crash rehearsal: {out}")
+    return out
+
 def maybe_fit_heads(J, mem, log=print, time_left=1e9):
     """the trade-shape models and subtraction combiners for the CURRENT brain (refit whenever the brain is retrained)"""
     from . import challengers as CH
@@ -484,6 +560,8 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
     try:
         from . import guard; mem["referee"]["guardRule"] = guard.learn(J, log)
     except Exception as e: log(f"shock memory failed: {e}")
+    try: mem["referee"]["crash"] = crash_rehearsal(J, B, log)
+    except Exception as e: log(f"crash rehearsal failed: {e}")
     return True
 
 # ── shadow book: every A/B call on BOTH sides is scored against what really happened (live, out-of-sample) ────────────
@@ -603,7 +681,7 @@ def adapt(R):
 
 
 # ── calibration ledger: EVERY scanned candidate (both sides, all grades), scored 48h later. Recording only. ──────
-def _ledger_add(J, B, R, rows, S, REG=None, Hd=None):
+def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     """every scanned candidate (newest hour, once per coin, side and 6 hours), with every witness's opinion and what EACH challenger
     would have said about it; scored 48h later. This is what challengers are judged on."""
     from . import challengers as CH
@@ -612,7 +690,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
@@ -629,7 +707,8 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None):
                       "need": round(be + margin_of(R, name, sd), 3), "nfor": sum(p >= sd["base"] + 0.03 for p in fp.values()),
                       "nag": sum(p <= sd["base"] - 0.03 for p in fp.values()), "reg": (REG or {}).get(int(J.t[i])),
                       "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, Ssub[name]["unfamiliar"][k]),
-                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3), "unf": bool(Ssub[name]["unfamiliar"][k]), "cp": cp})
+                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3), "unf": bool(Ssub[name]["unfamiliar"][k]), "cp": cp,
+                      "rules": [v[1:] for v in (V or {}).get(i, []) if v[0] == ("L" if name == "long" else "S")]})
             seen.add(key)
     from . import archive; archive.trim(L, 4000, "ledger")
 

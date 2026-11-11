@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -30,6 +30,8 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
+    reg["cointrust"] = ({"cointrust": True}, "Coin trust: demands more evidence on groups of coins where its own live odds proved too optimistic", "policy")
+    reg["rules"] = ({"rules": True}, "Research rules as fair witnesses: a rule counts only by its LIVE record in the current market state (trusted: odds up; keeps failing: a warning sign, odds down)", "policy")
     reg["doubt"] = ({"doubt": True}, "Split jury: when the witnesses disagree with each other, the bar rises by how much they disagree", "policy")
     reg["shock"] = ({"shock": True}, "Shock exits: the own server watches every minute and exits a trade when a sudden move hits it (threshold learned from past shocks)", "policy")
     if B is not None:
