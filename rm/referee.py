@@ -189,87 +189,197 @@ def votes(mem, J, rows):
     return out
 
 # ── the account ─────────────────────────────────────────────────────────────────────────────────
+def new_acct(J, now_iso, start=START):
+    return {"born": now_iso, "start": start, "cash": start, "lastT": int(J.t.max()) - H, "open": [], "closed": [], "curve": [[int(J.t.max()), start]],
+            "decisions": [], "paused": None}
+
 def step(mem, J, now_iso, log=print, problems=None):
-    R = mem.setdefault("referee", {}); B = load()
+    from . import challengers as CH
+    R = mem.setdefault("referee", {}); B = load(); Hd = CH.load_heads(B) if B is not None else None
     A = R.get("acct")
-    if A is None:
-        A = R["acct"] = {"born": now_iso, "start": START, "cash": START, "lastT": int(J.t.max()) - H, "open": [], "closed": [], "curve": [[int(J.t.max()), START]],
-                         "decisions": [], "paused": None}
+    if A is None: A = R["acct"] = new_acct(J, now_iso)
     newest = int(J.t.max())
-    # 1) manage open trades hour by hour on the new bars
-    for p in list(A["open"]): _manage(J, B, p, A, newest)
-    # 2) look for today's trade in the hours that arrived since the last run
-    if B is not None and not A.get("paused") and newest > A["lastT"]:
+    chal = CH.sync(R, B, Hd=Hd) if B is not None else {}
+    champ_cfg = CH.cfg_of(R, "champion")
+    for n, c in chal.items():
+        if c["kind"] == "policy" and "acct" not in c:
+            c["acct"] = new_acct(J, now_iso); c["acct"].update(champAtBirth=A.get("equity", A["cash"]), bornT=newest)
+    accts = [("champion", A, champ_cfg)] + [(n, c["acct"], CH.cfg_of(R, n)) for n, c in chal.items() if c.get("acct")]
+    try:
+        from . import guard; R["guardApply"] = guard.apply(R, log)
+    except Exception as e: R["guardApply"] = {"error": str(e)[:120]}
+    # 1) manage open trades hour by hour on the new bars (every account)
+    for _, AA, _cfg in accts:
+        for p in list(AA["open"]): _manage(J, B, p, AA, newest)
+    # 2) look for trades in the hours that arrived since the last run
+    if B is not None and newest > A["lastT"]:
         live = liquid_coins(J)
         rows = np.flatnonzero((J.t > A["lastT"]) & (J.t <= newest) & np.isin(J.coin, list(live)) & np.isfinite(J.dvol) & np.isfinite(J.O))
         if len(rows):
             S = score(J, B, rows); V = votes(mem, J, rows); REG = regimes(J, np.unique(J.t[rows])); R["regimeNow"] = REG.get(int(J.t[rows].max()))
-            # what it saw at the newest hour (shown even when it skips): the closest candidates and what they lacked
             look = []; newest_rows = np.flatnonzero(J.t[rows] == J.t[rows].max())
             for pos in newest_rows:
                 i = int(rows[pos]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
                 for name, sd in B["sides"].items():
                     fp = {f: float(v[pos]) for f, v in S[name]["fams"].items()}; pr = float(S[name]["prob"][pos])
                     sup = [f for f, p in fp.items() if p >= sd["base"] + 0.03]; ag = [f for f, p in fp.items() if p <= sd["base"] - 0.03]
-                    look.append({"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "need": round(be + sd["margin"], 3), "for": sup, "against": ag,
-                                 "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd, REG.get(int(J.t[i]))),
-                                 "regime": REG.get(int(J.t[i])), "need": round(be + margin_of(R, name, sd), 3), "px": float(J.O[i]), "stopPct": round(stp, 4),
-                                 "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos]),
-                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3),        # every witness's opinion, for the "why" review later
-                      "unf": bool(S[name]["unfamiliar"][pos])})
-            look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))          # sides that may trade first, closest to a trade on top
+                    row = {"coin": str(J.coin[i]), "side": name.upper(), "prob": round(pr, 3), "for": sup, "against": ag,
+                           "unfamiliar": bool(S[name]["unfamiliar"][pos]), "off": not side_live(R, name, sd, REG.get(int(J.t[i]))),
+                           "regime": REG.get(int(J.t[i])), "need": round(be + margin_of(R, name, sd), 3), "px": float(J.O[i]), "stopPct": round(stp, 4),
+                           "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos]),
+                           "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3), "unf": bool(S[name]["unfamiliar"][pos])}
+                    bs = CH.best_shape(Hd, name, {f: [v] for f, v in fp.items()}, sd["order"], [stp]) if Hd else None
+                    if bs:                                                     # what the shape challenger would do with the same evidence
+                        T_, Hz_, pt_, ev_ = bs[0]; h = Hd["sides"][name]
+                        row["shape"] = {"target": round(T_, 4), "hours": Hz_, "prob": round(pt_, 3), "need": round((stp + C.FEE) / (T_ + stp) + h["margin"], 3)}
+                    look.append(row)
+            look.sort(key=lambda x: (x["off"], -(x["prob"] - x["need"])))
             keep = [x for x in look if not x["off"]][:6] + [x for x in look if x["off"]][:3]
             R["look"] = {"t": int(J.t[rows].max()), "at": now_iso, "rows": keep, "scanned": int(len(newest_rows))}
             _shadow_add(J, B, R, rows, S, REG)
-            _ledger_add(J, B, R, rows, S, REG)
-            for pos in np.argsort(J.t[rows], kind="stable"):
-                i = int(rows[pos]); day = int(J.t[i] // 86400)
-                if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
-                if any(int(x["t"] // 86400) == day for x in A["open"] + A["closed"][-5:]) : continue      # max one new trade per UTC day
-                if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
-                stp = float(stop_pct(J.dvol[i])); be = breakeven(stp); best = None
-                for name, sd in B["sides"].items():
-                    if not side_live(R, name, sd, REG.get(int(J.t[i]))): continue
-                    g = grade(S[name]["prob"][pos], {f: v[pos] for f, v in S[name]["fams"].items()}, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos])
-                    hour = int(J.t[i] % 86400 // H)
-                    if g == "B" and hour < 18: g = None
-                    if g and (best is None or S[name]["prob"][pos] > best[2]): best = (name, g, float(S[name]["prob"][pos]))
-                if best:
-                    _open(J, B, A, i, best, stp, be, S, pos, V.get(i, []), now_iso, R); A["open"][-1]["regime"] = REG.get(int(J.t[i])); _manage(J, B, A["open"][-1], A, newest)
-    A["lastT"] = max(A["lastT"], newest)
-    _shadow_resolve(J, R, newest); adapt(R); _ledger_resolve(J, R, newest)
+            _ledger_add(J, B, R, rows, S, REG, Hd)
+            ctx = {"corr": _corr(J, newest), "live": None}
+            for n, AA, cfg in accts:
+                if not AA.get("paused"): _trade(J, B, R, Hd, AA, cfg, rows, S, REG, V, now_iso, newest, ctx, log)
+    for _, AA, _cfg in accts: AA["lastT"] = max(AA["lastT"], newest)
+    newly = _ledger_resolve(J, R, newest, Hd)
+    _shadow_resolve(J, R, newest); adapt(R)
+    try:
+        CH.online_update(R, B, newly); CH.evaluate(R, log); CH.promote(R, log)
+    except Exception as e:
+        if problems is not None: problems.append(f"challengers: {e}")
     for x in A["closed"][-10:]:
         if "pm" not in x:
             try: x["pm"] = postmortem(J, x)
             except Exception as e: x["pm"] = f"(post-mortem unavailable: {e})"
     # 3) live marks + kill switch
-    _mark(A)
+    for _, AA, _cfg in accts: _mark(AA)
     done = [x for x in A["closed"] if x.get("grade")]
     if len(done) >= 20 and not A.get("paused"):
         exp = np.mean([x["prob"] for x in done[-20:]]); act = np.mean([1.0 if x["hitTarget"] else 0.0 for x in done[-20:]])
         if act < exp - 0.20: A["paused"] = f"{now_iso}: live hit rate {act:.0%} far below the predicted {exp:.0%} over 20 trades; paused until retrained"
     from . import archive                                     # trimmed history goes to the permanent archive, never lost
     archive.trim(A["closed"], 300, "referee_trades"); archive.trim(A["curve"], 1000, "referee_curve"); archive.trim(A["decisions"], 60, "referee_decisions")
+    for n, AA, _cfg in accts[1:]:
+        AA["closed"] = AA["closed"][-200:]; AA["curve"] = AA["curve"][-500:]; AA["decisions"] = AA["decisions"][-30:]
     R["model"] = None if B is None else {"trainedAt": B["trainedAt"], "secs": B.get("secs"), "coins": B.get("coins"),
                                           **{n: {k: sd.get(k) for k in ("base", "margin", "weights", "exam", "calibration", "valMonthly", "off", "live", "why")} for n, sd in B["sides"].items()}}
-    log(f"referee: ${A.get('equity', A['cash'])} ({len(A['open'])} open, {len(A['closed'])} closed){' PAUSED' if A.get('paused') else ''}{' (no model yet)' if B is None else ''}")
+    if Hd: R["shapeExam"] = {n: {"exam": v["exam"], "k": v.get("k"), "margin": v.get("margin"), "fixedExam": v.get("champExam")} for n, v in Hd["sides"].items()}
+    R["champCfg"] = champ_cfg
+    try:
+        from . import guard; R["guardSync"] = guard.sync(R, log)
+    except Exception as e: R["guardSync"] = {"error": str(e)[:120]}
+    try:
+        from . import witnesses; R["witnesses"] = witnesses.status(B)
+    except Exception: pass
+    log(f"referee: ${A.get('equity', A['cash'])} ({len(A['open'])} open, {len(A['closed'])} closed){' PAUSED' if A.get('paused') else ''}{' (no model yet)' if B is None else ''}; "
+        f"{len(chal)} challengers ({sum(1 for c in chal.values() if c.get('acct'))} with shadow accounts)")
+
+def _corr(J, newest, days=14):
+    """hourly-return correlations between coins over the last two weeks, shrunk halfway toward the average (stable with little data)"""
+    try:
+        m = J.t > newest - days * 86400
+        import pandas as pd
+        piv = pd.DataFrame({"t": J.t[m], "c": J.coin[m], "r": J.r1[m]}).pivot_table(index="t", columns="c", values="r")
+        cm = piv.corr(min_periods=100); avg = float(np.nanmean(cm.values[np.triu_indices(len(cm), 1)]))
+        return (0.5 * cm + 0.5 * avg).to_dict()
+    except Exception: return {}
+
+def _cands(J, B, R, Hd, cfg, rows, S, REG):
+    """for every candidate row and side, under this configuration: probability, grade (S/A/B), trade shape and expected value"""
+    from . import challengers as CH
+    out = {}
+    for name, sd in B["sides"].items():
+        fams = S[name]["fams"]; n = len(rows); stp = stop_pct(J.dvol[rows]); be = breakeven(stp); mg = margin_of(R, name, sd)
+        prob = np.array(S[name]["prob"], float)
+        if cfg.get("odds", "weekly").startswith("witness:"):
+            from . import witnesses
+            pw = witnesses.prob_rows(cfg["odds"][8:], name, J, rows, fams, B)
+            if pw is not None: prob = np.asarray(pw, float)
+        elif cfg.get("odds", "weekly") != "weekly":
+            prob = np.array([CH.odds(R, B, None if not Hd else Hd, cfg, name, {f: float(v[k]) for f, v in fams.items()}, REG.get(int(J.t[rows[k]])), prob[k]) for k in range(n)])
+        sup, ag = CH._support(fams, sd["base"]); unf = np.asarray(S[name]["unfamiliar"])
+        T = np.full(n, TARGET); Hz = np.full(n, HORIZON); ev = prob * TARGET - (1 - prob) * stp - C.FEE; ptarget = prob
+        if cfg.get("shape") == "vol" and Hd and Hd["sides"].get(name, {}).get("k"):
+            bs = CH.best_shape(Hd, name, fams, sd["order"], stp); h = Hd["sides"][name]
+            T = np.array([b[0] for b in bs]); Hz = np.array([b[1] for b in bs]); ptarget = np.array([b[2] for b in bs]); ev = np.array([b[3] for b in bs])
+            beT = (stp + C.FEE) / (T + stp); mgT = h["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0))
+            g = np.where(unf, None, np.where((ptarget >= beT + 2 * mgT) & (sup >= 3) & (ag == 0), "S", np.where((ptarget >= beT + mgT) & (sup >= 2) & (ag <= 1), "A",
+                         np.where((ptarget >= beT + mgT / 2) & (sup >= 2) & (ag <= 2), "B", None))))
+            be = beT
+        else:
+            g = np.where(unf, None, np.where((prob >= be + 2 * mg) & (sup >= 3) & (ag == 0), "S", np.where((prob >= be + mg) & (sup >= 2) & (ag <= 1), "A",
+                         np.where((prob >= be + mg / 2) & (sup >= 2) & (ag <= 2), "B", None))))
+        out[name] = {"prob": prob, "pt": ptarget, "T": T, "Hz": Hz, "ev": ev, "grade": g, "stop": stp, "be": be}
+    return out
+
+def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print):
+    K = _cands(J, B, R, Hd, cfg, rows, S, REG)
+    fluid = cfg.get("pace") == "fluid"; guard = cfg.get("risk") == "guard"
+    rate = sum(((R.get("callRateBySide") or {}).get(n) or {}).get("A", 0) for n in B["sides"] if side_live(R, n, B["sides"][n], R.get("regimeNow")))
+    cap_day = max(1, int(round(2 * rate))) if fluid else 1
+    for pos in np.argsort(J.t[rows], kind="stable"):
+        i = int(rows[pos]); day = int(J.t[i] // 86400)
+        if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
+        if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
+        today = [x for x in A["open"] + A["closed"][-20:] if int(x["t"] // 86400) == day]
+        best = None
+        for name, sd in B["sides"].items():
+            if not side_live(R, name, sd, REG.get(int(J.t[i]))): continue
+            g = K[name]["grade"][pos]
+            if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
+            if not g: continue
+            if len(today) >= cap_day and g != "S": continue                   # pace: Grade S is always allowed
+            if fluid and len(A["open"]) >= 3 and g != "S": continue
+            score_ = K[name]["ev"][pos]
+            if best is None or score_ > best[3]: best = (name, g, float(K[name]["pt"][pos]), float(score_))
+        if not best: continue
+        if guard and not _guard_ok(A, best[0], str(J.coin[i]), K[best[0]]["stop"][pos], ctx): continue
+        _open(J, B, A, i, best, float(K[best[0]]["stop"][pos]), float(K[best[0]]["be"][pos]), S, pos, V.get(i, []), now_iso, R, cfg,
+              T=float(K[best[0]]["T"][pos]), Hz=int(K[best[0]]["Hz"][pos]), ctx=ctx)
+        A["open"][-1]["regime"] = REG.get(int(J.t[i]))
+
+def _guard_ok(A, side, coin, stp, ctx):
+    """risk guard: no second bet on the same move, total tail risk capped, daily and weekly brakes"""
+    eq = A.get("equity", A["cash"]); S_ = side.upper()
+    for p in A["open"]:
+        if p["side"] == S_ and (ctx.get("corr") or {}).get(coin, {}).get(p["coin"], 0) >= 0.6: return False
+    tail = sum(p.get("notional", 0) * p.get("stopPct", 0.02) * 1.5 for p in A["open"])           # stops can gap: 1.5x as tail allowance
+    if tail / max(1e-9, eq) > 0.10: return False
+    now = time.time(); dayP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 86400); wkP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 7 * 86400)
+    return dayP > -0.05 * eq and wkP > -0.10 * eq
 
 def margin_cap(A):
     """your plan: 20% of the account as margin while it is small, easing to 10% as it grows (2x start -> 4x start)"""
     g = A["cash"] / A["start"]
     return MAX_MARGIN if g <= 2 else max(0.10, MAX_MARGIN - 0.10 * (g - 2) / 2)
 
-def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None):
-    name, g, prob = best; sd = 1 if name == "long" else -1; e = float(J.O[i]); eq = A["cash"]
+def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, T=TARGET, Hz=HORIZON, ctx=None):
+    name, g, prob, _ev = best; sd = 1 if name == "long" else -1; e = float(J.O[i]); eq = A["cash"]; cfg = cfg or {}
+    via = "hour open"
+    if ctx is not None:                                       # honest timing: fill at the live price at decision time, not the hour's open
+        if ctx.get("live") is None:
+            from .account import live_prices
+            ctx["live"] = live_prices(set(J.coin[np.flatnonzero(J.t == J.t[i])].tolist())) or {}
+        lp = ctx["live"].get(str(J.coin[i]))
+        if lp and abs(lp / e - 1) < 0.05: e, via = float(lp), "live price"
     mult = ((R or {}).get("adapt") or {}).get(name, {}).get("riskMult", 1.0)
-    notional = min(RISK[g] * mult * eq / stp, margin_cap(A) * eq * LEV); margin = notional / LEV
+    risk = RISK["A" if g in ("A", "S") else "B"] * mult
+    if cfg.get("size") == "kelly":                            # fractional (quarter) Kelly from the calibrated odds, kept within 0.5x-1.5x of plan
+        b = (T - C.FEE) / (stp + C.FEE); f = (prob * b - (1 - prob)) / b
+        risk = float(np.clip(f / 4, 0.5 * risk, 1.5 * risk)) if f > 0 else 0.5 * risk
+    notional = min(risk * eq / stp, margin_cap(A) * eq * LEV); margin = notional / LEV
     fams = {f: round(float(v[pos]), 3) for f, v in S[name]["fams"].items()}; base = B["sides"][name]["base"]
     card = {"for": sorted([f for f, p in fams.items() if p >= base + 0.03], key=lambda f: -fams[f]), "against": [f for f, p in fams.items() if p <= base - 0.03],
             "similar": round(fams.get("similar", 0) * 100), "rules": votes_}
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
-         "stop": e * (1 - sd * stp), "target": e * (1 + sd * TARGET), "stopPct": round(stp, 4), "lev": LEV, "units": [[e, notional]], "margin": round(margin, 2),
-         "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card, "fams": fams, "row": int(i)}
-    A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card})
+         "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": LEV, "units": [[e, notional]],
+         "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
+         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}}
+    A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
+                                                "target": T, "fill": via})
+
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False}
 
 def _size(p): return sum(n for _, n in p["units"])
 def _avg(p): return sum(px * n for px, n in p["units"]) / max(1e-9, _size(p))
@@ -292,10 +402,11 @@ def _manage(J, B, p, A, newest):
         if (sd > 0 and lo <= p["stop"]) or (sd < 0 and hi >= p["stop"]):
             _close(A, p, p["stop"], "stop" if not p["half"] else "break-even / trailing stop", t + H); return
         if not p["half"] and ((sd > 0 and hi >= p["target"]) or (sd < 0 and lo <= p["target"])):
-            _close(A, p, p["target"], "half at +2%", t + H, part=0.5); p["half"] = True
+            _close(A, p, p["target"], f"half at +{p.get('tgtPct', TARGET)*100:.0f}%", t + H, part=0.5); p["half"] = True
             p["stop"] = p["entry"] * (1 + sd * C.FEE * 2)                          # rest is now risk-free (break-even)
         p["best"] = max(p["best"], hi) if sd > 0 else min(p["best"], lo); p["lastBar"] = t
-        if (t + H - p["t"]) / H >= MAX_HOLD: _close(A, p, float(Cc[j]), f"time ({MAX_HOLD}h)", t + H); return
+        mh = p.get("maxHold", MAX_HOLD)
+        if (t + H - p["t"]) / H >= mh: _close(A, p, float(Cc[j]), f"time ({mh}h)", t + H); return
         # evidence-based decisions at the close of this hour
         if B is not None:
             rowmask = np.flatnonzero((J.coin == p["coin"]) & (J.t == t + H))
@@ -342,6 +453,18 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     if R.get("acct", {}).get("paused"): R["acct"]["paused"] = None          # a fresh model gets a fresh chance
     return True
 
+
+def maybe_fit_heads(J, mem, log=print, time_left=1e9):
+    """the trade-shape models and subtraction combiners for the CURRENT brain (refit whenever the brain is retrained)"""
+    from . import challengers as CH
+    B = load()
+    if B is None or CH.load_heads(B) is not None: return False
+    if time_left < 10 * 60: log("shape models: postponed (not enough time this run)"); return False
+    Hd = CH.fit_heads(J, B, log); CH.save_heads(Hd); mem.setdefault("referee", {})["headsNote"] = f"fitted {Hd['fitAt']} UTC in {Hd['secs']}s"
+    try:
+        from . import guard; mem["referee"]["guardRule"] = guard.learn(J, log)
+    except Exception as e: log(f"shock memory failed: {e}")
+    return True
 
 # ── shadow book: every A/B call on BOTH sides is scored against what really happened (live, out-of-sample) ────────────
 def side_live(R, name, sd, reg=None):
@@ -460,44 +583,91 @@ def adapt(R):
 
 
 # ── calibration ledger: EVERY scanned candidate (both sides, all grades), scored 48h later. Recording only. ──────
-def _ledger_add(J, B, R, rows, S, REG=None):
-    L = R.setdefault("ledger", []); seen = {(x["coin"], x["side"], x["t"] // 86400) for x in L[-3000:]}
-    newest = int(J.t[rows].max())
-    for pos in np.flatnonzero(J.t[rows] == newest):              # the newest hour only, one entry per coin, side and day
-        i = int(rows[pos]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
+def _ledger_add(J, B, R, rows, S, REG=None, Hd=None):
+    """every scanned candidate (newest hour, once per coin, side and 6 hours), with every witness's opinion and what EACH challenger
+    would have said about it; scored 48h later. This is what challengers are judged on."""
+    from . import challengers as CH
+    L = R.setdefault("ledger", []); seen = {(x["coin"], x["side"], x["t"] // (6 * H)) for x in L[-3000:]}
+    newest = int(J.t[rows].max()); pos_new = np.flatnonzero(J.t[rows] == newest)
+    if not len(pos_new): return
+    sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
+                                     "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or n == "shape" or "odds" in c.get("change", {}) or "shape" in c.get("change", {})})
+    K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
+    for k in range(len(sub)):
+        i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
         for name, sd in B["sides"].items():
-            key = (str(J.coin[i]), name, int(J.t[i]) // 86400)
+            key = (str(J.coin[i]), name, int(J.t[i]) // (6 * H))
             if key in seen: continue
-            fp = {f: float(v[pos]) for f, v in S[name]["fams"].items()}; pr = float(S[name]["prob"][pos])
+            fp = {f: float(v[k]) for f, v in Ssub[name]["fams"].items()}; pr = float(Ssub[name]["prob"][k])
+            cp = {}
+            for n, KK in K.items():
+                q = KK[name]; e = {"p": round(float(q["pt"][k]), 4), "g": q["grade"][k]}
+                if abs(float(q["T"][k]) - TARGET) > 1e-9 or int(q["Hz"][k]) != HORIZON: e.update(T=float(q["T"][k]), Hz=int(q["Hz"][k]))
+                cp[n] = e
             L.append({"t": int(J.t[i]), "coin": key[0], "side": name, "prob": round(pr, 3), "be": round(be, 3), "stop": round(stp, 4), "px": float(J.O[i]),
                       "need": round(be + margin_of(R, name, sd), 3), "nfor": sum(p >= sd["base"] + 0.03 for p in fp.values()),
                       "nag": sum(p <= sd["base"] - 0.03 for p in fp.values()), "reg": (REG or {}).get(int(J.t[i])),
-                      "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, S[name]["unfamiliar"][pos]),
-                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3),        # every witness's opinion, for the "why" review later
-                      "unf": bool(S[name]["unfamiliar"][pos])})
+                      "grade": grade(pr, fp, sd["base"], margin_of(R, name, sd), be, Ssub[name]["unfamiliar"][k]),
+                      "fams": {f: round(p, 3) for f, p in fp.items()}, "base": round(float(sd["base"]), 3), "unf": bool(Ssub[name]["unfamiliar"][k]), "cp": cp})
             seen.add(key)
-    from . import archive; archive.trim(L, 6000, "ledger")
+    from . import archive; archive.trim(L, 4000, "ledger")
 
-def _ledger_resolve(J, R, newest):
-    L = R.get("ledger") or []
+def _ledger_resolve(J, R, newest, Hd=None):
+    """score candidates whose 48h (or their own shape's horizon) has passed; returns the newly scored ones (for online learning)"""
+    L = R.get("ledger") or []; newly = []
     for x in L:
         if "y" in x or x["t"] + HORIZON * H > newest + H: continue
         r = np.flatnonzero((J.coin == x["coin"]) & (J.t == x["t"]))
         if not len(r): x["y"] = None; continue
-        y, ret = barrier(J, r[:1], 1 if x["side"] == "long" else -1, TARGET, np.array([x["stop"]]), HORIZON)
-        x["y"] = int(y[0]); x["ret"] = round(float(ret[0]), 4)
+        sdn = 1 if x["side"] == "long" else -1
+        y, ret = barrier(J, r[:1], sdn, TARGET, np.array([x["stop"]]), HORIZON)
+        x["y"] = int(y[0]); x["ret"] = round(float(ret[0]), 4); newly.append(x)
         try:                                     # the whole path, so any trade shape can be judged afterwards (not only +2%)
-            sd_ = 1 if x["side"] == "long" else -1; m = (J.coin == x["coin"]) & (J.t > x["t"]) & (J.t <= x["t"] + HORIZON * H)
+            m = (J.coin == x["coin"]) & (J.t > x["t"]) & (J.t <= x["t"] + HORIZON * H)
             idx = np.flatnonzero(m); idx = idx[np.argsort(J.t[idx])]; e = x["px"]
             if len(idx):
-                fav = (J.H[idx] / e - 1) if sd_ > 0 else (1 - J.L[idx] / e); adv = (1 - J.L[idx] / e) if sd_ > 0 else (J.H[idx] / e - 1)
+                fav = (J.H[idx] / e - 1) if sdn > 0 else (1 - J.L[idx] / e); adv = (1 - J.L[idx] / e) if sdn > 0 else (J.H[idx] / e - 1)
                 x["mfe"] = round(float(fav.max()), 4); x["mae"] = round(float(adv.max()), 4)
                 x["mfeH"] = int(np.argmax(fav)) + 1; x["maeH"] = int(np.argmax(adv)) + 1
-                x["end"] = round(float(sd_ * (J.Cl[idx[-1]] / e - 1)), 4)
+                x["end"] = round(float(sdn * (J.Cl[idx[-1]] / e - 1)), 4)
         except Exception: pass
+    for x in L:                                  # challengers that asked a different question (another target / horizon) get their own answer
+        for n, e in (x.get("cp") or {}).items():
+            if "T" in e and "y" not in e and x.get("y", 0) is not None and x["t"] + e["Hz"] * H <= newest + H:
+                r = np.flatnonzero((J.coin == x["coin"]) & (J.t == x["t"]))
+                if len(r):
+                    yy, rr = barrier(J, r[:1], 1 if x["side"] == "long" else -1, e["T"], np.array([x["stop"]]), e["Hz"]); e["y"] = int(yy[0]); e["r"] = round(float(rr[0]), 4)
+            elif "T" in e and "y" not in e: e["y"] = None if x["t"] + e["Hz"] * H <= newest + H and x.get("y") is None else e.get("y")
+            if "T" not in e and "r" not in e and x.get("ret") is not None: e["r"] = x["ret"]
     done = [x for x in L if x.get("y") is not None]; bands = []
     for lo, hi in ((0, .5), (.5, .55), (.55, .6), (.6, .65), (.65, .7), (.7, .75), (.75, 1.01)):
         d = [x for x in done if lo <= x["prob"] < hi]
         if d: bands.append({"band": f"{int(lo*100)}-{min(100, int(hi*100))}%", "n": len(d), "pred": round(float(np.mean([x["prob"] for x in d])), 3),
                             "hit": round(float(np.mean([x["y"] for x in d])), 3), "avg": round(float(np.mean([x["ret"] for x in d])) * 100, 3)})
-    R["calibration"] = {"recorded": len(L), "scored": len(done), "bands": bands}
+    R["calibration"] = {"recorded": len(L), "scored": len(done), "bands": bands, "bySide": _bands_by(done, "side"), "byRegime": _bands_by(done, "reg")}
+    R["review"] = review(done)
+    return newly
+
+def _bands_by(done, key):
+    out = {}
+    for v in sorted({str(x.get(key)) for x in done}):
+        d = [x for x in done if str(x.get(key)) == v]
+        if len(d) >= 10: out[v] = {"n": len(d), "pred": round(float(np.mean([x["prob"] for x in d])), 3), "hit": round(float(np.mean([x["y"] for x in d])), 3)}
+    return out
+
+def review(done):
+    """the skipped-trade review: what kind of error each miss was, and whether caution is costing money"""
+    types = {"wrong read": 0, "right direction, stopped first": 0, "no follow-through": 0, "worked": 0}
+    for x in done:
+        if x["y"] == 1: types["worked"] += 1
+        elif x.get("mfe", 0) >= 0.75 * TARGET: types["right direction, stopped first"] += 1
+        elif x.get("mae", 0) >= x["stop"] and x.get("mfe", 0) < 0.005: types["wrong read"] += 1
+        else: types["no follow-through"] += 1
+    near = [x for x in done if x.get("grade") is None and not x.get("unf") and x["need"] - 0.10 <= x["prob"] < x["need"]]       # just below the bar: the skips that matter
+    taken = [x for x in done if x.get("grade") == "A"]
+    return {"types": types, "nearMiss": {"n": len(near), "hit": round(float(np.mean([x["y"] for x in near])), 3) if near else None,
+                                          "avg": round(float(np.mean([x["ret"] for x in near])) * 100, 3) if near else None},
+            "gradeA": {"n": len(taken), "hit": round(float(np.mean([x["y"] for x in taken])), 3) if taken else None,
+                       "avg": round(float(np.mean([x["ret"] for x in taken])) * 100, 3) if taken else None},
+            "cautionCosts": bool(near and len(near) >= 30 and np.mean([x["ret"] for x in near]) > 0.002)}

@@ -1,7 +1,7 @@
 """One research day. Run by GitHub Actions every day (or by hand):  python -m rm.run"""
 import os, json, time, random, datetime as dt
 import numpy as np, pandas as pd
-from . import config as C, collect, fetch, fetch_more, fetch_ext, features, ideas, report, account, referee, health
+from . import witnesses, config as C, collect, fetch, fetch_more, fetch_ext, features, ideas, report, account, referee, health
 from .judge import Judge, hid, valid, family, describe
 from .features import DESC
 
@@ -164,6 +164,8 @@ def run(budget=None, log=print):
             else: t["status"] = "dead_hold"
     # the referee's brain: retrained weekly, early in the run so the idea search (which stops at 35 min) cannot starve it
     if time.time() - t0 < 25 * 60: safe("referee training", referee.maybe_train, J, mem, log=log, time_left=50 * 60 - (time.time() - t0))
+    if time.time() - t0 < 30 * 60: safe("shape models", referee.maybe_fit_heads, J, mem, log=log, time_left=50 * 60 - (time.time() - t0))
+    if time.time() - t0 < 30 * 60: safe("new witnesses", witnesses.maybe_fit, J, mem, log=log, time_left=45 * 60 - (time.time() - t0))
     log("── 3/6 promotions"); safe("promotions", promote); safe("twin check", dedupe, mem, J, log)
 
     log("── 4/6 new ideas"); rng = random.Random(int(time.time())); queue = []
@@ -261,9 +263,12 @@ def run(budget=None, log=print):
         if L: mem["lessons"] = L; mem["lessonsAt"] = now_iso()
     if os.environ.get("GROQ_API_KEY") and (not mem.get("lessonsAt") or (dt.datetime.utcnow() - dt.datetime.strptime(mem["lessonsAt"], "%Y-%m-%d %H:%M")).days >= 7): safe("weekly lessons", lessons)
     safe("$500 account", account.step, mem, J, now_iso(), log=log)
-    safe("team account", account.step, mem, J, now_iso(), log=log, key="team", team=True)
+    def retire_accounts():                                   # the team and all-in accounts were retired in Build A: their history goes to the archive
+        from . import archive
+        for k in ("team", "allin"):
+            if k in mem: archive.keep(f"retired_{k}", [mem.pop(k)])
+    safe("retire old accounts", retire_accounts)
     safe("referee account", referee.step, mem, J, now_iso(), log=log)
-    safe("$700 all-in account", account.step, mem, J, now_iso(), log=log, key="allin", lev=1, frac=1.0, slots=1, kinds=("rotate",), start=700.0)
     dropped = safe("memory clean-up", compact, mem) or 0
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],

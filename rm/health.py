@@ -103,6 +103,9 @@ def write(mem, J, timings, problems, live, t0, log=print):
     except Exception as e: chk("saved memory size", False, warn=True, detail=str(e))
     cal = (mem.get("referee") or {}).get("calibration") or {}
     chk("calibration ledger", cal.get("recorded", 0) > 0, warn=True, detail=f"{cal.get('recorded', 0)} candidates recorded, {cal.get('scored', 0)} scored")
+    chs = (mem.get("referee") or {}).get("chal") or {}; rj = (mem.get("referee") or {}).get("chalRejected") or {}; cst = (mem.get("referee") or {}).get("chalStats") or {}
+    chk("challengers (upgrades under test)", len(chs) > 0, warn=True, detail=f"{len(chs)} being scored ({sum(1 for c in chs.values() if c.get('acct'))} with shadow accounts), "
+        f"{cst.get('rows', 0)} scored candidates, not admitted: {', '.join(f'{k} ({v[:60]})' for k, v in rj.items()) or 'none'}; guard: {json.dumps((mem.get('referee') or {}).get('guardSync'))[:80]}")
     chk("no broken parts", not problems, warn=len(problems) <= 2, detail="; ".join(problems[:6]) or "none")
     age = None
     try: age = (now - time.mktime(time.strptime(RM.get("trainedAt"), "%Y-%m-%d %H:%M"))) / 86400 if RM.get("trainedAt") else None
@@ -122,7 +125,11 @@ def write(mem, J, timings, problems, live, t0, log=print):
                        "scorecard": {"calls": len(R.get("shadow") or []), "scored": sum(1 for x in (R.get("shadow") or []) if x.get("y") is not None),
                                      "stats": R.get("shadowStats"), "callRate": R.get("callRateBySide"), "override": R.get("override"),
                                      "regimeOverride": R.get("regimeOverride"), "adapt": R.get("adapt"), "regimeNow": R.get("regimeNow")}, "trainings": R.get("trainings"), "lastDecisions": (RA.get("decisions") or [])[-10:]},
-           "accounts": {"best": acct(mem.get("account")), "team": acct(mem.get("team")), "allin": acct(mem.get("allin"))},
+           "accounts": {"best": acct(mem.get("account"))},
+           "challengers": {"champion": (R.get("champ") or {}).get("cfg"), "promotions": ((R.get("champ") or {}).get("history") or [])[-5:], "scores": R.get("chalScores"),
+                           "stats": R.get("chalStats"), "rejected": R.get("chalRejected"), "witnesses": R.get("witnesses"), "shapeExam": R.get("shapeExam"),
+                           "accounts": {n: {k: (c.get("acct") or {}).get(k) for k in ("equity", "cash")} | {"open": len((c.get("acct") or {}).get("open", [])), "closed": len((c.get("acct") or {}).get("closed", []))} for n, c in (R.get("chal") or {}).items() if c.get("acct")}},
+           "review": R.get("review"),
            "research": {"totalTests": mem.get("total_tests"), "champions": sum(1 for t in mem.get("tests", {}).values() if t.get("status") == "champion"),
                         "lastRuns": [{k: r.get(k) for k in ("at", "secs", "tested", "counts", "problems", "dataEnd")} for r in (mem.get("runs") or [])[:24]]},
            "history": hist}

@@ -51,6 +51,7 @@ async function depthTick() {
     await new Promise((s) => setTimeout(s, 250));                    // spread the requests over ~15 s
   }
   write("depth", rows);
+  try { guardTick(Object.fromEntries(rows.map((r) => [r.c, r.mid]))); } catch (e) { REC.lastError = "guard: " + String(e).slice(0, 120); }
 }
 // funding rate + mark/index price for every coin, every 5 minutes (one request)
 async function fundingTick() {
@@ -137,6 +138,25 @@ function sysStats() {
            load15: +os.loadavg()[2].toFixed(2), cpus: os.cpus().length, keepDays: KEEP_DAYS, housekept: REC.housekept || null };
 }
 
+// ── SERVER GUARD: each hourly run hands over the open paper positions and their shock plan; the server watches every minute ──
+// (it already reads every coin's order book each minute) and records stop / target touches and shocks with the exact minute and price.
+const GUARD = { positions: [], events: [], set: null };
+function guardTick(mids) {
+  const now = Math.floor(Date.now() / 1000);
+  for (const p of GUARD.positions) {
+    const m = mids[p.coin]; if (!m || p.done) continue;
+    const adv = p.sd > 0 ? (p.entry - m) / p.entry : (m - p.entry) / p.entry;
+    p.hist = (p.hist || []).filter((h) => h[0] > now - 3600); p.hist.push([now, m]);
+    const ago = p.hist[0][1], fast = p.sd > 0 ? (ago - m) / ago : (m - ago) / ago;          // move against the position within the last hour
+    let kind = null;
+    if ((p.sd > 0 && m <= p.stop) || (p.sd < 0 && m >= p.stop)) kind = "stop";
+    else if ((p.sd > 0 && m >= p.target) || (p.sd < 0 && m <= p.target)) kind = "target";
+    else if (p.shockPct && fast >= p.shockPct) kind = "shock";
+    if (kind) { GUARD.events.push({ id: p.id, coin: p.coin, kind, px: m, t: now, adv: +adv.toFixed(4), fast: +fast.toFixed(4) }); if (kind !== "target") p.done = true; }
+  }
+  GUARD.events = GUARD.events.filter((e) => e.t > now - 3 * 86400);
+}
+
 process.on("unhandledRejection", (e) => { REC.errors++; REC.lastError = "unhandled: " + String(e).slice(0, 150); });
 process.on("uncaughtException", (e) => { REC.errors++; REC.lastError = "uncaught: " + String(e).slice(0, 150); });
 
@@ -170,6 +190,17 @@ http.createServer(async (req, res) => {
     rl.on("line", (l) => { if (!since) { out.write(l + "\n"); return; } const m = /"t":(\d+)/.exec(l); if (m && +m[1] >= since) out.write(l + "\n"); });
     rl.on("close", () => out.end()); src.on("error", () => out.end());
     return;
+  }
+  if (u.pathname === "/guard/set" && req.method === "POST") {
+    let body = ""; req.on("data", (c) => { body += c; if (body.length > 1e6) req.destroy(); });
+    req.on("end", () => { try { const j = JSON.parse(body); const old = new Map(GUARD.positions.map((p) => [p.id, p]));
+      GUARD.positions = (j.positions || []).slice(0, 200).map((p) => ({ ...p, hist: (old.get(p.id) || {}).hist, done: (old.get(p.id) || {}).done })); GUARD.set = Date.now();
+      res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ ok: true, watching: GUARD.positions.length })); } catch (e) { res.statusCode = 400; res.end("bad json"); } });
+    return;
+  }
+  if (u.pathname === "/guard/events") {
+    const since = +(u.searchParams.get("since") || 0); res.setHeader("content-type", "application/json");
+    res.end(JSON.stringify({ events: GUARD.events.filter((e) => e.t > since), watching: GUARD.positions.length, set: GUARD.set })); return;
   }
   if (u.pathname !== "/api/live") { res.statusCode = 404; res.end("not found"); return; }
   req.query = Object.fromEntries(u.searchParams);

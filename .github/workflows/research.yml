@@ -80,7 +80,7 @@ jobs:
         continue-on-error: true
         with:
           path: data/models
-          key: models-${{ hashFiles('data/models/referee.joblib') }}
+          key: models-${{ hashFiles('data/models/*.joblib') }}
 
       - name: save memory (single commit, force-pushed)
         if: always()

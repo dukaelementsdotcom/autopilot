@@ -20,7 +20,7 @@ def _summary(mem):
             "families": [[k, v["n"], round(v["best"], 2), v["ok"]] for k, v in fam[:80]], "nfam": len(fam), "status": status}
 
 PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Research Machine</title><style>
+<title>Volvox</title><style>
 :root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#6b6a64;--line:#e4e2da;--good:#1f7a4d;--bad:#b23b2e;--warn:#9a6a00;--acc:#2f5fd0;--soft:#efede6}
 @media (prefers-color-scheme:dark){:root{--bg:#121211;--card:#1c1c1a;--ink:#ecebe6;--mute:#9b9a93;--line:#2c2c29;--good:#4cc28a;--bad:#ff7a6b;--warn:#e0b04a;--acc:#7ea2ff;--soft:#242422}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -82,7 +82,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .fam{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:99px;margin:1px 2px;border:1px solid var(--line)}.fam.y{color:var(--good);border-color:var(--good)}.fam.n{color:var(--bad);border-color:var(--bad)}
 .meter{height:6px;background:var(--soft);border-radius:99px;position:relative;min-width:90px}.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--acc)}.meter u{position:absolute;top:-3px;width:2px;height:12px;background:var(--ink)}
 </style></head><body><main>
-<div class="top"><div><h1>Research Machine</h1><div class="mute" id="sub" style="font-size:13px"></div></div>
+<div class="top"><div><h1>Volvox</h1><div class="mute" style="font-size:13px;margin-top:-2px">powered by the Drosophila research engine</div><div class="mute" id="sub" style="font-size:13px"></div></div>
 <div class="pill" id="statuspill"><span class="dot" id="sdot"></span><span id="stext"></span><span class="mute">·</span><span>next run in <span class="cd" id="cd">–</span></span></div></div>
 <div id="health"></div>
 <nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="roadmap">Build board</button><button data-t="help">Help</button></nav>
@@ -98,19 +98,16 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </section>
 
 <section data-tab="accounts">
-<h2>The referee: one trade a day, every kind of evidence</h2>
+<h2>The referee: one judge, every kind of evidence</h2>
 <p class="help">One brain instead of many rules. For each of the ~40 most liquid coins it asks "will this reach +2% before its stop?", long and short. Seven independent kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +2% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
 <div id="rbox"></div>
+<h2>Upgrades under test</h2><p class="help">Every new ability is a clone of the referee that differs by exactly one thing. It is scored on the same live candidates and takes over only when it is more accurate, finds at least as many Grade A trades, keeps honest odds and earns at least as much, over at least 40 independent bets (calls made in the same market move count as one).</p><div id="chalbox"></div>
+<h2>Honest odds: what it predicted vs what happened</h2><div id="calbox"></div>
 <h2>Monthly report</h2><div id="monthly"></div>
-<h2>$500 account: trades only the best rule</h2>
-<p class="help">It always trades the single rule with the best record on data it never saw while being chosen. It switches when a better one appears.</p>
+<h2>Best-rule account (Drosophila's testing ground)</h2>
+<p class="help">Trades the single research rule with the best record on data it never saw while being chosen. It is a live test of the research engine, not the referee.</p>
 <div id="box"></div>
-<h2>$500 team account: several different rules together</h2>
-<p class="help">Up to 5 rules that trade <i>different</i> situations. When two or three agree on the same trade, it puts in more money.</p>
-<div id="tbox"></div>
-<h2>$700 all-in account: no leverage, one coin at a time</h2>
-<p class="help">Your idea: the whole account goes into one coin for 1-3 days, aiming for 5-10% moves, then rotates to the next pick. It trades the best "rotation" rule that has passed every exam.</p>
-<div id="abox"></div>
+
 </section>
 
 <section data-tab="rules">
@@ -156,19 +153,20 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 </main><script>
 const D=__DATA__;const $=id=>document.getElementById(id);const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const st=s=>s&&s.n?`${s.n} trades · avg ${s.mean>0?"+":""}${s.mean}% · win ${s.hit}% · t ${s.t}${s.avgWin!=null?` · avg win +${s.avgWin}% / avg loss ${s.avgLoss}% (payoff ${s.payoff})`:""}${s.levMean!=null?` · <b>as traded (${s.lev}x): ${s.levMean>0?"+":""}${s.levMean}% of margin per trade${s.liq?`, ${s.liq} liquidations`:""}</b>`:""}`:"no trades yet";
-$("sub").textContent=(()=>{const de=D.runs[0]?.dataEnd;if(!de)return`Paper-trading research lab · running since ${D.born} UTC`;const a=new Date(de.replace(" ","T")+"Z"),b=new Date(a.getTime()+36e5),f=d=>d.toISOString().slice(11,16);
- return `Paper-trading research lab · running since ${D.born} UTC · newest complete hour: ${de.slice(0,10)} ${f(a)}–${f(b)} UTC (each hourly run uses the hour that just closed)`})();
-const A1=D.account,A2=D.team,fmtUsd=x=>"$"+(x??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+$("sub").textContent=(()=>{const de=D.runs[0]?.dataEnd;if(!de)return`Paper trading · running since ${D.born} UTC`;const a=new Date(de.replace(" ","T")+"Z"),b=new Date(a.getTime()+36e5),f=d=>d.toISOString().slice(11,16);
+ return `Paper trading · running since ${D.born} UTC · newest complete hour: ${de.slice(0,10)} ${f(a)}–${f(b)} UTC (each hourly run uses the hour that just closed)`})();
+const A1=D.account,A2=D.referee&&D.referee.acct,fmtUsd=x=>"$"+(x??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct=A=>A?100*(A.equity/A.start-1):0, sgn=x=>(x>=0?"+":"")+x.toFixed(1)+"%";
-const k=[["Ideas tested",D.total.toLocaleString(),"since the start"],["Champions",D.champions.length,"rules good enough to paper-trade"],
- ["Best-rule account",A1?fmtUsd(A1.equity):"–",A1?sgn(pct(A1))+" since start":""],["Team account",A2?fmtUsd(A2.equity):"–",A2?sgn(pct(A2))+" since start":""]];
+const SS=(D.referee&&D.referee.shadow&&D.referee.shadow.short)||{},CR=(D.referee&&D.referee.callRate)||{};
+const k=[["Referee account",A2?fmtUsd(A2.equity):"–",A2?sgn(pct(A2))+" since start":""],["Live calls (shorts)",SS.n?Math.round(SS.hit*100)+"% hit":"–",SS.n?`${SS.n} scored · predicted ${Math.round(SS.pred*100)}%`:""],
+ ["Grade A per day",CR.A!=null?CR.A:"–","last 7 days"],["Upgrades under test",Object.keys((D.referee&&D.referee.chal)||{}).length,"challengers being scored live"]];
 $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</div><div class="big">${b}</div><div class="mute" style="font-size:13px">${c}</div></div>`).join("");
 (()=>{const c1=A1?A1.closed.length:0,w1=A1?A1.closed.filter(r=>r.usd>0).length:0,o1=A1?A1.open.length:0;
  const lead=A1&&A1.leaderNo?`It is currently trading <b>Rule #${A1.leaderNo}</b>: ${esc(A1.leaderText||"")}`:"It is waiting for a rule with enough of a track record.";
  const lastRun=D.runs[0];
- $("story").innerHTML=`So far the machine has tested <b>${D.total.toLocaleString()} ideas</b>; <b>${D.champions.length}</b> passed every exam.
- The best-rule account is at <b>${A1?fmtUsd(A1.equity):"$500"}</b> (${sgn(pct(A1))}) after <b>${c1}</b> closed trade${c1==1?"":"s"}${c1?` (${w1} won)`:""}${o1?`, with ${o1} open now`:""}.
- The team account is at <b>${A2?fmtUsd(A2.equity):"$500"}</b> (${sgn(pct(A2))}).<br><span style="font-size:15px">${lead}</span>
+ const RG_={"up-calm":"rising, calm","up-wild":"rising, wild","down-calm":"falling, calm","down-wild":"falling, wild"},rc=A2?A2.closed||[]:[];
+ $("story").innerHTML=`The referee is at <b>${A2?fmtUsd(A2.equity):"$500"}</b> (${sgn(pct(A2))}) after <b>${rc.length}</b> closed trade${rc.length==1?"":"s"} (${rc.filter(r=>r.usd>0).length} won)${A2&&A2.open.length?`, ${A2.open.length} open now`:""}. Market now: <b>${esc(RG_[D.referee&&D.referee.regimeNow]||"–")}</b>.
+ <br><span style="font-size:15px">Research (Drosophila) has tested <b>${D.total.toLocaleString()}</b> ideas; <b>${D.champions.length}</b> passed every exam. The best-rule testing ground is at ${A1?fmtUsd(A1.equity):"$500"} (${sgn(pct(A1))}).</span>
  <div class="mute" style="font-size:13px;margin-top:8px">Last run tested ${lastRun?lastRun.tested.toLocaleString():0} ideas${lastRun&&lastRun.validated?`, ${lastRun.validated} passed validation`:""}. ${c1<30?"Judge the accounts only after 30+ closed trades; early results are mostly luck.":""}</div>`;
  const mini=(A,title)=>{if(!A)return`<div class="card"><b>${title}</b><p class="mute">Starts on the next run.</p></div>`;
   const p=A.curve,W=300,H=60;let path="";if(p.length>1){const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,A.start),y1=Math.max(...ys,A.start);
@@ -178,7 +176,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
   <div class="big">${fmtUsd(A.equity)}</div><div class="mute" style="font-size:13px">${cl.length} closed · ${w} won · ${cl.length-w} lost · ${A.open.length} open</div>
   ${path?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;margin-top:6px"><path d="${path}" fill="none" stroke="var(--${p[p.length-1][1]>=A.start?"good":"bad"})" stroke-width="2"/></svg><div class="mute" style="font-size:12px">closed trades only${A.open.length?"; open trades are counted in the value above":""}</div>`:'<div class="mute" style="font-size:13px;margin-top:6px">Chart appears after the first closed trade.</div>'}
   <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">See trades →</a></div>`};
- $("minis").innerHTML=mini(D.referee&&D.referee.acct,"The referee (1 trade/day, 10x)")+mini(A1,"Best-rule account (10x)")+mini(A2,"Team account (10x)")+mini(D.allin,"All-in account ($700, no leverage)")})();
+ $("minis").innerHTML=mini(D.referee&&D.referee.acct,"The referee (10x)")+mini(A1,"Best-rule testing ground (10x)")})();
 (()=>{const fmt=x=>x==null?"–":(x>=100?x.toLocaleString(undefined,{maximumFractionDigits:2}):Number(x.toPrecision(5)));const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"–";
  const S=D.signals||[],L=D.live||{};const age=D.newest?Math.round((Date.now()/1000-D.newest-3600)/60):null;
  const fresh=L.coins?`Live data from Binance (via our own relay server), newest complete hour closed ${age!=null?Math.max(0,age-60)+" min ago":"?"}. These are signals from the research rules that the best-rule account trades, <b>not</b> the referee's decisions (those are on the Accounts tab).`:`<span style="color:var(--warn)">The live relay is not connected yet: data is about a day behind, so these signals are too late to trade.</span>`;
@@ -299,7 +297,7 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  <div class="mute" style="margin-top:6px;font-size:13px">Started ${esc(A.born)} UTC with $${A.start}. ${A.lev==1?"The whole account goes into one trade at a time, no leverage, profits compound.":`Each trade uses 10% of the account as margin at ${A.lev||D.lev}x leverage, max 3 trades at once, profits compound.`} The best rule is re-picked every run from the newest results, and only used for hours that come after it was picked.</div>`}</div>
  ${exPanel(A,A.lev||D.lev,box)}
  <details class="card" style="margin-top:10px"><summary>Rule changes: ${A.leaders.length}</summary><ul>${A.leaders.map(l=>`<li>${esc(l.at)} → <b>${isTeam?"":"Rule #"}${esc(l.rule)}</b>: ${esc(l.why)}<br><span class=mute>${esc(l.text)}</span></li>`).join("")||"<li class=mute>none</li>"}</ul></details>`};
-renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.allin,"abox",false);
+renderAcct(D.account,"box",false);
 // live prices for open positions, straight from Binance in YOUR browser, every 5 seconds (display only; the books update hourly)
 (()=>{const cards=[...document.querySelectorAll(".pos")];if(!cards.length)return;
  const note=document.createElement("div");note.className="mute";note.style.fontSize="12px";note.textContent="Live prices: connecting to Binance…";
@@ -323,7 +321,25 @@ renderAcct(D.account,"box",false);renderAcct(D.team,"tbox",true);renderAcct(D.al
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
  dd>72?`<div class="card" style="border-color:var(--warn);color:var(--warn);margin-top:12px"><b>⚠ Market data is ${Math.round(dd/24)} days old</b>: the data source may have changed. Tell Claude.</div>`:
  (D.runs[0]?.problems||[]).length?`<div class="card" style="border-color:var(--warn);margin-top:12px"><b style="color:var(--warn)">⚠ The last run finished, but ${D.runs[0].problems.length} part(s) had a problem</b> (the rest worked). If this stays for a day, tell Claude.<ul class="mute" style="font-size:13px">${D.runs[0].problems.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`:""})();
-try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Best rule",D.account],["Team",D.team],["All-in",D.allin]])}catch(e){}
+
+// ── upgrades under test + honest odds ───────────────────────────────
+(()=>{const R=D.referee||{},C=R.chal||{},S=R.chalScores||{},rej=R.chalRejected||{},W=R.witnesses||{},ch=R.champ||{},f2=x=>x==null?"–":x;
+ const rows=Object.entries(C).map(([n,c])=>{const s=S[n]||{},me=s.me||{},cp=s.champion||{};
+  const score=c.kind==="policy"&&me.growth!=null?`account ${me.growth>=0?"+":""}${me.growth}% vs champion ${cp.growth>=0?"+":""}${cp.growth}% · ${me.trades} trades`
+   :me.ll!=null?`odds error ${me.ll} vs ${cp.ll} · Grade A/day ${me.aPerDay} vs ${cp.aPerDay} · profit/day ${me.profitPerDay}% vs ${cp.profitPerDay}%`:"collecting its first scored candidates";
+  const stt=!s.bets?"just started":s.ready?(s.better?"<b style='color:var(--good)'>better: promotion due</b>":"not better"):`${s.bets} of 40 bets`;
+  return `<tr><td><b>${esc(n)}</b><div class="mute" style="font-size:12.5px">${esc(c.what)}</div></td><td style="font-size:13px">${score}</td><td style="font-size:13px">${stt}</td></tr>`}).join("");
+ const hist=(ch.history||[]).slice(-5).reverse().map(h=>`<div class="mute" style="font-size:13px">${esc(h.at)} UTC: <b>${esc(h.promoted)}</b> promoted (${esc(h.what)})</div>`).join("");
+ const rj=Object.entries(rej).map(([n,w])=>`<div class="mute" style="font-size:13px"><b>${esc(n)}</b>: ${esc(w)}</div>`).join("");
+ const wt=Object.entries(W).filter(([n,w])=>!(w.state||"").startsWith("challenger")).map(([n,w])=>`<div class="mute" style="font-size:13px"><b>${esc(n)}</b>: ${esc(w.state)}</div>`).join("");
+ const se=R.shapeExam||{};const sx=Object.entries(se).map(([n,v])=>`${n}s: ${f2(v.exam&&v.exam.monthly)}%/month (fixed +2%: ${f2(v.fixedExam&&v.fixedExam.monthly)}%/month)`).join(" · ");
+ $("chalbox").innerHTML=`<div class="card"><div class="mute" style="font-size:13px">Champion now: ${esc(Object.entries(ch.cfg||{}).filter(([k,v])=>!(k=="shape"&&v=="fixed"||k=="pace"&&v=="daily1"||k=="risk"&&v=="plain"||k=="size"&&v=="fixed"||k=="odds"&&v=="weekly"||k=="shock"&&!v)).map(([k,v])=>k+": "+v).join(", ")||"the original referee")}. Independent bets so far: correlation between calls made together ${f2((R.chalStats||{}).icc)}.</div>
+ <div style="overflow-x:auto"><table style="width:100%;margin-top:8px"><tr><th>Challenger</th><th>Live score (lower odds error is better)</th><th>Status</th></tr>${rows||"<tr><td colspan=3 class=mute>Starting.</td></tr>"}</table></div>
+ ${hist?`<h3>Promotions</h3>${hist}`:""}${rj?`<h3>Not admitted yet</h3>${rj}`:""}${sx?`<div class="mute" style="font-size:13px;margin-top:6px">Trade-shape backtest (newest months): ${esc(sx)}</div>`:""}${wt?`<h3>New evidence on the way</h3>${wt}`:""}</div>`;
+ const K=R.calibration||{},B=K.bands||[],V=R.review||{},T=V.types||{};
+ $("calbox").innerHTML=`<div class="card">${B.length?`<table style="width:100%"><tr><th>Referee said</th><th>Candidates</th><th>Actually won</th><th>Avg result</th></tr>${B.map(b=>`<tr><td>${b.band}</td><td>${b.n}</td><td><b style="color:var(--${Math.abs(b.hit-b.pred)<0.07?"good":"warn"})">${Math.round(b.hit*100)}%</b> <span class="mute">(said ${Math.round(b.pred*100)}%)</span></td><td>${b.avg>0?"+":""}${b.avg}%</td></tr>`).join("")}</table>`:`<p class="mute">Every scanned candidate is recorded with its odds and scored 48 hours later (${K.recorded||0} recorded so far). This table fills in as they are scored.</p>`}
+ ${V.types?`<div class="mute" style="font-size:13px;margin-top:8px">How the misses went: ${Object.entries(T).map(([k,v])=>`${k} ${v}`).join(" · ")}. Just below the bar: ${V.nearMiss&&V.nearMiss.n?`${V.nearMiss.n} candidates, won ${Math.round(V.nearMiss.hit*100)}%, avg ${V.nearMiss.avg}%`:"–"}${V.cautionCosts?" · <b>caution is costing money</b>":""}.</div>`:""}</div>`})();
+try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Best rule",D.account]])}catch(e){}
 // how the referee decides (structured explainer, live numbers where available)
 (()=>{const M=D.referee?.model||{},L=M.long||{},S=M.short||{},pts=x=>x!=null?"+"+Math.round(x*100)+" pts":"learned";
  const step=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
@@ -467,7 +483,7 @@ def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     d["trades"] = _trades(mem, J, log) if J is not None else []; d["margin"] = C.PAPER_MARGIN; d["lev"] = C.LEVERAGE
-    for key in ("account", "team", "allin"):
+    for key in ("account",):
         A = mem.get(key)
         if not A: continue
         lead = mem["tests"].get(A.get("leader") or "", {})
@@ -480,7 +496,10 @@ def write(mem, J=None, log=print):
         A = R["acct"]
         d["referee"] = {"acct": {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
                                  "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote"),
-                         "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1]}
+                         "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1],
+                         "chal": {n: {"what": c.get("what"), "kind": c.get("kind"), "born": c.get("born"), **({"acct": {k: c["acct"].get(k) for k in ("cash", "equity", "start")}} if c.get("acct") else {})} for n, c in (R.get("chal") or {}).items()},
+                         "chalScores": R.get("chalScores"), "chalStats": R.get("chalStats"), "chalRejected": R.get("chalRejected"), "champ": {k: (R.get("champ") or {}).get(k) for k in ("cfg", "since", "history")},
+                         "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses")}
     d["healthSummary"] = mem.get("healthSummary")
     d["roadmap"] = _roadmap()
     d["analyst"] = mem.get("analyst")
@@ -500,7 +519,7 @@ def write_minimal(mem, problems):
     os.makedirs(C.DOCS_DIR, exist_ok=True); r = (mem.get("runs") or [{}])[0]
     body = "".join(f"<li>{html.escape(p)}</li>" for p in problems)
     with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f:
-        f.write(f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Research Machine</title><body style='font-family:system-ui;max-width:800px;margin:30px auto;padding:0 16px'>"
+        f.write(f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Volvox</title><body style='font-family:system-ui;max-width:800px;margin:30px auto;padding:0 16px'>"
                 f"<h1>Research Machine</h1><p>The machine ran at {html.escape(str(r.get('at')))} UTC and tested {r.get('tested')} ideas, but the full dashboard could not be built:</p><ul>{body}</ul><p>Tell Claude.</p>")
 
 def _send(text, log=print):

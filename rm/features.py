@@ -172,6 +172,10 @@ def build(coins=None, log=print, blocks=()):
         M = market_frame(np.sort(P.t.unique()), bc)
         for col in M.columns: extra[col] = M[col].reindex(P.t.values).astype("float32").values      # aligned by hour, no full-table merge copy
     except Exception as e: log(f"extra features skipped: {e}")
+    try:                                               # new witnesses (macro, on-chain, sectors, shocks): w_ columns, used only by their challengers
+        from .witnesses import panel_extras
+        extra.update(panel_extras(P, log=log))
+    except Exception as e: log(f"witness features skipped: {e}")
     P = pd.concat([P, pd.DataFrame(extra, index=P.index)], axis=1); del extra
     num = [c for c in P.select_dtypes("float64").columns if c not in ("px", "_hi", "_lo", "_cl")]; P[num] = P[num].astype("float32")
     os.makedirs(C.DATA_DIR, exist_ok=True); P.to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)

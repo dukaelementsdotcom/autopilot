@@ -36,45 +36,46 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Add NVIDIA, chip index and other daily stock data (Stooq or similar) so it also has history by the time it is used
 
 ## Build A (Wed Nov 11), in build order
+Built Nov 11. Still open from A: measurement-level attribution inside witnesses, coin-specific trust, rules as fair witnesses / live lab, AI tagging of news, research aimed at +2% wins (next pass).
 **A1. Foundation**
-- [ ] Split the referee into brain / policy / ledger / challengers
-- [ ] Challenger system: registry, promotion rule, one-click rollback, an on/off switch for every challenger. Challengers are scored on **every ledger candidate** (about 100 a day), not only on traded calls, so they are judged in days instead of months
-- [ ] Subtraction tests (judge without each witness)
-- [ ] Ledgers moved out of the main memory file; staggered training (at most one brain per run); run-time guard that skips training, never trading
-- [ ] Calls made in the same market move count as one bet (effective number of bets) in every score
+- [x] Split the referee into brain / policy / ledger / challengers
+- [x] Challenger system: registry, promotion rule, one-click rollback, an on/off switch for every challenger. Challengers are scored on **every ledger candidate** (about 100 a day), not only on traded calls, so they are judged in days instead of months
+- [x] Subtraction tests (judge without each witness)
+- [x] Ledgers moved out of the main memory file; staggered training (at most one brain per run); run-time guard that skips training, never trading
+- [x] Calls made in the same market move count as one bet (effective number of bets) in every score
 
 **A2. Honest scoring**
-- [ ] Calibration table on the dashboard (predicted odds vs what happened), per side, market state and coin group
-- [ ] Skipped-trade review: error type of every miss (wrong read / stopped first / over- or under-confident / bar too high) from the full price path
-- [ ] Missed-winners count: what caution cost vs what it saved; if caution costs money, the judge loosens itself
-- [ ] Honest timing: paper fills at the live price at decision time, not the hour's open
+- [x] Calibration table on the dashboard (predicted odds vs what happened), per side, market state and coin group
+- [x] Skipped-trade review: error type of every miss (wrong read / stopped first / over- or under-confident / bar too high) from the full price path
+- [x] Missed-winners count: what caution cost vs what it saved; if caution costs money, the judge loosens itself
+- [x] Honest timing: paper fills at the live price at decision time, not the hour's open
 
 **A3. Trade shape, pacing and risk (policy challengers)**
-- [ ] Trade shape adapts to volatility: the target grows with the stop, so a wild market no longer forces an 80% bar
-- [ ] Best trade shape per situation: odds for a ladder of targets (+2/+4/+8%) and horizons (4h/24h/72h); pick the highest expected profit; learned runner targets and trail width
-- [ ] Fluid pacing: learned trade pace (no fixed 1 a day or 7 a week), several trades a day allowed, weekly pace by count and profit, surplus carries over, new top tier **Grade S**
-- [ ] Fluid risk: total open-risk cap, same-bet (correlation) guard, daily and weekly brakes
-- [ ] Edge-proportional sizing: fractional Kelly from calibrated odds, bigger only when the edge is proven
+- [x] Trade shape adapts to volatility (built; FAILED its final exam on the newest months, so it is not admitted; retried after each weekly retrain): the target grows with the stop, so a wild market no longer forces an 80% bar
+- [ ] Best trade shape per situation (first version tested: chased +6% targets and lost on the exam; redesign later): odds for a ladder of targets (+2/+4/+8%) and horizons (4h/24h/72h); pick the highest expected profit; learned runner targets and trail width
+- [x] Fluid pacing: learned trade pace (no fixed 1 a day or 7 a week), several trades a day allowed, weekly pace by count and profit, surplus carries over, new top tier **Grade S**
+- [x] Fluid risk: total open-risk cap, same-bet (correlation) guard, daily and weekly brakes
+- [x] Edge-proportional sizing: fractional Kelly from calibrated odds, bigger only when the edge is proven
 
 **A4. Learning which evidence was right**
-- [ ] Every scored candidate, traded or skipped, adjusts how much each witness is trusted, per market state (recursive, Kalman-style online learning with a forgetting factor; the forgetting speed itself is chosen by competing challengers)
+- [x] Every scored candidate, traded or skipped, adjusts how much each witness is trusted, per market state (recursive, Kalman-style online learning with a forgetting factor; the forgetting speed itself is chosen by competing challengers)
 - [ ] Inside each witness: which measurement pushed the odds the wrong way; misleading measurements are down-weighted, and missing ones become research targets
 - [ ] Coin-specific trust: the judge learns its record per coin and coin group and demands more evidence where it is weak
 
 **A5. New evidence (each one a separate challenger witness)**
 - [ ] Recorder witness: liquidation bursts, order-book imbalance, live funding and premium
-- [ ] Outside-world witness: risk-on/off state from stocks, VIX, dollar and yields; macro calendar (Fed, CPI, jobs) with no new trades just before
+- [x] Outside-world witness: risk-on/off state from stocks, VIX, dollar and yields; macro calendar (Fed, CPI, jobs) with no new trades just before
 - [ ] Whale witness (Hyperliquid's largest accounts)
-- [ ] On-chain witness (exchange flows; stablecoin flows per chain from DefiLlama)
-- [ ] Sectors (AI, memes, L1, DeFi, exchange tokens) and sector rotation
+- [x] On-chain witness (exchange flows; stablecoin flows per chain from DefiLlama)
+- [x] Sectors (AI, memes, L1, DeFi, exchange tokens) and sector rotation
 - [ ] News witness: headlines tagged by the AI (type, who, severity) plus a memory of similar past events; tested last, because it is the noisiest
-- [ ] **Shock memory**: every past sudden move (BTC and Nasdaq since 2020, found from prices, the cause labelled from news where possible), split by bull/bear state, scheduled (Fed, CPI) vs surprise, and whether it was already priced in (drift before). It records how fast the reaction came (minutes / hours / at the next stock-market open) and whether it lasted or faded within 4h, 24h and 72h
-- [ ] **Shock response for open trades** (challenger): when a shock hits against an open trade, the shock memory decides exit / take profit / hold, based on what similar shocks did. This is the only case where an open trade is re-judged
-- [ ] Shock detector on the own server: records every minute-level shock with the market's reaction
-- [ ] **Server guard (speed)**: each hourly run hands the own server the open trades plus a ready-made plan ("if a shock of this size hits against this trade: exit / take profit / hold"); the server watches every minute and acts on paper within about a minute, without waiting for the next hourly run. GitHub does the thinking, the server does the reacting
+- [x] **Shock memory**: every past sudden move (BTC and Nasdaq since 2020, found from prices, the cause labelled from news where possible), split by bull/bear state, scheduled (Fed, CPI) vs surprise, and whether it was already priced in (drift before). It records how fast the reaction came (minutes / hours / at the next stock-market open) and whether it lasted or faded within 4h, 24h and 72h
+- [x] **Shock response for open trades** (challenger): when a shock hits against an open trade, the shock memory decides exit / take profit / hold, based on what similar shocks did. This is the only case where an open trade is re-judged
+- [x] Shock detector on the own server: records every minute-level shock with the market's reaction
+- [x] **Server guard (speed)**: each hourly run hands the own server the open trades plus a ready-made plan ("if a shock of this size hits against this trade: exit / take profit / hold"); the server watches every minute and acts on paper within about a minute, without waiting for the next hourly run. GitHub does the thinking, the server does the reacting
 
 **A6. Rules feed the judge**
-- [ ] Account clean-up: remove the team and all-in accounts; keep the best-rule account as the testing ground
+- [x] Account clean-up: remove the team and all-in accounts; keep the best-rule account as the testing ground
 - [ ] Live lab: every champion rule paper-traded in shadow; the best-rule account picks its champion **per market state** by live record (no dip-buy longs in a falling market unless they have proven themselves there)
 - [ ] Highest standard for rules reaching the judge: a rule's vote counts only in the market states where its live and after-discovery record is good; a rule that keeps failing in a state becomes a **warning sign** there (its firing counts against its own side); rules that add nothing in the subtraction test are not fed at all
 - [ ] Research looks for rules that know the market state (a rule can include "only in a falling, wild market"), so rules are specialists instead of islands
@@ -82,8 +83,8 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [ ] Research aimed at the goal: favour rules whose wins are at least +2%; curiosity-driven research pointed at the judge's blind spots
 
 **A7. Dashboard**
-- [ ] Volvox branding (research engine shown as Drosophila); Overview opens on the referee; research moves to its own section
-- [ ] Upgrade-under-test panel, calibration table, Grade A pace, recorder and server status
+- [x] Volvox branding (research engine shown as Drosophila); Overview opens on the referee; research moves to its own section
+- [x] Upgrade-under-test panel, calibration table, Grade A pace, recorder and server status
 
 **A8. Test and deploy**
 - [ ] Local end-to-end run on real data (memory and time), a 10-day replay through the whole policy, phone and desktop screenshots
