@@ -643,8 +643,10 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
         if (R_.get("crash") is None or R_.get("crashFor") != B["trainedAt"]) and time_left > 6 * 60:     # once per brain
             try: R_["crash"] = crash_rehearsal(J, B, log); R_["crashFor"] = B["trainedAt"]
             except Exception as e: log(f"crash rehearsal failed: {e}")
+
+        if R_.get("trendAccFor") != B["trainedAt"]:
             try:
-                from . import compass; R_["trendAcc"] = compass.trend_accuracy(J)
+                from . import compass; R_["trendAcc"] = compass.trend_accuracy(J); R_["trendAccFor"] = B["trainedAt"]
             except Exception as e: log(f"trend accuracy failed: {e}")
         return False
     if B is None: return False
@@ -705,15 +707,17 @@ def _shadow_resolve(J, R, newest):
         last = d[-60:]
         stats[name] = {"n": len(d), "recentN": len(last), "hit": round(float(np.mean([x["y"] for x in last])), 3), "pred": round(float(np.mean([x["prob"] for x in last])), 3),
                        "be": round(float(np.mean([x["be"] for x in last])), 3), "avg": round(float(np.mean([x["ret"] for x in last])) * 100, 3),
-                       "open": sum(1 for x in sh if x["side"] == name and "y" not in x)}
+                       "open": sum(1 for x in sh if x["side"] == name and "y" not in x), "moves": len(_moves(last))}
     wk = [x for x in sh if x["t"] > newest - 7 * 86400]
     R["callRate"] = {g: round(sum(1 for x in wk if x["grade"] == g) / 7, 2) for g in ("A", "B")}          # calls per day, last 7 days (both sides)
     R["callRateBySide"] = {n: {g: round(sum(1 for x in wk if x["grade"] == g and x["side"] == n) / 7, 2) for g in ("A", "B")} for n in ("long", "short")}
     R["shadowStats"] = stats
     # promotion / demotion on live evidence (at least 25 resolved calls)
     ov = R.setdefault("override", {})
+    for name in list(ov):                                                # evidence that no longer meets the standard is withdrawn
+        if stats.get(name, {}).get("moves", 0) < 10: ov.pop(name)
     for name, st in stats.items():
-        if st["recentN"] < 25: continue
+        if st["moves"] < 10: continue                                    # 10 independent market moves, not 25 calls from one move
         if st["avg"] > 0.15 and st["hit"] >= st["be"] + 0.03: ov[name] = {"live": True, "why": f"live shadow record: {st['recentN']} calls, hit {st['hit']:.0%} vs break-even {st['be']:.0%}, avg {st['avg']:+.2f}%"}
         elif st["avg"] < 0 and st["hit"] < st["be"]: ov[name] = {"live": False, "why": f"live shadow record below break-even: {st['recentN']} calls, hit {st['hit']:.0%} vs {st['be']:.0%}, avg {st['avg']:+.2f}%"}
 
@@ -748,6 +752,12 @@ def regimes(J, ts):
 def margin_of(R, name, sd):
     return sd["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0))
 
+def _moves(d):
+    """calls made in the same 6-hour window are one market move: returns one averaged record per move"""
+    g = {}
+    for x in d: g.setdefault(x["t"] // (6 * H), []).append(x)
+    return [{k: float(np.mean([x[k] for x in v])) for k in ("y", "prob", "ret", "be")} for v in g.values()]
+
 def adapt(R):
     """three self-adjustments, each bounded and each explained on the dashboard:
     1) CALIBRATION: if live calls hit less often than predicted, demand more (raise the bar); if more often, relax a little
@@ -755,8 +765,8 @@ def adapt(R):
     3) REGIME: a side is switched on/off separately in each market regime once it has 15 live calls there"""
     sh = [x for x in (R.get("shadow") or []) if x.get("y") is not None]; ad = {}; rov = {}
     for name in ("long", "short"):
-        d = [x for x in sh if x["side"] == name][-80:]
-        if len(d) >= 20:
+        d = _moves([x for x in sh if x["side"] == name][-200:])
+        if len(d) >= 10:                                               # at least 10 independent market moves, not 20 calls from one move
             hit = np.mean([x["y"] for x in d]); pred = np.mean([x["prob"] for x in d]); avg = np.mean([x["ret"] for x in d])
             adj = float(np.clip(pred - hit, -0.04, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.25))   # +1% avg -> 1.25x, -2% -> 0.5x
             ad[name] = {"marginAdj": round(adj, 3), "riskMult": round(mult, 2), "n": len(d), "hit": round(float(hit), 3), "pred": round(float(pred), 3), "avg": round(float(avg) * 100, 3),
@@ -766,8 +776,8 @@ def adapt(R):
         for x in sh:
             if x["side"] == name and x.get("reg"): byreg.setdefault(x["reg"], []).append(x)
         for reg, d in byreg.items():
-            d = d[-60:]
-            if len(d) < 15: continue
+            d = _moves(d[-150:])
+            if len(d) < 8: continue
             hit = np.mean([x["y"] for x in d]); be = np.mean([x["be"] for x in d]); avg = np.mean([x["ret"] for x in d])
             rov.setdefault(name, {})[reg] = {"live": bool(avg > 0 and hit >= be), "n": len(d), "hit": round(float(hit), 3), "be": round(float(be), 3), "avg": round(float(avg) * 100, 3)}
     R["adapt"] = ad; R["regimeOverride"] = rov

@@ -279,12 +279,23 @@ def evaluate(R, log=print):
             aret = float((w[A] * r[A]).sum() / max(1e-9, w[A].sum())) if A.any() else 0.0
             return {"ll": round(ll, 4), "cal": round(cal, 4), "aPerDay": round(float(A.sum()) / days, 2), "aRet": round(aret * 100, 3), "aN": int(A.sum()),
                     "profitPerDay": round(aret * float(A.sum()) / days * 100, 3)}
-        s, c = stats(n), stats("champion"); bets = float(w.sum())
-        if (R.get("chal") or {}).get(n, {}).get("kind") == "policy":      # different question: judged on profit, with honest odds for its own question
-            better = s["profitPerDay"] > c["profitPerDay"] and s["aPerDay"] >= c["aPerDay"] and s["cal"] <= max(c["cal"], 0.03) + 0.02
-        else:
-            better = s["ll"] < c["ll"] and s["aPerDay"] >= c["aPerDay"] and s["cal"] <= c["cal"] + 0.01 and s["profitPerDay"] >= c["profitPerDay"]
-        out[n] = {"bets": round(bets, 1), "me": s, "champion": c, "ready": bets >= MIN_BETS, "better": bool(better)}
+        s, c = stats(n), stats("champion")
+        # PROOF, not luck: with dozens of challengers some will look better by chance. The lead must be consistent across
+        # independent market windows (6-hour blocks): at least MIN_BETS windows over at least 10 days, and a lead of 2.5 standard errors.
+        pol = (R.get("chal") or {}).get(n, {}).get("kind") == "policy"
+        blocks = {}
+        for x in rows:
+            m_, c_ = x["cp"][n], x["cp"]["champion"]
+            if pol: d = (m_.get("r", x.get("ret", 0.0)) if m_.get("g") == "A" else 0.0) - (c_.get("r", x.get("ret", 0.0)) if c_.get("g") == "A" else 0.0)
+            else:
+                y_ = x["y"]; pm, pc = np.clip(m_["p"], 1e-3, 1 - 1e-3), np.clip(c_["p"], 1e-3, 1 - 1e-3)
+                d = (y_ * np.log(pm) + (1 - y_) * np.log(1 - pm)) - (y_ * np.log(pc) + (1 - y_) * np.log(1 - pc))
+            blocks.setdefault(x["t"] // (6 * H), []).append(d)
+        bm = np.array([np.mean(v) for v in blocks.values()]); nb = len(bm)
+        tstat = float(bm.mean() / (bm.std(ddof=1) / np.sqrt(nb))) if nb >= 5 and bm.std(ddof=1) > 0 else 0.0
+        if pol: better = tstat >= 2.5 and s["aPerDay"] >= c["aPerDay"] and s["cal"] <= max(c["cal"], 0.03) + 0.02
+        else: better = tstat >= 2.5 and s["aPerDay"] >= c["aPerDay"] and s["cal"] <= c["cal"] + 0.01 and s["profitPerDay"] >= c["profitPerDay"]
+        out[n] = {"bets": nb, "me": s, "champion": c, "ready": nb >= MIN_BETS and days >= 10, "better": bool(better), "lead": round(tstat, 2)}
     # policy challengers that only differ in HOW they trade (pace, guard, sizing, shock exits): judged by their shadow accounts
     ch = R.get("acct") or {}
     for n, c in (R.get("chal") or {}).items():
@@ -294,8 +305,8 @@ def evaluate(R, log=print):
         dd_me, dd_ch = _maxdd(a.get("curve")), _maxdd([x for x in ch.get("curve", []) if x[0] >= a.get("bornT", 0)])
         n_tr = len(a.get("closed", []))
         out[n] = {"bets": n_tr, "me": {"growth": round((g_me - 1) * 100, 2), "maxDD": dd_me, "trades": n_tr},
-                  "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": n_tr >= 15,
-                  "better": bool(g_me > g_ch and dd_me <= dd_ch + 2.0)}
+                  "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": n_tr >= 20,
+                  "better": bool(g_me >= g_ch + 0.03 and dd_me <= dd_ch + 2.0)}       # a clear lead (3 points), not a coin flip
     R["chalScores"] = out
     return out
 

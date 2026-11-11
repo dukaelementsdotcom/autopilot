@@ -28,7 +28,7 @@ def learn(J, log=print):
                 ret[shock] = side * (cl[shock] / e[shock] - 1) - C.FEE          # exit at that hour's close
                 alive &= ~(s_hit | t_hit | shock)
             gain = float(np.nanmean(ret - base_ret)) * 100
-            if gain > best[0]: best = (gain, x)
+            if gain > max(best[0], 0.05): best = (gain, x)              # must be worth at least 0.05% per trade, or it is noise
         out[name] = {"x": best[1], "gainPerTrade": round(best[0], 4)}
     log(f"   shock memory: {out}")
     return {"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), **out}
