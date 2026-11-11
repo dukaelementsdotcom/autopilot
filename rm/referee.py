@@ -318,6 +318,10 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         elif cfg.get("odds", "weekly") != "weekly":
             prob = np.array([CH.odds(R, B, None if not Hd else Hd, cfg, name, {f: float(v[k]) for f, v in fams.items()}, REG.get(int(J.t[rows[k]])), prob[k]) for k in range(n)])
         sup, ag = CH._support(fams, sd["base"]); unf = np.asarray(S[name]["unfamiliar"])
+        if cfg.get("curious"):                                     # an unfamiliar situation is allowed once its GROUP has a good live record
+            UT = R.get("unfTrust") or {}
+            ok = np.array([(UT.get(unf_key(name, {f: float(v[k]) for f, v in fams.items()}, sd["base"], REG.get(int(J.t[rows[k]])))) or {}).get("state") == "proven" for k in range(len(rows))])
+            unf = unf & ~ok
         if cfg.get("cointrust"):                                   # demand more where its own live record on this group of coins is weak
             from .witnesses import SECTOR_OF
             ct = R.get("coinTrust") or {}; mg = mg + np.array([ct.get(SECTOR_OF.get(str(c), "other"), 0.0) for c in J.coin[rows]])
@@ -445,11 +449,29 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
          "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": lev, "units": [[e, notional]],
          "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
-         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}}
+         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock"))}
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False}
+
+def unf_key(side, fams, base, reg):
+    """the 'kind' of an unfamiliar situation: side, market state and which two witnesses lean hardest each way"""
+    ranked_ = sorted(fams.items(), key=lambda kv: kv[1] - base)
+    return f"{side}|{reg}|+{ranked_[-1][0]}|-{ranked_[0][0]}"
+
+def unf_tables(R, L):
+    """every unfamiliar candidate is recorded and scored like any other; groups of similar ones that keep ending the same way
+    become a category with a track record (proven: tradable; failing: avoided; mixed: it is what it is)"""
+    g = {}
+    for x in L:
+        if x.get("unf") and x.get("fams"): g.setdefault(unf_key(x["side"], x["fams"], x.get("base", 0.5), x.get("reg")), []).append(x)
+    out = {}
+    for k, xs in g.items():
+        n = len(xs); hit = float(np.mean([x["y"] for x in xs])); be = float(np.mean([x["be"] for x in xs])); avg = float(np.mean([x["ret"] for x in xs]))
+        out[k] = {"n": n, "hit": round(hit, 3), "be": round(be, 3), "avg": round(avg * 100, 2),
+                  "state": "proven" if n >= 15 and hit >= be + 0.05 and avg > 0 else "failing" if n >= 15 and hit < be else "learning"}
+    R["unfTrust"] = out
 
 def ctx_votes(R, J, rows, side):
     """logit adjustment from the rules firing on these rows: +0.3 per rule live-trusted in this market state, -0.3 per rule that keeps failing there"""
@@ -488,7 +510,8 @@ def trust_tables(R):
     for x in L:
         for f, p in (x.get("fams") or {}).items():
             mis.setdefault(f, []).append((p - x.get("base", 0.5)) * (1 if x["y"] == 0 else -1))
-    R["attrib"] = {f: round(float(np.mean(v)) * 100, 2) for f, v in mis.items() if len(v) >= 30}     # > 0: this witness pushed the odds the wrong way on average
+    R["attrib"] = {f: round(float(np.mean(v)) * 100, 2) for f, v in mis.items() if len(v) >= 30}
+    unf_tables(R, L)     # > 0: this witness pushed the odds the wrong way on average
 
 
 def _size(p): return sum(n for _, n in p["units"])
@@ -525,9 +548,13 @@ def _manage(J, B, p, A, newest):
                 cont = float(sdm["exit"].predict_proba(_X(J.P, [r], sdm["exitCols"]))[0, 1]); p["cont"] = round(cont, 3)
                 px = float(Cc[j]); gain = sd * (px / p["entry"] - 1)
                 dv = float(J.dvol[r]) if np.isfinite(J.dvol[r]) else p["stopPct"]
+                peak = sd * (p["best"] / p["entry"] - 1)
+                if p.get("lock") and not p["half"] and peak >= 0.6 * p.get("tgtPct", TARGET):          # a good start: never let it turn into a loss
+                    be_ = p["entry"] * (1 + sd * C.FEE * 2); p["stop"] = max(p["stop"], be_) if sd > 0 else min(p["stop"], be_)
                 if p["half"]:
                     if cont < 0.40: _close(A, p, px, "evidence: move fading, profit secured", t + H); return
                     trail = p["best"] * (1 - sd * (1.5 if cont >= 0.6 else 1.0) * dv)
+                    if p.get("lock"): trail = p["entry"] * (1 + sd * 0.5 * peak) if sd * (trail / p["entry"] - 1) < 0.5 * peak else trail   # keep at least half of the best open profit
                     p["stop"] = max(p["stop"], trail) if sd > 0 else min(p["stop"], trail)
                 elif not p["added"] and gain >= 0.01 and cont >= 0.6:
                     p["units"].append([px, _size(p) * 0.5]); p["added"] = True
@@ -739,7 +766,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)

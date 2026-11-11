@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -30,6 +30,8 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
+    reg["lock"] = ({"lock": True}, "Profit lock: once a trade is well on its way the stop goes to break-even, and after the first target it always keeps at least half of the best open profit", "policy")
+    reg["curious"] = ({"curious": True}, "Curious: unfamiliar situations are grouped by kind; a kind with a proven live record becomes tradable (its own witness)", "policy")
     reg["alloc"] = ({"alloc": True}, "Daily-goal allocator: one budget per opportunity (up to 30% margin, 6% risk), all-in on one strong setup or split across 2-4 coins that are NOT the same bet; judged on account growth", "policy")
     reg["lowbar"] = ({"lowbar": True}, "Less cautious: half the safety margin above break-even (catches over-caution live)", "policy")
     reg["cointrust"] = ({"cointrust": True}, "Coin trust: demands more evidence on groups of coins where its own live odds proved too optimistic", "policy")
