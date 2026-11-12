@@ -11,6 +11,10 @@ def main():
     if not R.get("acct"): print("fast lane: no account yet"); return 0
     from . import guard, referee as RF, integrity as IG
     res = guard.apply(R, print); print("fast lane:", res)
+    try:
+        from . import demo; dm = demo.mirror(R, print); print("demo account:", dm)
+        if dm.get("actions"): res["booked"] = (res.get("booked") or 0) + len(dm["actions"])
+    except Exception as e: print("demo account failed:", str(e)[:200]); R.setdefault("demo", {})["error"] = str(e)[:200]
     n_open = len(R["acct"].get("open", [])) + sum(len(c["acct"].get("open", [])) for c in (R.get("chal") or {}).values() if c.get("acct"))
     if not res.get("booked") and not res.get("stopsMoved"):
         if n_open and not res.get("watching") and "error" not in res: print("fast lane: the server was restarted; handing it the open trades again:", guard.sync(R, print))

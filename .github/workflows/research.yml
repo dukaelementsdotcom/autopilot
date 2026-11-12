@@ -24,6 +24,8 @@ jobs:
     env:
       RM_RELAY_KEY: ${{ secrets.RM_RELAY_KEY }}
       RM_OWN_RELAY: ${{ secrets.RM_OWN_RELAY }}
+      BINANCE_DEMO_KEY: ${{ secrets.BINANCE_DEMO_KEY }}
+      BINANCE_DEMO_SECRET: ${{ secrets.BINANCE_DEMO_SECRET }}
       COINALYZE_KEY: ${{ secrets.COINALYZE_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || secrets.GROQ }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

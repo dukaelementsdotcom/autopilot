@@ -269,6 +269,8 @@ def run(budget=None, log=print):
             if k in mem: archive.keep(f"retired_{k}", [mem.pop(k)])
     safe("retire old accounts", retire_accounts)
     safe("referee account", referee.step, mem, J, now_iso(), log=log)
+    from . import demo
+    safe("binance demo account", demo.mirror, mem.get("referee") or {}, log=log)
     dropped = safe("memory clean-up", compact, mem) or 0
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],

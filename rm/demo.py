@@ -33,6 +33,13 @@ def info(sym):
                                   "minNotional": float((f.get("MIN_NOTIONAL") or {}).get("notional", 5))}
     return _INFO.get(sym)
 
+def _fill(sym, o):
+    px = float(o.get("avgPrice") or 0)
+    if not px and o.get("orderId"):
+        try: px = float(req("GET", "/fapi/v1/order", symbol=sym, orderId=o["orderId"]).get("avgPrice") or 0)
+        except IOError: pass
+    return px or None
+
 def _fl(x, step): return math.floor(x / step + 1e-9) * step
 def _fmt(x, step): d = max(0, -int(math.floor(math.log10(step)))) if step < 1 else 0; return f"{x:.{d}f}"
 
@@ -90,15 +97,18 @@ def mirror(R, log=print):
         if sym not in want:
             cancel_all(sym)
             o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
-            done.append({"close": sym, "px": float(o.get("avgPrice") or 0)}); D["pos"].pop(sym, None)
+            done.append({"close": sym, "px": _fill(sym, o)}); D["pos"].pop(sym, None)
+    for sym in [k for k in D["pos"] if k not in want and k not in held]:      # closed on the exchange and on paper: tidy up leftover orders
+        cancel_all(sym); D["pos"].pop(sym, None)
     # 2) open what it holds and the demo does not; keep stop / target orders in line with the paper position
     for sym, (p, pid) in want.items():
         I = info(sym)
         if not I: done.append({"skip": sym, "why": "not on the demo"}); continue
         side = "SELL" if p["sd"] < 0 else "BUY"; opp = "BUY" if side == "SELL" else "SELL"; st = D["pos"].get(sym) or {}
-        if st.get("pid") != pid or sym not in held:
-            if st.get("pid") == pid and sym not in held:                       # the exchange closed it (its stop or target filled): do not reopen
-                continue
+        if st.get("pid") == pid and sym not in held: continue                 # the exchange closed it (its stop or target filled): never reopen
+        if st.get("pid") != pid and sym in held:                               # the demo already holds it (its record was lost): adopt it, never open twice
+            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "adopted": True}; cancel_all(sym)
+        if st.get("pid") != pid:
             try: req("POST", "/fapi/v1/leverage", symbol=sym, leverage=int(min(20, p.get("lev") or 5)))
             except Exception: pass
             try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType="ISOLATED")
@@ -106,7 +116,7 @@ def mirror(R, log=print):
             qty = _fl(p.get("notional", 0) * scale / (p.get("mark") or p["entry"]), I["step"])
             if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "too small"}); continue
             o = req("POST", "/fapi/v1/order", symbol=sym, side=side, type="MARKET", quantity=_fmt(qty, I["step"]), newOrderRespType="RESULT")
-            fill = float(o.get("avgPrice") or 0); st = {"pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
+            fill = _fill(sym, o) or 0; st = {"pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
             D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "fill": fill, "paper": p["entry"], "late": p["t"] < D["since"] - 3600, "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
         # stop order (whole position) and the half target (before the half is taken)
         stp = float(_fmt(p["stop"], I["tick"]))
@@ -121,7 +131,7 @@ def mirror(R, log=print):
             hq = _fl(abs(held[sym]) / 2, I["step"])
             if st.get("tpId") and st["tpId"] != "done": uncond(sym, st["tpId"])
             o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="MARKET", quantity=_fmt(hq, I["step"]), reduceOnly="true", newOrderRespType="RESULT")
-            st["tpId"] = "done"; done.append({"half": sym, "px": float(o.get("avgPrice") or 0)})
+            st["tpId"] = "done"; done.append({"half": sym, "px": _fill(sym, o)})
     D["log"] = (D.get("log") or [])[-40:] + [{"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), **d} for d in done]
     D["at"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()); D["holding"] = len(held)
     if done: log(f"   demo account: {done}")
