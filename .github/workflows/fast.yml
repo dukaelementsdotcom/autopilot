@@ -1,0 +1,57 @@
+name: fast lane
+on:
+  schedule:
+    - cron: "*/5 * * * *"        # every 5 minutes (GitHub may delay it when busy); it does real work only when a trade's target or stop was reached
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: fast
+  cancel-in-progress: false
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment:
+      name: github-pages
+    env:
+      RM_RELAY_KEY: ${{ secrets.RM_RELAY_KEY }}
+      RM_OWN_RELAY: ${{ secrets.RM_OWN_RELAY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: restore memory
+        id: mem
+        run: |
+          mkdir -p state
+          git fetch --depth 1 origin state
+          echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+          git --work-tree=state checkout FETCH_HEAD -- .
+          git reset -q
+      - run: python -W ignore -m rm.fast
+      - name: save memory (only if something was booked and nobody else saved meanwhile)
+        if: hashFiles('fast_changed') != ''
+        run: |
+          now=$(git ls-remote origin refs/heads/state | cut -f1)
+          if [ "$now" != "${{ steps.mem.outputs.sha }}" ]; then echo "the hourly run saved meanwhile; the next fast run books it again"; rm -f docs/index.html; exit 0; fi
+          cd state
+          rm -rf .git && git init -q -b state
+          git config user.name "research-machine" && git config user.email "research-machine@users.noreply.github.com"
+          git add -A && git commit -qm "memory $(date -u +%F) (fast lane)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" state
+      - uses: actions/configure-pages@v5
+        if: hashFiles('fast_changed') != '' && hashFiles('docs/index.html') != ''
+        continue-on-error: true
+      - uses: actions/upload-pages-artifact@v3
+        if: hashFiles('fast_changed') != '' && hashFiles('docs/index.html') != ''
+        with:
+          path: docs
+      - uses: actions/deploy-pages@v4
+        if: hashFiles('fast_changed') != '' && hashFiles('docs/index.html') != ''
+        continue-on-error: true

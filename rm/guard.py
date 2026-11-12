@@ -48,20 +48,36 @@ def sync(R, log=print):
     except Exception as e: return {"error": str(e)[:120]}
 
 def apply(R, log=print):
+    """the server's minute-by-minute events are booked at the minute and price they happened:
+    target -> half taken, the rest's stop to break-even; stop -> closed; shock -> closed (accounts with the shock-exit policy).
+    Safe to repeat: an event older than what a position has already processed is ignored, so the hourly run and the fast lane
+    (every few minutes) can both call this."""
     base, hd = _srv()
     if not base: return {}
     G = R.setdefault("guard", {"since": 0, "applied": []})
     try: ev = requests.get(base + "/guard/events", params={"since": G["since"]}, headers=hd, timeout=15).json().get("events", [])
     except Exception as e: return {"error": str(e)[:120]}
     from . import referee as RF
-    n_ = 0
-    for e in ev:
-        G["since"] = max(G["since"], e["t"]); acct_name, coin, t = e["id"].split("|"); 
-        if e["kind"] != "shock": continue
+    n_ = 0; booked = []
+    for e in sorted(ev, key=lambda e: e["t"]):
+        acct_name, coin, t = e["id"].split("|"); te = int(e["t"]); px = float(e["px"])
         A = R.get("acct") if acct_name == "champion" else ((R.get("chal") or {}).get(acct_name) or {}).get("acct")
         if not A: continue
         for p in list(A.get("open", [])):
-            if p["coin"] == coin and str(p["t"]) == t:
-                RF._close(A, p, float(e["px"]), "shock exit (server guard)", int(e["t"])); n_ += 1
-    G["applied"] = (G.get("applied") or [])[-50:] + [e for e in ev if e["kind"] == "shock"]
-    return {"events": len(ev), "shockExits": n_}
+            if not (p["coin"] == coin and str(p["t"]) == t) or "target" not in p or "stop" not in p: continue
+            bar = te // H * H
+            if te <= p.get("evT", 0) or (te < p.get("lastBar", p["t"] - H) + H and p.get("evBar") != bar): continue      # the hourly replay already covered that minute
+            sd = p["sd"]; did = None
+            if e["kind"] == "shock": RF._close(A, p, px, "shock exit (server guard)", te); n_ += 1; did = "shock exit"
+            elif e["kind"] == "target" and not p.get("half") and ((sd > 0 and px >= p["target"]) or (sd < 0 and px <= p["target"])):
+                RF._close(A, p, p["target"], f"half at +{p.get('tgtPct', RF.TARGET)*100:.0f}% (to the minute)", te, part=0.5); p["half"] = True
+                p["stop"] = p["entry"] * (1 + sd * C.FEE * 2); did = "half at target"
+            elif e["kind"] in ("stop", "target") and ((sd > 0 and px <= p["stop"]) or (sd < 0 and px >= p["stop"])):
+                RF._close(A, p, p["stop"], ("break-even / trailing stop" if p.get("half") else "stop") + " (to the minute)", te); did = "stop"
+            if did:
+                p["evT"] = te; p["evBar"] = bar; p["lastBar"] = max(p.get("lastBar", 0), bar); p["best"] = max(p["best"], px) if sd > 0 else min(p["best"], px)
+                booked.append({"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime(te)), "account": acct_name, "coin": coin, "what": did, "px": px})
+    if ev: G["since"] = max(G["since"], max(int(e["t"]) for e in ev) - 180)      # a little overlap; repeats are ignored
+    G["applied"] = (G.get("applied") or [])[-50:] + booked
+    if booked: log(f"   server guard booked to the minute: {booked}")
+    return {"events": len(ev), "shockExits": n_, "booked": len(booked), "last": booked[-3:]}
