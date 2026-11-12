@@ -85,6 +85,20 @@ def mirror(R, log=print):
     A = R.get("acct") or {}; D = R.setdefault("demo", {"pos": {}, "log": []}); done = []
     acc = req("GET", "/fapi/v2/account"); wallet = float(acc["totalWalletBalance"]); D["wallet"] = round(wallet, 2)
     held = {p["symbol"]: float(p["positionAmt"]) for p in acc["positions"] if float(p["positionAmt"])}
+    from . import config as C
+    budget = getattr(C, "DEMO_BUDGET", None)
+    if budget and wallet > 1.5 * budget:            # the futures wallet is bigger than intended: hold nothing and wait for the extra to be moved out
+        for sym, amt in held.items():
+            cancel_all(sym)
+            o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
+            done.append({"close": sym, "px": _fill(sym, o), "why": "wallet above the budget"})
+        D["pos"] = {}; D["waiting"] = f"the futures wallet holds {wallet:,.0f} USDT; move all but {budget} USDT to the demo's spot wallet and copying starts"
+        D["log"] = (D.get("log") or [])[-40:] + [{"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), **d} for d in done]
+        D["at"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()); D["holding"] = 0
+        if done: log(f"   demo account: {done}")
+        return {"wallet": round(wallet, 2), "actions": done, "waiting": D["waiting"]}
+    if D.pop("waiting", None): D["since"] = int(time.time()); D["start"] = round(wallet, 2)
+    D.setdefault("start", round(wallet, 2))
     eqA = A.get("equity", A.get("cash", 500.0)) or 500.0; scale = wallet / eqA
     want = {}
     D.setdefault("since", int(time.time()))

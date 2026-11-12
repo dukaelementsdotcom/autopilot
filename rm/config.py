@@ -49,3 +49,5 @@ RULE_DWELL_H = 168           # best-rule account: a selected rule stays at least
 RULE_DWELL_DD = 0.15         # ... unless the account fell 15% from its peak under it
 RULE_REPLACE_PP = 0.10       # a replacement must beat it by 0.10 points per trade on unseen trades ...
 RULE_REPLACE_N = 50          # ... over at least 50 unseen trades each
+
+DEMO_BUDGET = 200            # the Binance demo futures wallet is meant to hold this much (the rest sits in the demo's spot wallet)
