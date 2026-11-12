@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -31,6 +31,7 @@ def registry(B=None):
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
     reg["statebar"] = ({"statebar": True}, "A bar per trend state: asks for less evidence in the market states where the Arbiter proved accurate, more elsewhere, and trades longs only in the states where they worked (learned on one year, examined on the newest months)", "policy")
+    reg["gate"] = ({"gate": True}, "Trend gate: no shorts while the Compass trend reader says the market is rising. Over 7 past periods: +3.4% a month on average vs +2.0% without it, and the worst period improved from -11.9% to -2.0% a month", "policy")
     reg["trend2"] = ({"trend": "v2"}, "Compass trend reader: market direction from many views that must agree (Bitcoin's 20/50/200-day trends, breadth across coins, stocks, the dollar), five states incl. sideways, smoothed so noise cannot flip it", "policy")
     reg["pairs"] = ({"spec": "pairs"}, "Pair trades: long the coin it likes most, short the one it dislikes most, among coins that move together (the market's swings cancel; tight stop even in wild markets)", "policy")
     reg["runner"] = ({"spec": "runner"}, "Runner: on long signals, a small first risk, then one more unit at every further +2% with the stop one step behind, held up to 14 days (rare, very large winners; most attempts lose the first risk)", "policy")

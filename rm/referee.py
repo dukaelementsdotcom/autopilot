@@ -363,6 +363,9 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
             plan = Hd["statebar"]["plan"]; st = compass.states_for(J, J.t[rows]); mgs = np.array([plan.get(f"{name}|{x}", np.nan) for x in st])
             okp = np.isfinite(mgs) & ~unf & (sup >= 2) & (ag <= 1); mg0 = np.nan_to_num(mgs, nan=9.0)
             g = np.where(okp & (prob >= be + mg0 + 0.08) & (sup >= 3) & (ag == 0), "S", np.where(okp & (prob >= be + mg0), "A", None))
+        if cfg.get("gate") and name == "short":                    # trend gate: no shorts while the Compass trend reader says the market is rising
+            from . import compass
+            g = np.where(np.isin(compass.states_for(J, J.t[rows]), ("up", "strong up")), None, g)
         out[name] = {"prob": prob, "pt": ptarget, "T": T, "Hz": Hz, "ev": ev, "grade": g, "stop": stp, "be": be}
     return out
 
@@ -474,7 +477,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False}
 
 def unf_key(side, fams, base, reg):
     """the 'kind' of an unfamiliar situation: side, market state and which two witnesses lean hardest each way"""
@@ -810,7 +813,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "statebar"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "statebar", "gate"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
