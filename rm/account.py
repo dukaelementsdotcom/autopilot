@@ -36,6 +36,34 @@ def pick_leader(mem, J, kinds=("event", "union")):
     r = [x for x in ranked(mem, J, kinds) if ((T.get(str(mem["tests"][x[1]].get("no"))) or {}).get(reg) or {}).get("state") != "warning"]
     return r[0] if r else None
 
+def select_rule(mem, J, A, now_iso, kinds=("event", "union")):
+    """RULE SELECTION with dwell and a replacement margin: the rule in charge stays at least a week (unless the account fell 15% from its
+    peak under it, or it lost its champion status / is failing in this market state), and a replacement must beat it by 0.10 points per
+    trade on unseen trades, with at least 50 unseen trades each. Not enough data -> no replacement. Returns (key, score, stats, log line)."""
+    import time, calendar
+    tests = mem["tests"]; lead = A.get("leader"); best = pick_leader(mem, J, kinds)
+    inc_ok = bool(lead and lead in tests and tests[lead]["status"] == "champion")
+    no = lambda k: tests[k].get("no") if k in tests else None
+    if not best: return (lead if inc_ok else None), None, None, f"incumbent #{no(lead) if lead else None}, candidate none, dwell_days -, replace False, reason no eligible candidate"
+    sc, k, s = best
+    if not inc_ok:
+        return k, sc, s, f"incumbent {'#' + str(no(lead)) + ' (no longer a champion)' if lead else 'none'}, candidate #{no(k)}, dwell_days -, replace True, reason no valid incumbent"
+    if k == lead: return lead, sc, s, f"incumbent #{no(lead)}, candidate #{no(k)}, dwell_days -, replace False, reason incumbent is still the best"
+    since = A.get("leaderSince") or (A.get("leaders") or [{}])[-1].get("at") or A.get("born")
+    try: t_since = calendar.timegm(time.strptime(since, "%Y-%m-%d %H:%M"))
+    except Exception: t_since = 0
+    dwell_h = (calendar.timegm(time.strptime(now_iso, "%Y-%m-%d %H:%M")) - t_since) / 3600
+    eq = A.get("equity", A["cash"]); pk = max([c[1] for c in A.get("curve", []) if c[0] >= t_since] + [A.get("leaderEq", eq), eq]); dd = 1 - eq / pk
+    R = mem.get("referee") or {}; warned = (((R.get("ruleTrust") or {}).get(str(no(lead))) or {}).get(str(R.get("regimeNow"))) or {}).get("state") == "warning"
+    _, s_inc = _score(J, tests[lead]); head = f"incumbent #{no(lead)}, candidate #{no(k)}, dwell_days {dwell_h / 24:.1f}"
+    if dwell_h < C.RULE_DWELL_H and dd <= C.RULE_DWELL_DD and not warned:
+        return lead, None, None, f"{head}, replace False, reason dwell (a week minimum; drawdown under it {dd:.0%}, limit {C.RULE_DWELL_DD:.0%})"
+    if s.get("n", 0) < C.RULE_REPLACE_N or s_inc.get("n", 0) < C.RULE_REPLACE_N:
+        return lead, None, None, f"{head}, replace False, reason not enough unseen trades (candidate {s.get('n', 0)}, incumbent {s_inc.get('n', 0)}, need {C.RULE_REPLACE_N} each)"
+    if s.get("mean", 0) <= s_inc.get("mean", 0) + C.RULE_REPLACE_PP:
+        return lead, None, None, f"{head}, replace False, reason margin (candidate {s.get('mean')}% per unseen trade vs incumbent {s_inc.get('mean')}%, needs +{C.RULE_REPLACE_PP})"
+    return k, sc, s, f"{head}, replace True, reason candidate {s.get('mean')}% per unseen trade vs incumbent {s_inc.get('mean')}% over {s.get('n')} / {s_inc.get('n')} unseen trades" + (" (drawdown override)" if dwell_h < C.RULE_DWELL_H else "")
+
 def pick_team(mem, J, size=5, max_overlap=0.35):
     """up to 5 champions that trade DIFFERENT situations (little overlap), best first"""
     team, fps = [], []
@@ -126,13 +154,20 @@ def step(mem, J, now_iso, log=print, key="account", team=False, lev=LEV, frac=MA
                                  "score": round(sum(sc for sc, _, _ in tm) / max(1, len(tm)), 2), "why": f"{len(new)} champions that trade different situations, best records first"})
             A["team"] = new
         best = None
-    else: best = pick_leader(mem, J, kinds)
+    else:
+        k_, sc_, s_, line = select_rule(mem, J, A, now_iso, kinds); best = (sc_, k_, s_) if (k_ and k_ != lead and s_ is not None) else None
+        try:
+            from . import integrity; integrity.audit(mem.setdefault("referee", {}), "rule_selection", line, log)
+        except Exception: pass
+        if not k_: lead = A["leader"] = None
     if best:
         sc, k, s = best
         if k != lead:
+            A["leaderSince"] = now_iso; A["leaderEq"] = A.get("equity", A["cash"])
             A["leaders"].append({"at": now_iso, "rule": tests[k].get("no"), "text": tests[k].get("plain") or tests[k]["text"], "score": round(sc, 2),
                                  "why": f"best record after its exams: {s['n']} trades, avg {s['mean']:+}% per trade, {s['hit']}% won (t {s['t']})"})
             A["leader"] = k
+    elif not team: pass
     elif lead and (lead not in tests or tests[lead]["status"] != "champion"): A["leader"] = None
     from . import archive; nm = key
     archive.trim(A["closed"], 400, f"{nm}_trades"); archive.trim(A["curve"], 1000, f"{nm}_curve"); A["leaders"] = A["leaders"][-50:]

@@ -30,6 +30,9 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
+    reg["recal"] = ({"odds": "recal"}, "Recalibrated odds: the raw odds are corrected by what really happened to past candidates at each odds level (learned from the live ledger; no correction until 30 separate market moves are scored)", "odds")
+    reg["tiers"] = ({"size": "tiers"}, "Conviction tiers: a small probe (0.5% risk) when the edge is thin, standard (1-2%) with 3+ points of edge and 2 witnesses, high conviction (3-4%) with 8+ points, 3 witnesses and the market state on its side", "policy")
+    reg["bold"] = ({"size": "bold"}, "Bold: the same trades as the Arbiter at double the risk (8% of the account at the stop for Grade A, 4% for Grade B)", "policy")
     reg["statebar"] = ({"statebar": True}, "A bar per trend state: asks for less evidence in the market states where the Arbiter proved accurate, more elsewhere, and trades longs only in the states where they worked (learned on one year, examined on the newest months)", "policy")
     reg["bestofday"] = ({"bestofday": True}, "Best case of the day: the bar eases gradually through the day (to half its safety margin by the last hour) when nothing better has appeared", "policy")
     reg["timestop"] = ({"timestop": True}, "Time stop: a trade that has made no progress (under +0.5%) after 24 hours is closed instead of waiting for its stop", "policy")
@@ -90,6 +93,10 @@ def sync(R, B, log=print, Hd=None):
         rej["statebar"] = f"failed its final exam: {(sb.get('exam') or {}).get('monthly')}%/month vs today's {(sb.get('todayExam') or {}).get('monthly')}%/month"
     gr = R.get("guardRule") or {}
     if not any((gr.get(n) or {}).get("x") for n in ("long", "short")): rej["shock"] = "shock memory found no exit rule that beats holding" if gr else "waiting for the shock memory"
+    now_ = time.time()
+    for n, f in list((R.get("chalFutile") or {}).items()):          # the sequential test gave up on it: out for 30 days, then it may start again from zero
+        if now_ < f.get("until", 0): rej[n] = f["why"]
+        else: R["chalFutile"].pop(n, None)
     R["chalRejected"] = rej
     for n in rej:                                                    # not admitted (unless it already IS the champion's setting)
         ch_ = reg.get(n, ({},))[0]
@@ -99,7 +106,7 @@ def sync(R, B, log=print, Hd=None):
         full = dict(change) if kind == "full" else {**champ, **change}
         if full == champ: chal.pop(n, None); continue
         if n in chal: chal[n].update(what=what, kind=("policy" if any(k != "odds" for k in change if change.get(k) != champ.get(k)) else "odds"))
-        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 26 or kind == "odds":
+        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 30 or kind == "odds":
             chal[n] = {"change": change if kind != "full" else {k: v for k, v in change.items() if champ.get(k) != v}, "what": what,
                        "kind": "policy" if kind in ("policy", "full") and any(k != "odds" for k in change) else "odds", "born": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
     for n in [n for n in chal if n not in reg]: chal.pop(n)
@@ -290,6 +297,8 @@ def odds(R, B, Hd, cfg, name, fp, reg, base_prob):
         if o.startswith("online:"):
             st = (R.get("online") or {}).get(f"{name}|{o[7:]}|{reg}") or (R.get("online") or {}).get(f"{name}|{o[7:]}|all")
             return online_prob(R, B, name, o[7:], reg if st and st.get("n", 0) >= 30 else "all", fp)
+        if o == "recal":
+            from . import integrity; return integrity.recal_prob(R, name, base_prob)
         if o.startswith("without:") and Hd:
             s = Hd["sides"][name]["sub"][o[8:]]; return float(s["comb"].predict_proba(np.array([[float(_lg(fp[g])) for g in s["order"]]]))[0, 1])
     except Exception: pass
@@ -318,7 +327,8 @@ def evaluate(R, log=print):
     names = sorted({k for x in L for k in x["cp"]})
     out = {}
     for n in names:
-        rows = [x for x in L if n in x["cp"] and "champion" in x["cp"] and x["cp"][n].get("y", x["y"]) is not None]
+        born = (R.get("chal") or {}).get(n, {}).get("born"); t_born = __import__("calendar").timegm(time.strptime(born, "%Y-%m-%d %H:%M")) - 6 * H if born else 0
+        rows = [x for x in L if n in x["cp"] and "champion" in x["cp"] and x["cp"][n].get("y", x["y"]) is not None and x["t"] >= t_born]
         if not rows: continue
         w = np.array([wt[id(x)] for x in rows])
         days = max(1.0, (max(x["t"] for x in rows) - min(x["t"] for x in rows)) / 86400)
@@ -345,9 +355,20 @@ def evaluate(R, log=print):
             blocks.setdefault(x["t"] // (6 * H), []).append(d)
         bm = np.array([np.mean(v) for v in blocks.values()]); nb = len(bm)
         tstat = float(bm.mean() / (bm.std(ddof=1) / np.sqrt(nb))) if nb >= 5 and bm.std(ddof=1) > 0 else 0.0
-        if pol: better = tstat >= 2.5 and s["aPerDay"] >= c["aPerDay"] and s["cal"] <= max(c["cal"], 0.03) + 0.02
-        else: better = tstat >= 2.5 and s["aPerDay"] >= c["aPerDay"] and s["cal"] <= c["cal"] + 0.01 and s["profitPerDay"] >= c["profitPerDay"]
-        out[n] = {"bets": nb, "me": s, "champion": c, "ready": nb >= MIN_BETS and days >= 10, "better": bool(better), "lead": round(tstat, 2)}
+        # SEQUENTIAL TEST (integrity.PROMO, frozen): looked at every hour, so the boundary is pre-set and stricter than a one-off test;
+        # a second pre-set boundary gives up on contestants that are clearly not better. Counted in separate market moves only.
+        from . import integrity as IG
+        decision, state = IG.seq_decision(nb, tstat, days)
+        if pol: side_ok = s["aPerDay"] >= c["aPerDay"] and s["cal"] <= max(c["cal"], 0.03) + 0.02
+        else: side_ok = s["aPerDay"] >= c["aPerDay"] and s["cal"] <= c["cal"] + 0.01 and s["profitPerDay"] >= c["profitPerDay"]
+        better = decision == "promote" and side_ok
+        if decision == "promote" and not side_ok: state = "lead proven, but it finds fewer Grade A trades or its odds are less honest"
+        out[n] = {"bets": nb, "me": s, "champion": c, "ready": nb >= IG.PROMO["minBets"] and days >= IG.PROMO["minDays"], "better": bool(better), "lead": round(tstat, 2),
+                  "state": state, "decision": decision if (decision != "promote" or better) else None, "days": round(days, 1)}
+        IG.audit(R, "promotion_test", f"{n}, n_eff {nb}, statistic {tstat:.2f}, decision {out[n]['decision'] or 'continue'}, boundary_crossed {state}")
+        if decision == "futility" and n != "previous":
+            R.setdefault("chalFutile", {})[n] = {"until": time.time() + 30 * 86400, "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()),
+                                                 "why": f"the sequential test gave up on it after {nb} separate market moves (lead {tstat:+.2f} standard errors); it may start again from zero in 30 days"}
     # policy challengers that only differ in HOW they trade (pace, guard, sizing, shock exits): judged by their shadow accounts
     ch = R.get("acct") or {}
     for n, c in (R.get("chal") or {}).items():
@@ -358,7 +379,8 @@ def evaluate(R, log=print):
         n_tr = len(a.get("closed", []))
         out[n] = {"bets": n_tr, "me": {"growth": round((g_me - 1) * 100, 2), "maxDD": dd_me, "trades": n_tr},
                   "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": n_tr >= 20,
-                  "better": bool(g_me >= g_ch + 0.03 and dd_me <= dd_ch + 2.0)}       # a clear lead (3 points), not a coin flip
+                  "better": bool(g_me >= g_ch + 0.03 and dd_me <= dd_ch + 2.0),       # a clear lead (3 points), not a coin flip
+                  "state": "collecting" if n_tr < 20 else ("ahead: promotion due" if g_me >= g_ch + 0.03 and dd_me <= dd_ch + 2.0 else "ahead, not yet clearly" if g_me > g_ch else "behind"), "account": True}
     R["chalScores"] = out
     return out
 

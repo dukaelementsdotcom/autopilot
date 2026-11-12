@@ -140,7 +140,7 @@ def write(mem, J, timings, problems, live, t0, log=print):
            "challengers": {"champion": (R.get("champ") or {}).get("cfg"), "promotions": ((R.get("champ") or {}).get("history") or [])[-5:], "scores": R.get("chalScores"),
                            "stats": R.get("chalStats"), "rejected": R.get("chalRejected"), "witnesses": R.get("witnesses"), "shapeExam": R.get("shapeExam"),
                            "accounts": {n: {k: (c.get("acct") or {}).get(k) for k in ("equity", "cash")} | {"open": len((c.get("acct") or {}).get("open", [])), "closed": len((c.get("acct") or {}).get("closed", []))} for n, c in (R.get("chal") or {}).items() if c.get("acct")}},
-           "review": R.get("review"),
+           "review": R.get("review"), "auditLog": R.get("auditLog"), "integrity": {k: (R.get("obs") or {}).get(k) for k in ("judge", "risk", "learning", "regime", "arbiter", "bestRule", "haircut")},
            "research": {"totalTests": mem.get("total_tests"), "champions": sum(1 for t in mem.get("tests", {}).values() if t.get("status") == "champion"),
                         "lastRuns": [{k: r.get(k) for k in ("at", "secs", "tested", "counts", "problems", "dataEnd")} for r in (mem.get("runs") or [])[:24]]},
            "history": hist}

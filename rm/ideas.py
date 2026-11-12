@@ -202,7 +202,13 @@ def _groq_call(messages, max_tokens=2500):
         try:
             r = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=90, headers={"Authorization": f"Bearer {key}"},
                               json={"model": model, "messages": messages, "temperature": 0.8, "max_tokens": max_tokens, "response_format": {"type": "json_object"}})
-            if r.ok: return r.json()["choices"][0]["message"]["content"], model
+            if r.status_code == 400 and "json" in r.text.lower():     # this model failed Groq's JSON validation: once more without JSON mode (the callers parse the text), then the next model
+                r2 = requests.post("https://api.groq.com/openai/v1/chat/completions", timeout=90, headers={"Authorization": f"Bearer {key}"},
+                                   json={"model": model, "messages": messages + [{"role": "user", "content": "Answer with one valid JSON object only, no other text."}], "temperature": 0.5, "max_tokens": max_tokens})
+                if r2.ok:
+                    txt = r2.json()["choices"][0]["message"]["content"]; a, b = txt.find("{"), txt.rfind("}")
+                    if a >= 0 and b > a: print(f"   ai: {model} answered after a JSON-mode retry"); return txt[a:b + 1], model
+            if r.ok: print(f"   ai: {model} answered ({len(last and last.split(' | ')) if last else 0} earlier models failed)"); return r.json()["choices"][0]["message"]["content"], model
             last += f" | {model}: HTTP {r.status_code} {r.text[:90]}"
         except Exception as e: last += f" | {model}: {str(e)[:90]}"
     return None, last[3:]

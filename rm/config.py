@@ -39,3 +39,13 @@ RELAY_URLS = [u.strip() for u in os.environ.get("RM_RELAY_URLS", "").split(",") 
     "https://research-machine-relay.onrender.com/api/live",      # Render, Frankfurt, free (main)
     RELAY_URL]                                                    # Vercel, Frankfurt, free (backup)
 DEAD = ("LUNA", "FTT", "SRM")       # collapsed coins: history only, nothing live
+
+# ── risk limits and the kill switch (human decisions; the learner cannot change them) ──────────────────────────────────
+RISK_TRADE_MAX = 0.08        # hard ceiling: no single trade risks more than 8% of the account at its stop (Arbiter: 4%; the 'bold' contestant: 8%)
+KILL_DD = 0.30               # kill switch: the Arbiter's account 30% below its peak -> everything closed, stops, waits for a human
+CAL_DRIFT_TOL = 0.05         # kill switch: graded calls winning this far below predicted (and beyond chance) over 30+ separate market moves
+KILL_RESET = ""              # human reset: set to the current UTC time ("2026-11-20 09:00") to restart after a kill
+RULE_DWELL_H = 168           # best-rule account: a selected rule stays at least a week ...
+RULE_DWELL_DD = 0.15         # ... unless the account fell 15% from its peak under it
+RULE_REPLACE_PP = 0.10       # a replacement must beat it by 0.10 points per trade on unseen trades ...
+RULE_REPLACE_N = 50          # ... over at least 50 unseen trades each

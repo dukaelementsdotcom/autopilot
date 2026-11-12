@@ -278,6 +278,8 @@ def run(budget=None, log=print):
     mem["events"] = (run_rec["events"] + mem["events"])[:60]
     log("── 6/6 report")
     ai = ideas.AI_LOG; mem["aiStatus"] = {"calls": len(ai), "ok": (all(x["ok"] for x in ai) if ai else True), "last": ai[-3:]} if ai else mem.get("aiStatus")
+    from . import integrity
+    safe("rule haircut", integrity.haircut, mem); safe("observability", integrity.observe, mem, J, log=log)
     safe("health report", health.write, mem, J, timings, problems, live, t0, log=log)
     save_memory(mem)
     if safe("dashboard", report.write, mem, J, log=log) is None and problems and problems[-1].startswith("dashboard"):

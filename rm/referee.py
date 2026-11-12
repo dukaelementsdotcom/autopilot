@@ -259,6 +259,8 @@ def step(mem, J, now_iso, log=print, problems=None):
     newly = _ledger_resolve(J, R, newest, Hd)
     _shadow_resolve(J, R, newest); adapt(R)
     try:
+        from . import integrity as IG
+        if newly or "recal" not in R: IG.fit_recal(R, log)
         CH.online_update(R, B, newly); trust_tables(R); CH.evaluate(R, log); CH.promote(R, log)
         if newly: measure_drift(J, R, Hd)
     except Exception as e:
@@ -273,6 +275,10 @@ def step(mem, J, now_iso, log=print, problems=None):
     if len(done) >= 20 and not A.get("paused"):
         exp = np.mean([x["prob"] for x in done[-20:]]); act = np.mean([1.0 if x["hitTarget"] else 0.0 for x in done[-20:]])
         if act < exp - 0.20: A["paused"] = f"{now_iso}: live hit rate {act:.0%} far below the predicted {exp:.0%} over 20 trades; paused until retrained"
+    try:
+        from . import integrity as IG; IG.kill_check(R, A, newest, now_iso, _close, _moves, log)
+    except Exception as e:
+        if problems is not None: problems.append(f"kill switch: {e}")
     from . import archive                                     # trimmed history goes to the permanent archive, never lost
     archive.trim(A["closed"], 300, "referee_trades"); archive.trim(A["curve"], 1000, "referee_curve"); archive.trim(A["decisions"], 60, "referee_decisions")
     for n, AA, _cfg in accts[1:]:
@@ -403,7 +409,7 @@ def _allocate(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, K):
         c2 = {**cfg, "_risk": max(0.01, risk_budget * share), "_budget": margin_budget * share}
         _open(J, B, A, i, (name, g, float(K[name]["pt"][pos]), float(K[name]["ev"][pos])), float(K[name]["stop"][pos]), float(K[name]["be"][pos]), S, pos,
               V.get(i, []), now_iso, R, c2, T=float(K[name]["T"][pos]), Hz=int(K[name]["Hz"][pos]), ctx=ctx)
-        A["open"][-1]["regime"] = REG.get(int(J.t[i])); A["open"][-1]["alloc"] = round(share, 2)
+        if A["open"] and A["open"][-1]["t"] == int(J.t[i]) and A["open"][-1]["coin"] == str(J.coin[i]): A["open"][-1]["regime"] = REG.get(int(J.t[i])); A["open"][-1]["alloc"] = round(share, 2)
 
 def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print):
     K = _cands(J, B, R, Hd, cfg, rows, S, REG)
@@ -433,7 +439,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
         if guard and not _guard_ok(A, best[0], str(J.coin[i]), K[best[0]]["stop"][pos], ctx): continue
         _open(J, B, A, i, best, float(K[best[0]]["stop"][pos]), float(K[best[0]]["be"][pos]), S, pos, V.get(i, []), now_iso, R, cfg,
               T=float(K[best[0]]["T"][pos]), Hz=int(K[best[0]]["Hz"][pos]), ctx=ctx)
-        A["open"][-1]["regime"] = REG.get(int(J.t[i]))
+        if A["open"] and A["open"][-1]["t"] == int(J.t[i]) and A["open"][-1]["coin"] == str(J.coin[i]): A["open"][-1]["regime"] = REG.get(int(J.t[i]))
 
 def _guard_ok(A, side, coin, stp, ctx):
     """risk guard: no second bet on the same move, total tail risk capped, daily and weekly brakes"""
@@ -469,8 +475,19 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     if cfg.get("size") == "kelly":                            # fractional (quarter) Kelly from the calibrated odds, kept within 0.5x-1.5x of plan
         b = (T - C.FEE) / (stp + C.FEE); f = (prob * b - (1 - prob)) / b
         risk = float(np.clip(f / 4, 0.5 * risk, 1.5 * risk)) if f > 0 else 0.5 * risk
-    lev = lev_for(stp); cap = (cfg.get("_budget") or margin_cap(A)) * eq * lev
+    tier = None
+    if cfg.get("size") == "bold": risk *= 2.0                 # the bold contestant: double the Arbiter's risk
+    if cfg.get("size") == "tiers":                            # conviction tiers from the calibrated edge (raw odds until the calibration has 30 moves)
+        from . import integrity as IG
+        edge = IG.recal_prob(R or {}, name, prob) - be; fm = S[name]["fams"]; bs_ = B["sides"][name]["base"]; nfor = sum(float(v[pos]) >= bs_ + 0.03 for v in fm.values())
+        reg_ = str((R or {}).get("regimeNow") or ""); aligned = (sd < 0 and reg_.startswith("down")) or (sd > 0 and reg_.startswith("up"))
+        if edge >= 0.08 and nfor >= 3 and aligned: tier, risk = "high conviction", 0.03 + 0.01 * min(1.0, (edge - 0.08) / 0.05)
+        elif edge >= 0.03 and nfor >= 2: tier, risk = "standard", 0.01 + 0.01 * min(1.0, (edge - 0.03) / 0.05)
+        elif edge > 0: tier, risk = "probe", 0.005
+        else: return                                          # no calibrated edge: skip
+    lev = lev_for(stp); cap = (cfg.get("_budget") or margin_cap(A) * (2.0 if cfg.get("size") == "bold" else 1.0)) * eq * lev
     if cfg.get("_risk") is not None: risk = cfg["_risk"]
+    risk = min(risk, C.RISK_TRADE_MAX)                        # HARD CEILING (config, human-set): no path can size above it
     notional = min(risk * eq / stp, cap); margin = notional / lev
     fams = {f: round(float(v[pos]), 3) for f, v in S[name]["fams"].items()}; base = B["sides"][name]["base"]
     card = {"for": sorted([f for f, p in fams.items() if p >= base + 0.03], key=lambda f: -fams[f]), "against": [f for f, p in fams.items() if p <= base - 0.03],
@@ -478,7 +495,11 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
          "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": lev, "units": [[e, notional]],
          "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
-         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop"))}
+         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop")), "riskPct": round(notional * stp / max(1e-9, eq) * 100, 2), **({"tier": tier} if tier else {})}
+    if R is not None:
+        from . import integrity as IG
+        IG.audit(R, "risk_tier", f"{p['coin']}, {p['side']}, edge {prob - be:+.3f}, tier {tier or ('bold' if cfg.get('size') == 'bold' else 'grade ' + str(g))}, risk_pct {p['riskPct']}, "
+                 f"witnesses {len(card['for'])}, regime {R.get('regimeNow')}, portfolio_risk_after {round(sum(q.get('notional', 0) * q.get('stopPct', 0) for q in A['open'] + [p]) / max(1e-9, eq) * 100, 2)}")
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
@@ -654,7 +675,7 @@ def maybe_train(J, mem, log=print, time_left=1e9):
     t0 = time.time(); B = train(J, log); save(B)
     R["trainNote"] = f"trained {B['trainedAt']} UTC in {time.time()-t0:.0f}s on {B['coins']} coins"
     R["trainings"] = (R.get("trainings") or [])[-20:] + [{"at": B["trainedAt"], **{n: {"exam": sd["exam"], "margin": sd["margin"], "off": sd["off"], "live": sd["live"]} for n, sd in B["sides"].items()}}]
-    if R.get("acct", {}).get("paused"): R["acct"]["paused"] = None          # a fresh model gets a fresh chance
+    if R.get("acct", {}).get("paused") and not R["acct"].get("killed"): R["acct"]["paused"] = None          # a fresh model gets a fresh chance
     return True
 
 

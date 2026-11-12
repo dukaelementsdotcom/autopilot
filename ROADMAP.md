@@ -182,3 +182,13 @@ Gate (fluid): Grade A about daily, live hit rate close to predicted over 25+ cal
 - [x] Delete old Vercel projects (btc-trading, btc_vercel_v25_1)
 - [ ] Delete old cron jobs (BTC Trading Engine, BTC Brain) and the Upstash BTCLAB database
 - [ ] Each morning: download the health report and send it
+
+## Integrity build (Nov 12, from the owner's work order)
+- [x] Frozen judge with a fingerprint on the dashboard; sequential promotion test (lead of 3.0 standard errors from 40 separate bets over 10+ days; gives up at 80 bets if clearly behind, at 240 if still no lead)
+- [x] Recalibrated odds from the live ledger (contestant `recal`; no correction until 30 separate market moves)
+- [x] Conviction tiers (contestant `tiers`) and double risk (contestant `bold`, 8% per Grade A trade); hard ceiling 8% per trade in config
+- [x] Kill switch: Arbiter 30% below its peak, or graded calls far below predicted over 30+ separate moves: closes everything, human reset
+- [x] Best-rule account: a rule stays a week unless the account fell 15% under it; a replacement needs +0.10 points per trade over 50+ unseen trades each
+- [x] Luck haircut on research rules (marked down for every idea ever tried); results by market state, expectancy and drawdown instead of win rate
+- [x] Dashboard: Results, Is it learning?, Risk, Market state panels; audit log lines in the health report
+- [ ] Not built on purpose: longs switched on by a rising market alone (lost money in the 7-period test); a 9% cap on total open risk (owner wants more risk, not less); "too few bets since the last promotion -> go flat" (would stop trading for good)
