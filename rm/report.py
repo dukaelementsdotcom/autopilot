@@ -304,14 +304,14 @@ const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forE
  const W=M?Object.entries(M.long?.weights||{}).map(([f,w])=>`${esc(f)} ${w>0?"+":""}${w}`).join(" · "):"";
  const look=R.look,lk=look&&look.rows?.length?`<div class="cands">${look.rows.map(x=>{const why=x.off?"side watching only":x.unfamiliar?"unfamiliar situation":x.grade?"Grade "+x.grade:x.prob<x.need?"odds too low":"not enough agreement";
   const sd=x.side=="LONG"?1:-1,lv=x.px&&x.stopPct?`price then ${fx(x.px)} · SL ${fx(x.px*(1-sd*x.stopPct))} (−${(x.stopPct*100).toFixed(1)}%) · TP ${fx(x.px*(1+sd*0.02))} (+2%)`:"";
-  return `<div class="cand ${x.grade&&!x.off?"go":""}"><div class="ch"><b>${esc(x.coin)}</b><span class="bdg ${sd>0?"L":"S"}">${sd>0?"Long":"Short"}</span>${x.grade&&!x.off?`<span class="tag champion">${why}</span>`:`<span class="mute" style="font-size:12.5px">${why}</span>`}<span class="odds">${Math.round(x.prob*100)}% <small>needs ${Math.round(x.need*100)}%</small></span></div>
-  <div class="meter" style="margin:7px 0 2px"><i style="width:${Math.min(100,x.prob*100)}%"></i><u style="left:${Math.min(100,x.need*100)}%"></u></div>${lv?`<div class="lv">${lv}</div>`:""}
+  return `<div class="cand ${x.grade&&!x.off?"go":""}" data-coin="${esc(x.coin)}" data-sd="${sd}" data-px="${x.px||""}" data-stop="${x.stopPct||""}" data-ok="${x.grade&&!x.off?1:0}"><div class="ch"><b>${esc(x.coin)}</b><span class="bdg ${sd>0?"L":"S"}">${sd>0?"Long":"Short"}</span>${x.grade&&!x.off?`<span class="tag champion">${why}</span>`:`<span class="mute" style="font-size:12.5px">${why}</span>`}<span class="odds">${Math.round(x.prob*100)}% <small>needs ${Math.round(x.need*100)}%</small></span></div>
+  <div class="meter" style="margin:7px 0 2px"><i style="width:${Math.min(100,x.prob*100)}%"></i><u style="left:${Math.min(100,x.need*100)}%"></u></div>${lv?`<div class="lv">${lv}</div>`:""}<div class="cv" style="font-size:13px;font-weight:600;margin:3px 0 5px"></div>
   <div>${x.for.map(f=>`<span class="fam y">${esc(f)}</span>`).join("")}${x.against.map(f=>`<span class="fam n">${esc(f)}</span>`).join("")}</div></div>`}).join("")}</div>`:'<p class="mute">Appears after the next run with a trained model.</p>';
  $("rbox").innerHTML=kpis(A,"rbox",[["Brain",M?`<span style="font-size:13.5px;font-weight:500">Deep training weekly: last ${esc(M.trainedAt.slice(5,10))}, next ~${esc(new Date(new Date(M.trainedAt.replace(" ","T")+"Z").getTime()+7*864e5).toISOString().slice(5,10))}<br>Live learning: every hour</span>`:'<span style="font-size:14px" class="mute">not trained yet</span>']])+
  (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+exPanel(A,10,"rbox")+
  `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest 4 months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
   ${M?`<div class="exam">${ex("Long",M.long)}${ex("Short",M.short)}</div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
- <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(${look.scanned} coins scanned; prices as of ${when(look.t)}, <b>${Math.max(0,Math.round((Date.now()/1000-look.t)/60))} min ago</b>; a real trade is filled at the live price when the decision is made, with stop and target set from that price)</span>`:""}</h3>${lk}
+ <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(${look.scanned} coins scanned; prices as of ${when(look.t)}, <b>${Math.max(0,Math.round((Date.now()/1000-look.t)/60))} min ago</b>; each card is re-checked live against the current price, see the line under it; a real trade is filled at the live price when the decision is made, with stop and target set from that price)</span>`:""}</h3>${lk}
  <h3>Live scorecard: every A/B call, traded or not</h3>${shadowBox(R)}
  <h3>How it is adapting right now</h3>${adaptBox(R)}
 `})();
@@ -351,6 +351,29 @@ renderAcct(D.account,"box",false);
   document.querySelectorAll(".acctret").forEach(v=>{const e=eqs[v.dataset.acct];if(e==null)return;const r=100*(e/+v.dataset.start-1);v.textContent=sgn(r);v.style.color=`var(--${r>=0?"good":"bad"})`});
   note.textContent=`Live prices from ${src}, updated ${new Date().toLocaleTimeString()} (every 5 s, in your browser). Trades are booked by the hourly run.`}
  tick();setInterval(tick,5000)})();
+
+// is each candidate still worth entering? checked live in the browser: the price now, and every minute's high and low since the reading
+(()=>{const look=(D.referee||{}).look;const cards=[...document.querySelectorAll(".cand[data-px]")].filter(el=>+el.dataset.px>0);if(!look||!cards.length)return;
+ const T0=look.t*1000,ext={},fx=v=>v>=1000?v.toFixed(1):v>=10?v.toFixed(2):v>=1?v.toFixed(4):v.toPrecision(4);
+ const sym=c=>c+"USDT";
+ async function prices(){for(const url of["https://fapi.binance.com/fapi/v1/ticker/price","https://data-api.binance.vision/api/v3/ticker/price"]){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)continue;const j=await r.json();const m={};j.forEach(x=>m[x.symbol]=+x.price);return m}catch(e){}}return null}
+ const pick=(m,c)=>m[sym(c)]||(c.startsWith("1000")&&m[c.slice(4)+"USDT"]?m[c.slice(4)+"USDT"]*1000:null);
+ async function kl(){for(const c of [...new Set(cards.map(el=>el.dataset.coin))]){for(const base of["https://fapi.binance.com/fapi/v1/klines","https://data-api.binance.vision/api/v3/klines"]){try{const k=c.startsWith("1000")&&base.includes("data-api")?c.slice(4):c,mul=k==c?1:1000;
+    const r=await fetch(`${base}?symbol=${k}USDT&interval=1m&startTime=${T0}&limit=1000`,{cache:"no-store"});if(!r.ok)continue;const j=await r.json();if(j.length){ext[c]={hi:Math.max(...j.map(q=>+q[2]))*mul,lo:Math.min(...j.map(q=>+q[3]))*mul};break}}catch(e){}}}}
+ async function tick(){const m=await prices();if(!m)return;const age=Math.round((Date.now()-T0)/6e4);
+  cards.forEach(el=>{const now=pick(m,el.dataset.coin);if(!now)return;const sd=+el.dataset.sd,px=+el.dataset.px,st=+el.dataset.stop,x=ext[el.dataset.coin]||{hi:now,lo:now};
+   const hi=Math.max(x.hi,now),lo=Math.min(x.lo,now),fav=sd*(now/px-1),best=sd>0?hi/px-1:1-lo/px,worst=sd>0?1-lo/px:hi/px-1;let t,c,dead=false;
+   if(best>=0.02){t=`✗ No longer valid: the +2% target was already reached after this reading.`;c="bad";dead=true}
+   else if(st&&worst>=st){t=`✗ No longer valid: the price went through the stop after this reading.`;c="bad";dead=true}
+   else if(fav>=0.01){t=`⚠ Late: ${(fav*100).toFixed(1)}% of the 2% move has already happened. Entering now is chasing.`;c="warn"}
+   else if(st&&fav<=-0.5*st){t=`⚠ Weaker: it has moved ${(-fav*100).toFixed(1)}% against the call, more than halfway to the stop.`;c="warn"}
+   else if(fav<=-0.003){t=`✓ Still valid, at a better price: ${(-fav*100).toFixed(1)}% better than at the reading.`;c="good"}
+   else{t=`✓ Still valid: the price is within ${(Math.abs(fav)*100).toFixed(1)}% of the reading.`;c="good"}
+   if(!dead&&age>150){t=`⚠ Old reading (${age} min). `+t.replace(/^[✓⚠] /,"");c="warn"}
+   const v=el.querySelector(".cv");v.style.color=`var(--${c})`;
+   v.innerHTML=`${t}<div class="mute" style="font-weight:400;font-size:12.5px">Now ${fx(now)}${dead?"":` · entered now: SL ${fx(now*(1-sd*st))} · TP ${fx(now*(1+sd*0.02))}`}</div>`;
+   el.style.opacity=dead?"0.5":"1";el.classList.toggle("go",!dead&&el.dataset.ok=="1"&&c!="warn")})}
+ kl().then(tick);setInterval(kl,60000);setInterval(tick,5000)})();
 // health warnings (only shown when something is wrong)
 (()=>{const h=(Date.now()-builtMs)/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
  $("health").innerHTML=h>4?`<div class="card" style="border-color:var(--bad);color:var(--bad);margin-top:12px"><b>⚠ The machine has not run for ${Math.round(h)} hours</b> (it should run every hour). Something may be stuck: tell Claude.</div>`:
