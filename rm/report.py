@@ -228,7 +228,7 @@ const pnlOf=(q,px)=>Math.max(-q.margin,q.notional*(q.sd*(px/q.avg-1))-q.notional
 const railPos=(q,px)=>{if(!q.tp||!q.sl)return null;const f=q.sd>0?(px-q.sl)/(q.tp-q.sl):(q.sl-px)/(q.sl-q.tp);return Math.max(0,Math.min(1,f))};
 const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.margin*100,c=pn>=0?"good":"bad",m=railPos(q,q.mark),en=railPos(q,q.avg);
  const tpTxt=q.tp?fx(q.tp)+(q.half?" ✓ half taken":""):(q.trail?`trailing ${(q.trail*100).toFixed(1)}%`:"–");
- return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}">
+ return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}" data-half="${q.half?1:0}">
  <div class="ph"><span class="sym">${esc(q.coin)}USDT<small>Perp</small></span><span class="bdg ${q.sd>0?"L":"S"}">${q.sd>0?"Long":"Short"} ${q.L}x</span><span class="bdg">${q.L>1?"Isolated":"Spot-like"}</span>${q.grade?`<span class="bdg A" title="model probability of reaching +2% before the stop">Grade ${q.grade} · ${Math.round(q.prob*100)}%</span>`:""}${q.rule?`<span class="bdg" title="the rule that opened this trade; the account may have moved to another rule since">opened by Rule #${esc(q.rule)}</span>`:""}${q.added?'<span class="bdg A">+ added</span>':""}
  <span class="pnlbox"><span class="v upnl" style="color:var(--${c})">${pn>=0?"+":""}${usd(pn)}</span><span class="r roe" style="color:var(--${c})">ROE ${roe>=0?"+":""}${roe.toFixed(2)}%</span></span></div>
  <div class="pg"><div><span>Size</span><b>${fx(q.notional/q.avg)} ${esc(q.coin)}</b><div class="mute" style="font-size:12px">${usd(q.notional)}</div></div>
@@ -333,12 +333,19 @@ renderAcct(D.account,"box",false);
  async function prices(){for(const url of["https://fapi.binance.com/fapi/v1/ticker/price","https://data-api.binance.vision/api/v3/ticker/price"]){
    try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)continue;const j=await r.json();const m={};j.forEach(x=>m[x.symbol]=+x.price);return [m,url.includes("fapi")?"Binance futures":"Binance spot"]}catch(e){}}return [null,null]}
  const pick=(m,c)=>m[c+"USDT"]||(c.startsWith("1000")&&m[c.slice(4)+"USDT"]?m[c.slice(4)+"USDT"]*1000:null);
+ const T0=(D.newest||0)*1000+36e5,ext={};          // each coin's high and low, minute by minute, since the hour the last run booked
+ async function kl(){for(const c of [...new Set(cards.map(el=>el.dataset.coin))]){try{const r=await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${c}USDT&interval=1m&limit=240`,{cache:"no-store"});if(!r.ok)continue;const j=(await r.json()).filter(k=>k[0]>=T0);if(j.length)ext[c]={hi:Math.max(...j.map(k=>+k[2])),lo:Math.min(...j.map(k=>+k[3]))}}catch(e){}}}
+ kl();setInterval(kl,60000);
  async function tick(){const [m,src]=await prices();if(!m){note.textContent="Live prices unavailable right now (values below are from the last hourly run).";return}
   const tot={};cards.forEach(el=>{const px=pick(m,el.dataset.coin);if(!px)return;const q={sd:+el.dataset.sd,avg:+el.dataset.avg,notional:+el.dataset.notional,margin:+el.dataset.margin,tp:+el.dataset.tp||null,sl:+el.dataset.sl||null};
    const pn=pnlOf(q,px),roe=pn/q.margin*100,c=`var(--${pn>=0?"good":"bad"})`;tot[el.dataset.acct]=(tot[el.dataset.acct]||0)+pn;
    const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
    u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
-   const f=railPos(q,px);if(dot&&f!=null)dot.style.left=(f*100).toFixed(1)+"%"});
+   const f=railPos(q,px);if(dot&&f!=null)dot.style.left=(f*100).toFixed(1)+"%";
+   const x=ext[el.dataset.coin]||{hi:px,lo:px},hi=Math.max(x.hi,px),lo=Math.min(x.lo,px);
+   const hitT=q.tp&&el.dataset.half!="1"&&(q.sd>0?hi>=q.tp:lo<=q.tp),hitS=q.sl&&(q.sd>0?lo<=q.sl:hi>=q.sl);let b=el.querySelector(".livehit");
+   if(hitT||hitS){if(!b){b=document.createElement("div");b.className="livehit";b.style.cssText="margin-top:6px;font-size:13px;font-weight:600";el.appendChild(b)}
+    b.style.color=`var(--${hitS&&!hitT?"bad":"good"})`;b.textContent=hitS&&hitT?"Both the stop and the target were touched since the last hourly run; the run decides which came first.":hitT?"✓ Target reached (seen live, minute by minute). Half is booked as profit at the next hourly run; the rest keeps running with its stop at break-even.":"✗ Stop reached (seen live). The trade is closed at the next hourly run."}else if(b)b.remove()});
   document.querySelectorAll(".xunr").forEach(v=>{const u=tot[v.dataset.acct];if(u==null)return;v.textContent=(u>=0?"+":"")+usd(u);v.style.color=`var(--${u>=0?"good":"bad"})`});
   const eqs={};document.querySelectorAll(".acctval").forEach(v=>{if(tot[v.dataset.acct]!=null){eqs[v.dataset.acct]=+v.dataset.cash+tot[v.dataset.acct];v.textContent=usd(eqs[v.dataset.acct])}});
   document.querySelectorAll(".acctret").forEach(v=>{const e=eqs[v.dataset.acct];if(e==null)return;const r=100*(e/+v.dataset.start-1);v.textContent=sgn(r);v.style.color=`var(--${r>=0?"good":"bad"})`});
