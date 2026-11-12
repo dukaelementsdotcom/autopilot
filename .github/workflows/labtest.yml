@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 120
     env:
       COINALYZE_KEY: ${{ secrets.COINALYZE_KEY }}
+      BINANCE_DEMO_KEY: ${{ secrets.BINANCE_DEMO_KEY }}
+      BINANCE_DEMO_SECRET: ${{ secrets.BINANCE_DEMO_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
