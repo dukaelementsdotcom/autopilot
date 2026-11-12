@@ -36,6 +36,29 @@ def info(sym):
 def _fl(x, step): return math.floor(x / step + 1e-9) * step
 def _fmt(x, step): d = max(0, -int(math.floor(math.log10(step)))) if step < 1 else 0; return f"{x:.{d}f}"
 
+def cond(sym, side, typ, trigger, tick, qty=None, step=None):
+    """a stop / take-profit order that waits on the exchange. Returns (kind, id)."""
+    base = dict(symbol=sym, side=side, type=typ, workingType="MARK_PRICE")
+    if qty is None: base["closePosition"] = "true"
+    else: base.update(quantity=_fmt(qty, step), reduceOnly="true")
+    try:
+        o = req("POST", "/fapi/v1/order", stopPrice=_fmt(trigger, tick), **base); return "o", o.get("orderId")
+    except IOError as e:
+        if "lgo" not in str(e) and "-4120" not in str(e): raise
+    o = req("POST", "/fapi/v1/algoOrder", algoType="CONDITIONAL", triggerPrice=_fmt(trigger, tick), **base); return "a", o.get("algoId")
+
+def uncond(sym, ref):
+    if not ref or not isinstance(ref, (list, tuple)): return
+    try:
+        if ref[0] == "a": req("DELETE", "/fapi/v1/algoOrder", algoId=ref[1])
+        else: req("DELETE", "/fapi/v1/order", symbol=sym, orderId=ref[1])
+    except IOError: pass
+
+def cancel_all(sym):
+    for path in ("/fapi/v1/allOpenOrders", "/fapi/v1/algoOpenOrders"):
+        try: req("DELETE", path, symbol=sym)
+        except IOError: pass
+
 def check():
     """can we reach the demo, what is in it, and do its prices follow the real market?"""
     out = {"keys": all(_keys())}
@@ -57,12 +80,15 @@ def mirror(R, log=print):
     held = {p["symbol"]: float(p["positionAmt"]) for p in acc["positions"] if float(p["positionAmt"])}
     eqA = A.get("equity", A.get("cash", 500.0)) or 500.0; scale = wallet / eqA
     want = {}
+    D.setdefault("since", int(time.time()))
     for p in A.get("open", []):
-        sym = p["coin"] + "USDT"; pid = f"{p['coin']}|{p['t']}"; want[sym] = (p, pid)
+        sym = p["coin"] + "USDT"; pid = f"{p['coin']}|{p['t']}"
+        if p.get("half") and (D["pos"].get(sym) or {}).get("pid") != pid: continue     # already half-closed on paper before the demo saw it: stays paper-only
+        want[sym] = (p, pid)
     # 1) close what the Arbiter no longer holds
     for sym, amt in held.items():
         if sym not in want:
-            req("DELETE", "/fapi/v1/allOpenOrders", symbol=sym)
+            cancel_all(sym)
             o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
             done.append({"close": sym, "px": float(o.get("avgPrice") or 0)}); D["pos"].pop(sym, None)
     # 2) open what it holds and the demo does not; keep stop / target orders in line with the paper position
@@ -81,25 +107,19 @@ def mirror(R, log=print):
             if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "too small"}); continue
             o = req("POST", "/fapi/v1/order", symbol=sym, side=side, type="MARKET", quantity=_fmt(qty, I["step"]), newOrderRespType="RESULT")
             fill = float(o.get("avgPrice") or 0); st = {"pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
-            D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "fill": fill, "paper": p["entry"], "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
+            D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "fill": fill, "paper": p["entry"], "late": p["t"] < D["since"] - 3600, "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
         # stop order (whole position) and the half target (before the half is taken)
         stp = float(_fmt(p["stop"], I["tick"]))
         if st.get("stop") != stp:
-            if st.get("stopId"):
-                try: req("DELETE", "/fapi/v1/order", symbol=sym, orderId=st["stopId"])
-                except Exception: pass
-            o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="STOP_MARKET", stopPrice=_fmt(stp, I["tick"]), closePosition="true", workingType="MARK_PRICE")
-            st["stop"] = stp; st["stopId"] = o.get("orderId"); done.append({"stop": sym, "at": stp})
+            uncond(sym, st.get("stopId"))
+            st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "at": stp})
         if not p.get("half") and not st.get("tpId"):
             hq = _fl(st["qty"] / 2, I["step"])
             if hq >= I["minQty"]:
-                o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="TAKE_PROFIT_MARKET", stopPrice=_fmt(p["target"], I["tick"]), quantity=_fmt(hq, I["step"]), reduceOnly="true", workingType="MARK_PRICE")
-                st["tpId"] = o.get("orderId"); done.append({"target": sym, "at": p["target"], "qty": hq})
+                st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); done.append({"target": sym, "at": p["target"], "qty": hq})
         if p.get("half") and sym in held and abs(held[sym]) > st["qty"] * 0.75:      # paper took half, the exchange has not (yet): take it
             hq = _fl(abs(held[sym]) / 2, I["step"])
-            if st.get("tpId"):
-                try: req("DELETE", "/fapi/v1/order", symbol=sym, orderId=st["tpId"])
-                except Exception: pass
+            if st.get("tpId") and st["tpId"] != "done": uncond(sym, st["tpId"])
             o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="MARKET", quantity=_fmt(hq, I["step"]), reduceOnly="true", newOrderRespType="RESULT")
             st["tpId"] = "done"; done.append({"half": sym, "px": float(o.get("avgPrice") or 0)})
     D["log"] = (D.get("log") or [])[-40:] + [{"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), **d} for d in done]
