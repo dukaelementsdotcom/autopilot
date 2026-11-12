@@ -28,6 +28,8 @@ WITNESSES = {
                 "what": "Compass global-markets witness: US, European and Asian stocks, the dollar, gold, oil, NVIDIA and chips, Coinbase, and how tightly Bitcoin follows stocks right now"},
     "mood":    {"cols": ["w_g_fng", "w_g_fng7", "w_g_dvol", "w_g_dvol7", "w_g_edvol", "w_g_edvol7"], "what": "Compass mood witness: the crypto Fear & Greed index and the options market's fear gauge (implied volatility), and how fast they are changing"},
     "flows":   {"cols": ["w_f_stab7", "w_f_stab30", "w_f_stab90"], "what": "Compass money-flow witness: dollar stablecoin supply growing or shrinking (new money arriving in / leaving crypto)"},
+    "book":    {"cols": ["w_b_imb1", "w_b_imb5", "w_b_imb02", "w_b_imb1w", "w_b_late", "w_b_dep", "w_b_dep7", "w_b_ofi", "w_b_ofi3", "w_b_front", "w_b_rel", "w_b_mkt"],
+                "what": "Order-book witness: how much money has been waiting to buy versus to sell near the price over the last days, and whether the book is getting thinner (Binance's own archive since 2023, one day behind)"},
     "shock":   {"cols": ["w_shock1", "w_shock4", "w_shockN"], "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)"},
 }
 WAITING = {"recorder": "Recorder witness: liquidations, order-book and order-flow imbalance, live funding (own server)",
@@ -83,6 +85,9 @@ def panel_extras(P, log=print):
         big = (np.abs(b.r1 / b.vol24.replace(0, np.nan)) > 3).astype(float); put("w_shockN", big.rolling(72, min_periods=1).sum().values)
     except Exception as e: log(f"   witness shock features skipped: {e}")
     try:
+        from . import book; out.update(book.features(P, log))
+    except Exception as e: log(f"   order-book features skipped: {e}")
+    try:
         from . import compass; out["p_mtrend"] = compass.trend_panel(P, out)      # the market's trend as a measurement (research rules can condition on it)
     except Exception as e: log(f"   trend column skipped: {e}")
     return out
@@ -115,6 +120,11 @@ def status(B, J=None):
     for n, w in WITNESSES.items():
         m = model(n, B)
         st[n] = {"what": w["what"], "state": "challenger (being scored live)" if m else "waiting to be trained", **({"exam": m.get("exam")} if m else {})}
+        if n == "book" and not m:
+            try:
+                from . import book; bm = book._man(); nd = sum(len(v) for v in bm["done"].values())
+                if not bm.get("complete"): st[n]["state"] = f"back-filling its history from Binance's archive ({nd:,} coin-days so far)"
+            except Exception: pass
     for n, what in WAITING.items():
         st[n] = {"what": what, "state": f"recording; needs ~21 days of history ({_days(n):.0f} so far)"}
     return st
@@ -165,6 +175,7 @@ def maybe_fit(J, mem, log=print, time_left=1e9):
     if B is None or Hd is None or "V" not in next(iter(Hd["sides"].values())): return False
     for n in WITNESSES:
         if _tried(n, B): continue
+        if not any(c in J.P.columns for c in WITNESSES[n]["cols"]): continue        # its measurements are not in the panel yet (history still arriving)
         if time_left < 8 * 60: log("witnesses: postponed (not enough time this run)"); return False
         m = fit(n, J, B, Hd, log)
         import joblib
