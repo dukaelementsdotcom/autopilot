@@ -109,6 +109,7 @@ jobs:
         continue-on-error: true
       - uses: actions/upload-pages-artifact@v3
         if: hashFiles('docs/index.html') != ''
+        continue-on-error: true
         with:
           path: docs
       - id: deploy

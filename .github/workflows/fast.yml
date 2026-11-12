@@ -60,6 +60,7 @@ jobs:
         continue-on-error: true
       - uses: actions/upload-pages-artifact@v3
         if: hashFiles('fast_changed') != '' && hashFiles('docs/index.html') != ''
+        continue-on-error: true
         with:
           path: docs
       - uses: actions/deploy-pages@v4
