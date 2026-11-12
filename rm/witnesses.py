@@ -30,6 +30,8 @@ WITNESSES = {
     "flows":   {"cols": ["w_f_stab7", "w_f_stab30", "w_f_stab90"], "what": "Compass money-flow witness: dollar stablecoin supply growing or shrinking (new money arriving in / leaving crypto)"},
     "book":    {"cols": ["w_b_imb1", "w_b_imb5", "w_b_imb02", "w_b_imb1w", "w_b_late", "w_b_dep", "w_b_dep7", "w_b_ofi", "w_b_ofi3", "w_b_front", "w_b_rel", "w_b_mkt"],
                 "what": "Order-book witness: how much money has been waiting to buy versus to sell near the price over the last days, and whether the book is getting thinner (Binance's own archive since 2023, one day behind)"},
+    "liq":     {"cols": ["w_l_net1", "w_l_size1", "w_l_net7", "w_l_size7", "w_l_long1", "w_l_short1", "w_l_mnet1", "w_l_msize1", "w_l_msize7", "w_l_rel"],
+                "what": "Liquidation witness: how many longs and shorts were forcibly closed yesterday and over the last week, per coin and market-wide (Binance, Bybit and OKX, history since 2020)"},
     "shock":   {"cols": ["w_shock1", "w_shock4", "w_shockN"], "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)"},
 }
 WAITING = {"recorder": "Recorder witness: liquidations, order-book and order-flow imbalance, live funding (own server)",
@@ -84,6 +86,9 @@ def panel_extras(P, log=print):
         r4 = b.r1.rolling(4, min_periods=4).sum(); put("w_shock4", (r4 / (b.vol24 * 2).replace(0, np.nan)).values)
         big = (np.abs(b.r1 / b.vol24.replace(0, np.nan)) > 3).astype(float); put("w_shockN", big.rolling(72, min_periods=1).sum().values)
     except Exception as e: log(f"   witness shock features skipped: {e}")
+    try:
+        from . import liq; out.update(liq.features(P, log))
+    except Exception as e: log(f"   liquidation features skipped: {e}")
     try:
         from . import book; out.update(book.features(P, log))
     except Exception as e: log(f"   order-book features skipped: {e}")

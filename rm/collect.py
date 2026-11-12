@@ -163,8 +163,8 @@ def news(log=print):
 
 def run(log=print):
     info = {}
-    from . import compass, book
-    for name, fn in (("recorder", rec), ("macro", macro), ("onchain", onchain), ("whales", whales), ("news", news), ("compass", compass.run), ("book", book.update)):
+    from . import compass, book, liq
+    for name, fn in (("recorder", rec), ("macro", macro), ("onchain", onchain), ("whales", whales), ("news", news), ("compass", compass.run), ("liq", liq.update), ("book", book.update)):
         t0 = time.time()
         try: info[name] = fn(log=log)
         except Exception as e: info[name] = {"error": f"{type(e).__name__}: {str(e)[:150]}"}; log(f"   ! collector {name}: {e}")
