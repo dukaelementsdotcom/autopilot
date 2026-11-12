@@ -118,13 +118,31 @@ def mirror(R, log=print):
         sym = p["coin"] + "USDT"; pid = f"{p['coin']}|{p['t']}"
         if p.get("half") and (D["pos"].get(sym) or {}).get("pid") != pid: continue     # already half-closed on paper before the demo saw it: stays paper-only
         want[sym] = (p, pid)
+    for st in D["pos"].values():                              # positions opened before the wider stop existed get it too (inside their liquidation)
+        if "wide" not in st and getattr(C, "DEMO_STOP_X", 1.0) > 1: st["wide"] = True; st.setdefault("t0", time.time())
+    # a trade the Arbiter closed at ITS (tighter) stop stays open here under the demo's own wider stop; the exchange's stop and half-target
+    # manage it, the stop goes to break-even once the half is taken, and it is closed after the Arbiter's time limit
+    paper_closed = {f"{c['coin']}|{c['t']}": c for c in (A.get("closed") or [])[-60:]}
+    for sym, st in list(D["pos"].items()):
+        if sym in want or sym not in held: continue
+        c = paper_closed.get(st.get("pid") or "")
+        if not c or "stop" not in str(c.get("how", "")).lower() or c.get("half") or not st.get("wide"): continue
+        I = info(sym); sd = 1 if held[sym] > 0 else -1; opp = "SELL" if sd > 0 else "BUY"; age_h = (time.time() - st.get("t0", time.time())) / 3600
+        if age_h > 48:
+            cancel_all(sym); o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="MARKET", quantity=_fmt(abs(held[sym]), I["step"]), reduceOnly="true", newOrderRespType="RESULT")
+            done.append({"close": sym, "px": _fill(sym, o), "why": "time limit (own wider stop)"}); D["pos"].pop(sym, None); held.pop(sym); continue
+        if abs(held[sym]) <= st["qty"] * 0.75 and not st.get("be"):                 # the exchange took the half: stop to break-even on the demo's own fill
+            be = float(_fmt(st["fill"] * (1 - sd * 0.002), I["tick"])); uncond(sym, st.get("stopId"))
+            st["stopId"] = cond(sym, opp, "STOP_MARKET", be, I["tick"]); st["stop"] = be; st["be"] = True; done.append({"stop": sym, "at": be, "why": "break-even"})
+        st.setdefault("ownSince", time.strftime("%Y-%m-%d %H:%M", time.gmtime())); D["pos"][sym] = st
+    keep = {k for k, st in D["pos"].items() if st.get("ownSince") and k in held and k not in want}
     # 1) close what the Arbiter no longer holds
     for sym, amt in held.items():
-        if sym not in want:
+        if sym not in want and sym not in keep:
             cancel_all(sym)
             o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
             done.append({"close": sym, "px": _fill(sym, o)}); D["pos"].pop(sym, None)
-    for sym in [k for k in D["pos"] if k not in want and k not in held]:      # closed on the exchange and on paper: tidy up leftover orders
+    for sym in [k for k in D["pos"] if k not in want and k not in held and k not in keep]:      # closed on the exchange and on paper: tidy up leftover orders
         cancel_all(sym); D["pos"].pop(sym, None)
     # 2) open what it holds and the demo does not; keep stop / target orders in line with the paper position
     for sym, (p, pid) in want.items():
@@ -138,7 +156,7 @@ def mirror(R, log=print):
             try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType=getattr(C, "DEMO_MARGIN_MODE", "ISOLATED"))
             except Exception: pass
             # leverage 20-30x: the highest that keeps the liquidation price beyond the stop (liquidation distance ~ 1/lev - 0.6% maintenance)
-            lo, hi = getattr(C, "DEMO_LEV", (20, 30)); stp_pct = abs(p["stop"] / p["entry"] - 1); lev = lo
+            lo, hi = getattr(C, "DEMO_LEV", (20, 30)); stp_pct = min(abs(p["stop"] / p["entry"] - 1) * getattr(C, "DEMO_STOP_X", 1.0), 0.04); lev = lo
             for L in range(hi, lo - 1, -1):
                 if 1.0 / L - 0.006 >= stp_pct * 1.1: lev = L; break
             used = None
@@ -153,10 +171,14 @@ def mirror(R, log=print):
             qty = _fl(margin * used / px_now, I["step"])
             if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "too small"}); continue
             o = req("POST", "/fapi/v1/order", symbol=sym, side=side, type="MARKET", quantity=_fmt(qty, I["step"]), newOrderRespType="RESULT")
-            fill = _fill(sym, o) or 0; st = {"lev": used, "margin": round(margin, 2), "liqDistPct": round((1.0 / used - 0.006) * 100, 2), "stopDistPct": round(stp_pct * 100, 2), "pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
+            fill = _fill(sym, o) or 0; st = {"wide": getattr(C, "DEMO_STOP_X", 1.0) > 1, "t0": time.time(), "lev": used, "margin": round(margin, 2), "liqDistPct": round((1.0 / used - 0.006) * 100, 2), "stopDistPct": round(stp_pct * 100, 2), "pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
             D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "lev": used, "margin": round(margin, 2), "fill": fill, "paper": p["entry"], "late": p["t"] < D["since"] - 3600, "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
         # stop order (whole position) and the half target (before the half is taken)
-        stp = float(_fmt(p["stop"], I["tick"]))
+        stp = p["stop"]
+        if st.get("wide") and not p.get("half"):                 # before the half: the demo's own wider stop, never beyond its liquidation
+            wpct = min(abs(p["stop"] / p["entry"] - 1) * getattr(C, "DEMO_STOP_X", 1.0), 0.04, 0.9 * (1.0 / (st.get("lev") or 20) - 0.006))
+            stp = p["entry"] * (1 - p["sd"] * wpct)
+        stp = float(_fmt(stp, I["tick"]))
         if st.get("stop") != stp:
             uncond(sym, st.get("stopId"))
             st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "at": stp})

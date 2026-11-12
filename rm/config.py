@@ -54,4 +54,5 @@ DEMO_BUDGET = 500            # the Binance demo uses this much of its futures wa
 DEMO_LEV = (20, 30)          # demo experiment: leverage only between 20x and 30x (the highest that keeps liquidation beyond the stop)
 DEMO_MARGIN = {"S": 0.30, "A": 0.30, "B": 0.15}   # margin per trade as a share of the demo account, by grade
 DEMO_MARGIN_MODE = "CROSSED" # cross margin: the account backs all trades together (a real 500 USDT cross account is checked below)
+DEMO_STOP_X = 1.5            # demo: the stop 1.5x wider than the Arbiter's (capped at 4%, and always inside the liquidation price)
 DEMO_MARGIN_TOTAL = 0.60     # all open demo trades together use at most this share of the account as margin
