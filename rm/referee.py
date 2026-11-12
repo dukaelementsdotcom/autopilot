@@ -260,6 +260,7 @@ def step(mem, J, now_iso, log=print, problems=None):
     _shadow_resolve(J, R, newest); adapt(R)
     try:
         CH.online_update(R, B, newly); trust_tables(R); CH.evaluate(R, log); CH.promote(R, log)
+        if newly: measure_drift(J, R, Hd)
     except Exception as e:
         if problems is not None: problems.append(f"challengers: {e}")
     for x in A["closed"][-10:]:
@@ -281,7 +282,7 @@ def step(mem, J, now_iso, log=print, problems=None):
     if Hd: R["shapeExam"] = {n: {"exam": v["exam"], "k": v.get("k"), "margin": v.get("margin"), "fixedExam": v.get("champExam")} for n, v in Hd["sides"].items()}
     R["champCfg"] = champ_cfg; R.pop("_votes", None)
     try:
-        from . import compass; R["upcoming"] = compass.upcoming()
+        from . import compass; R["upcoming"] = compass.upcoming(); R["brief"] = compass.latest_brief()
     except Exception: pass
     _journal(R, A)
     try:
@@ -344,6 +345,7 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         if cfg.get("rules") and R.get("ruleTrust"):                # research rules as fair witnesses: only their LIVE record, per market state
             V_ = ctx_votes(R, J, rows, name)
             if V_ is not None: prob = 1 / (1 + np.exp(-(np.log(np.clip(prob, 1e-3, 1 - 1e-3) / (1 - np.clip(prob, 1e-3, 1 - 1e-3))) + V_)))
+        if cfg.get("bestofday"): mg = mg * (1 - 0.5 * ((J.t[rows] % 86400) // H) / 23.0)   # the bar eases through the day if nothing better has come
         if cfg.get("lowbar"): mg = mg * 0.5                        # the "less cautious" challenger: half the safety margin
         if cfg.get("doubt"):                                       # split jury: when the witnesses disagree, demand more
             F = np.column_stack([np.asarray(v) for v in fams.values()]); mg = mg + np.std(F, 1)
@@ -409,6 +411,9 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
     fluid = cfg.get("pace") == "fluid"; guard = cfg.get("risk") == "guard"
     rate = sum(((R.get("callRateBySide") or {}).get(n) or {}).get("A", 0) for n in B["sides"] if side_live(R, n, B["sides"][n], R.get("regimeNow")))
     cap_day = max(1, int(round(2 * rate))) if fluid else 1
+    if cfg.get("weekpace"):                                    # weekly goal with carry-over: a quiet day's unused trade can be used later in the same week (up to 3 in a day)
+        wk0 = (newest // 86400 - ((newest // 86400 + 3) % 7)) * 86400; done_w = sum(1 for x in A["open"] + A["closed"][-40:] if x["t"] >= wk0)
+        cap_day = int(max(1, min(3, (newest - wk0) // 86400 + 1 - done_w)))
     for pos in np.argsort(J.t[rows], kind="stable"):
         i = int(rows[pos]); day = int(J.t[i] // 86400)
         if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
@@ -473,11 +478,44 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
          "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": lev, "units": [[e, notional]],
          "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
-         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock"))}
+         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop"))}
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False}
+
+def val_signs(J, B):
+    """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
+    V = _rows(J, J.val0, J.hold0, every=6); cols = sorted({c for v in fam_cols(J.P).values() for c in v}); X = _X(J.P, V, cols); out = {}
+    for name in B["sides"]:
+        y = barrier(J, V, 1 if name == "long" else -1, TARGET, stop_pct(J.dvol[V]), HORIZON)[0].astype(float); out[name] = {}
+        for k, c in enumerate(cols):
+            ok = np.isfinite(X[:, k])
+            if ok.sum() > 2000 and X[ok, k].std() > 0: out[name][c] = round(float(np.corrcoef(X[ok, k], y[ok])[0, 1]), 4)
+    return out
+
+def measure_drift(J, R, Hd):
+    """inside the witnesses: which single measurements point the WRONG way on live scored candidates compared with what the brain learned
+    (live relationship opposite to the validation year). Shown on the dashboard; persistent offenders are research targets."""
+    import pandas as pd
+    from . import archive
+    vs = (Hd or {}).get("valSigns")
+    if not vs: return
+    L = [x for x in archive.read("ledger") + (R.get("ledger") or []) if x.get("y") is not None]
+    idx = pd.MultiIndex.from_arrays([J.coin, J.t]); out = {}
+    for name, signs in vs.items():
+        d = [x for x in L if x["side"] == name]
+        if len(d) < 150: continue
+        r = idx.get_indexer(pd.MultiIndex.from_arrays([[x["coin"] for x in d], [x["t"] for x in d]])); ok = r >= 0
+        if ok.sum() < 150: continue
+        cols = list(signs); X = _X(J.P, r[ok], cols); y = np.array([x["y"] for x in d], float)[ok]; bad = []
+        for k, c in enumerate(cols):
+            m = np.isfinite(X[:, k])
+            if m.sum() < 120 or X[m, k].std() == 0 or y[m].std() == 0: continue
+            live = float(np.corrcoef(X[m, k], y[m])[0, 1])
+            if abs(live) >= 0.15 and abs(signs[c]) >= 0.02 and np.sign(live) != np.sign(signs[c]): bad.append((abs(live), c, round(live, 2), signs[c]))
+        out[name] = {"n": int(ok.sum()), "misleading": [{"measurement": c, "live": lv, "learned": vv} for _, c, lv, vv in sorted(bad, reverse=True)[:6]]}
+    R["drift"] = out
 
 def unf_key(side, fams, base, reg):
     """the 'kind' of an unfamiliar situation: side, market state and which two witnesses lean hardest each way"""
@@ -562,6 +600,8 @@ def _manage(J, B, p, A, newest):
             _close(A, p, p["target"], f"half at +{p.get('tgtPct', TARGET)*100:.0f}%", t + H, part=0.5); p["half"] = True
             p["stop"] = p["entry"] * (1 + sd * C.FEE * 2)                          # rest is now risk-free (break-even)
         p["best"] = max(p["best"], hi) if sd > 0 else min(p["best"], lo); p["lastBar"] = t
+        if p.get("timestop") and not p["half"] and (t + H - p["t"]) / H >= 24 and p["sd"] * (float(Cc[j]) / p["entry"] - 1) < 0.005:
+            _close(A, p, float(Cc[j]), "time stop (no progress in 24h)", t + H); return
         mh = p.get("maxHold", MAX_HOLD)
         if (t + H - p["t"]) / H >= mh: _close(A, p, float(Cc[j]), f"time ({mh}h)", t + H); return
         # evidence-based decisions at the close of this hour
@@ -661,6 +701,9 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
         if "statebar" not in Hd_ and time_left > 8 * 60:                 # once per brain
             try: Hd_["statebar"] = CH.fit_statebar(J, B, log); CH.save_heads(Hd_); R_["stateBar"] = {k: Hd_["statebar"].get(k) for k in ("plan", "exam", "val", "todayExam", "fitAt")}
             except Exception as e: log(f"state bars failed: {e}")
+        if "valSigns" not in Hd_ and time_left > 6 * 60:
+            try: Hd_["valSigns"] = val_signs(J, B); CH.save_heads(Hd_)
+            except Exception as e: log(f"validation signs failed: {e}")
         if R_.get("trendAccFor") != B["trainedAt"]:
             try:
                 from . import compass; R_["trendAcc"] = compass.trend_accuracy(J); R_["trendAccFor"] = B["trainedAt"]
@@ -813,7 +856,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "statebar", "gate"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "statebar", "gate", "bestofday"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)

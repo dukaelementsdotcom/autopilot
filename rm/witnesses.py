@@ -26,7 +26,8 @@ WITNESSES = {
     "sectors": {"cols": ["w_sec24", "w_secrank", "w_insec", "w_sec168"], "what": "Sector witness: money rotating between AI, memes, layer-1s, DeFi and exchange tokens"},
     "global":  {"cols": [f"w_g_{x}{n}" for x in ("spx", "ndx", "dax", "nikkei", "hsi", "dxy", "gold", "oil", "nvda", "chips", "coin") for n in (5, 20)] + ["w_g_link"],
                 "what": "Compass global-markets witness: US, European and Asian stocks, the dollar, gold, oil, NVIDIA and chips, Coinbase, and how tightly Bitcoin follows stocks right now"},
-    "mood":    {"cols": ["w_g_fng", "w_g_fng7"], "what": "Compass mood witness: the crypto Fear & Greed index and how fast it is changing"},
+    "mood":    {"cols": ["w_g_fng", "w_g_fng7", "w_g_dvol", "w_g_dvol7", "w_g_edvol", "w_g_edvol7"], "what": "Compass mood witness: the crypto Fear & Greed index and the options market's fear gauge (implied volatility), and how fast they are changing"},
+    "flows":   {"cols": ["w_f_stab7", "w_f_stab30", "w_f_stab90"], "what": "Compass money-flow witness: dollar stablecoin supply growing or shrinking (new money arriving in / leaving crypto)"},
     "shock":   {"cols": ["w_shock1", "w_shock4", "w_shockN"], "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)"},
 }
 WAITING = {"recorder": "Recorder witness: liquidations, order-book and order-flow imbalance, live funding (own server)",
@@ -81,6 +82,9 @@ def panel_extras(P, log=print):
         r4 = b.r1.rolling(4, min_periods=4).sum(); put("w_shock4", (r4 / (b.vol24 * 2).replace(0, np.nan)).values)
         big = (np.abs(b.r1 / b.vol24.replace(0, np.nan)) > 3).astype(float); put("w_shockN", big.rolling(72, min_periods=1).sum().values)
     except Exception as e: log(f"   witness shock features skipped: {e}")
+    try:
+        from . import compass; out["p_mtrend"] = compass.trend_panel(P, out)      # the market's trend as a measurement (research rules can condition on it)
+    except Exception as e: log(f"   trend column skipped: {e}")
     return out
 
 # ── training (one witness per run, in the staggered training slot) ───────────────────────────────────────────────────────
@@ -97,10 +101,10 @@ def _cached(name):
 
 def model(name, B):
     m = _cached(name)
-    return m if m and not m.get("failed") and B is not None and m.get("bundle") == B["trainedAt"] else None
+    return m if m and not m.get("failed") and B is not None and m.get("bundle") == B["trainedAt"] and m.get("want", m.get("cols")) == WITNESSES[name]["cols"] else None
 
 def _tried(name, B):
-    m = _cached(name); return bool(m) and B is not None and m.get("bundle") == B["trainedAt"]
+    m = _cached(name); return bool(m) and B is not None and m.get("bundle") == B["trainedAt"] and (m.get("want", m.get("cols")) == WITNESSES[name]["cols"] or (m.get("failed") and "want" not in m and name not in ("mood", "flows")))
 
 def ready(B):
     return [n for n in WITNESSES if model(n, B) is not None]
@@ -165,7 +169,8 @@ def maybe_fit(J, mem, log=print, time_left=1e9):
         m = fit(n, J, B, Hd, log)
         import joblib
         os.makedirs(os.path.dirname(MODEL(n)), exist_ok=True)
-        joblib.dump(m or {"bundle": B["trainedAt"], "failed": True, "sides": {}}, MODEL(n) + ".tmp", compress=3); os.replace(MODEL(n) + ".tmp", MODEL(n)); _MC.pop(n, None)
+        m = m or {"bundle": B["trainedAt"], "failed": True, "sides": {}}; m["want"] = list(WITNESSES[n]["cols"])
+        joblib.dump(m, MODEL(n) + ".tmp", compress=3); os.replace(MODEL(n) + ".tmp", MODEL(n)); _MC.pop(n, None)
         return True
     return False
 

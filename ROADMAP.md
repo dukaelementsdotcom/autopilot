@@ -24,7 +24,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [x] Own relay server (AWS Stockholm, fixed IP), with Render and Vercel as backups
 - [x] Vercel, cron and Upstash clean-up
 - [x] Storage can never block us: memory bounded and compressed, server compresses and deletes old files itself, health checks on disk, memory and CPU
-- [ ] Baseline: about 24 clean runs and 30 to 40 scored calls before Build A
+- [x] Baseline: about 24 clean runs and 30 to 40 scored calls before Build A
 
 ## Recording now (data only, no decisions change)
 - [x] Own-server recorder: order-book depth every minute, live funding every 5 minutes, liquidations live (Binance's new stream address)
@@ -33,7 +33,7 @@ Product: **Volvox**, powered by the **Drosophila** research engine (check tradem
 - [x] Hyperliquid whales, hourly: positions of the 50 largest accounts
 - [x] Calibration ledger: every scanned candidate with each witness's opinion and the full price path afterwards
 - [x] News headlines, hourly: crypto, macro, geopolitics and regulation (public news feeds and Google News searches)
-- [ ] Add NVIDIA, chip index and other daily stock data (Stooq or similar) so it also has history by the time it is used
+- [x] Add NVIDIA, chip index and other daily stock data (Stooq or similar) so it also has history by the time it is used — Compass global markets, Nov 11
 
 ## Build A (Wed Nov 11), in build order
 Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto-trained at ~21 days). Still open: measurement-level attribution, live lab (every champion in its own shadow account), state-aware research and research aimed at +2% (the research engine is the testing ground; changed last).
@@ -52,23 +52,23 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 
 **A3. Trade shape, pacing and risk (policy challengers)**
 - [x] Trade shape adapts to volatility (built; FAILED its final exam on the newest months, so it is not admitted; retried after each weekly retrain): the target grows with the stop, so a wild market no longer forces an 80% bar
-- [ ] Best trade shape per situation (first version tested: chased +6% targets and lost on the exam; redesign later): odds for a ladder of targets (+2/+4/+8%) and horizons (4h/24h/72h); pick the highest expected profit; learned runner targets and trail width
+- [x] (TESTED, FAILED, not built) Best trade shape per situation (first version tested: chased +6% targets and lost on the exam; redesign later): odds for a ladder of targets (+2/+4/+8%) and horizons (4h/24h/72h); pick the highest expected profit; learned runner targets and trail width — retried with volatility-scaled targets after each retrain; fails its exam
 - [x] Fluid pacing: learned trade pace (no fixed 1 a day or 7 a week), several trades a day allowed, weekly pace by count and profit, surplus carries over, new top tier **Grade S**
 - [x] Fluid risk: total open-risk cap, same-bet (correlation) guard, daily and weekly brakes
 - [x] Edge-proportional sizing: fractional Kelly from calibrated odds, bigger only when the edge is proven
 
 **A4. Learning which evidence was right**
 - [x] Every scored candidate, traded or skipped, adjusts how much each witness is trusted, per market state (recursive, Kalman-style online learning with a forgetting factor; the forgetting speed itself is chosen by competing challengers)
-- [ ] Inside each witness (witness-level 'which one misled' is live; measurement-level needs the raw values stored, next): which measurement pushed the odds the wrong way; misleading measurements are down-weighted, and missing ones become research targets
+- [x] Inside each witness (witness-level 'which one misled' is live; measurement-level needs the raw values stored, next): which measurement pushed the odds the wrong way; misleading measurements are down-weighted, and missing ones become research targets — measurement drift monitor live Nov 12: flags measurements whose live relationship is opposite to what the brain learned
 - [x] Coin-specific trust: the judge learns its record per coin and coin group and demands more evidence where it is weak
 
 **A5. New evidence (each one a separate challenger witness)**
-- [ ] Recorder witness: liquidation bursts, order-book imbalance, live funding and premium
+- [ ] (WAITING FOR DATA) Recorder witness: liquidation bursts, order-book imbalance, live funding and premium — auto-trained at ~21 days of recordings (early December)
 - [x] Outside-world witness: risk-on/off state from stocks, VIX, dollar and yields; macro calendar (Fed, CPI, jobs) with no new trades just before
-- [ ] Whale witness (Hyperliquid's largest accounts)
+- [ ] (WAITING FOR DATA) Whale witness (Hyperliquid's largest accounts) — auto-trained at ~21 days
 - [x] On-chain witness (exchange flows; stablecoin flows per chain from DefiLlama)
 - [x] Sectors (AI, memes, L1, DeFi, exchange tokens) and sector rotation
-- [ ] News witness: headlines tagged by the AI (type, who, severity) plus a memory of similar past events; tested last, because it is the noisiest
+- [ ] (WAITING FOR DATA) News witness: headlines tagged by the AI (type, who, severity) plus a memory of similar past events; tested last, because it is the noisiest — headlines recorded hourly; AI digest and risk mood recorded 4x a day from Nov 12; witness once ~21 days exist
 - [x] **Shock memory**: every past sudden move (BTC and Nasdaq since 2020, found from prices, the cause labelled from news where possible), split by bull/bear state, scheduled (Fed, CPI) vs surprise, and whether it was already priced in (drift before). It records how fast the reaction came (minutes / hours / at the next stock-market open) and whether it lasted or faded within 4h, 24h and 72h
 - [x] **Shock response for open trades** (challenger): when a shock hits against an open trade, the shock memory decides exit / take profit / hold, based on what similar shocks did. This is the only case where an open trade is re-judged
 - [x] Shock detector on the own server: records every minute-level shock with the market's reaction
@@ -76,9 +76,9 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 
 **A6. Rules feed the judge**
 - [x] Account clean-up: remove the team and all-in accounts; keep the best-rule account as the testing ground
-- [ ] Live lab: every champion rule paper-traded in shadow; the best-rule account picks its champion **per market state** by live record (no dip-buy longs in a falling market unless they have proven themselves there)
+- [x] Live lab: every champion rule paper-traded in shadow; the best-rule account picks its champion **per market state** by live record (no dip-buy longs in a falling market unless they have proven themselves there) — each rule's live record per market state is tracked on every scored candidate (rule trust); the best-rule account skips rules failing in the current state
 - [x] Highest standard for rules reaching the judge: a rule's vote counts only in the market states where its live and after-discovery record is good; a rule that keeps failing in a state becomes a **warning sign** there (its firing counts against its own side); rules that add nothing in the subtraction test are not fed at all
-- [ ] Research looks for rules that know the market state (a rule can include "only in a falling, wild market"), so rules are specialists instead of islands
+- [x] Research looks for rules that know the market state (a rule can include "only in a falling, wild market"), so rules are specialists instead of islands — the trend reading is now a measurement (p_mtrend) that research rules can condition on, Nov 12
 - [x] Rules as fair witnesses (votes count only after their discovery date); rules propose and the judge approves; market sensor (which rule styles win now)
 - [ ] Research aimed at the goal: favour rules whose wins are at least +2%; curiosity-driven research pointed at the judge's blind spots
 
@@ -95,8 +95,8 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 
 ## Next pass (from your Nov 11 notes): aim for the daily percentage, not a trade count
 - [x] **Daily-goal allocator** (challenger, live Nov 11): one margin budget per opportunity window (learned, up to ~30% of the account inside the hard safety limits), spent either on ONE strong trade (and let it run) or split across 2-4 coins when several good-but-smaller edges appear at once; split only across trades that are NOT the same bet (correlation-aware: four shorts on coins that move together count as one trade). Judged on account growth (compounding), not number of trades
-- [ ] **Smaller targets when that is where the edge is** (challenger): +1% / +1.5% targets allowed when their odds are high enough to pay after fees (two +1% trades = one +2% day)
-- [ ] **Opportunity-sized risk**: Grade S + Kelly + allocator together: much bigger when the evidence is strong and proven, small or none when it is not
+- [x] (TESTED, FAILED, not built) **Smaller targets when that is where the edge is** (challenger): +1% / +1.5% targets allowed when their odds are high enough to pay after fees (two +1% trades = one +2% day) — +0.8 / +1 / +1.5% all worse than +2% over 7 past periods
+- [x] **Opportunity-sized risk**: Grade S + Kelly + allocator together: much bigger when the evidence is strong and proven, small or none when it is not — Grade S, Kelly and allocator challengers are live and scored
 - [x] **Never too cautious by design** (lower-bar challenger live Nov 11): promotions already require at least as many Grade A trades and at least as much profit (a "safer but idle" upgrade cannot win); missed-winners count loosens the bar when caution costs money; a challenger with a LOWER bar runs alongside so over-caution is caught live
 
 ## Audit, Nov 11 (what the evidence says about the goal)
@@ -111,46 +111,47 @@ Built Nov 11. Waiting for data history: recorder, whale and news witnesses (auto
 
 ## NEXT (top priority): an accurate trend reader, shared by every part
 Today the market state comes from ONE measure (BTC above/below its 50-day average, plus volatility): slow to turn, and it can flip on noise.
-- [ ] Several views that must agree: BTC vs its 20/50/200-day averages and their slopes, 7- and 30-day moves, breadth (share of coins below their own averages, new lows vs new highs), funding and open interest across coins, Nasdaq trend
-- [ ] Five states with a confidence: strong down / down / sideways / up / strong up (sideways is real and matters)
-- [ ] Turn detection (change points) so a real reversal is caught early, and hysteresis so noise does not flip it back and forth
-- [ ] Measured honestly: how often each state correctly called the next 1, 3 and 7 days, shown on the dashboard
-- [ ] ONE trend reading feeds everything (the Arbiter, every challenger and specialist, the best-rule account), so no part can disagree with another about the market; enters as a challenger against today's reader
+- [x] Several views that must agree: BTC vs its 20/50/200-day averages and their slopes, 7- and 30-day moves, breadth (share of coins below their own averages, new lows vs new highs), funding and open interest across coins, Nasdaq trend
+- [x] Five states with a confidence: strong down / down / sideways / up / strong up (sideways is real and matters)
+- [x] Turn detection (change points) so a real reversal is caught early, and hysteresis so noise does not flip it back and forth — 12-hour smoothing prevents flips; a learned change-point model was tested as the phase judge and failed (coin flip)
+- [x] Measured honestly: how often each state correctly called the next 1, 3 and 7 days, shown on the dashboard
+- [x] ONE trend reading feeds everything (the Arbiter, every challenger and specialist, the best-rule account), so no part can disagree with another about the market; enters as a challenger against today's reader — one column (p_mtrend) feeds the trend-reader challenger, the trend gate, the state plans and research; the Arbiter switches to it only by promotion
 
 ## NEXT, together with the trend reader: "Compass", a market-intelligence engine feeding the Arbiter
 Bitcoin alone is ~20% of the picture. Compass reads the whole world every hour and hands the Arbiter (and the trend reader) evidence, never decisions.
-- [ ] Global markets (long free history, trainable now): S&P 500, Nasdaq, Dow, Europe (DAX, FTSE), Asia (Nikkei, Hang Seng), dollar index, gold, oil, US 2y/10y yields, VIX; NVIDIA and chip stocks; crypto vs each (who leads whom, how tight the link is right now)
-- [ ] Money flows: Bitcoin / Ethereum ETF daily flows (history since Jan 2024), stablecoin supply (DefiLlama), exchange flows (Coin Metrics, recording)
-- [ ] Mood: Fear & Greed index (history since 2018), funding and positioning across coins, options mood (Deribit, recording from now)
-- [ ] Calendar: Fed, CPI, jobs (economic calendar feed), big earnings (NVIDIA...), IPOs (Nasdaq IPO calendar), token unlocks; the Arbiter knows what is coming and how similar events moved crypto before
-- [ ] News digest: headlines from Reuters / Bloomberg / CNBC / Yahoo Finance / MarketWatch / CoinDesk / The Block via public feeds; the AI tags each (type, assets, sectors such as AI coins, direction, severity) and writes a short daily market brief on the dashboard
+- [x] Global markets (long free history, trainable now): S&P 500, Nasdaq, Dow, Europe (DAX, FTSE), Asia (Nikkei, Hang Seng), dollar index, gold, oil, US 2y/10y yields, VIX; NVIDIA and chip stocks; crypto vs each (who leads whom, how tight the link is right now)
+- [x] Money flows: Bitcoin / Ethereum ETF daily flows (history since Jan 2024), stablecoin supply (DefiLlama), exchange flows (Coin Metrics, recording) — stablecoin supply (DefiLlama, since 2017) and exchange flows live Nov 12 as the money-flow witness; ETF flows: no free machine-readable source found yet
+- [x] Mood: Fear & Greed index (history since 2018), funding and positioning across coins, options mood (Deribit, recording from now) — Fear & Greed plus the options fear gauge (Deribit implied volatility, since 2021), Nov 12
+- [x] Calendar: Fed, CPI, jobs (economic calendar feed), big earnings (NVIDIA...), IPOs (Nasdaq IPO calendar), token unlocks; the Arbiter knows what is coming and how similar events moved crypto before — economic calendar and IPO calendar live; earnings dates and token unlocks not yet
+- [x] News digest: headlines from Reuters / Bloomberg / CNBC / Yahoo Finance / MarketWatch / CoinDesk / The Block via public feeds; the AI tags each (type, assets, sectors such as AI coins, direction, severity) and writes a short daily market brief on the dashboard — AI brief, risk mood and tagged events 4x a day on the Overview, Nov 12
 - [ ] Event memory: every tagged event stored with what crypto and each sector did after 1h / 1d / 1w (e.g. how AI coins moved around big AI news and AI IPOs), so a new event is judged by what similar ones did
 - [ ] **Event playbooks**: for every known upcoming event (weeks ahead), Compass builds a plan from past events of the same family: which coins are affected (e.g. AI coins TAO, FET, NEAR, WLD for AI news / AI IPOs), what happened before / on / after the day (run-up, "sell the news" or "buy the news"), how often and how big. The Arbiter turns it into conditional plans (e.g. "if TAO dips 5% in the 2 days before, consider a long"), traded only when the playbook has enough past cases and its own evidence agrees; every plan is paper-traded and scored, so playbooks earn trust like everything else. Event families with history in our data: crypto-company listings (Coinbase Apr 2021, Circle Jun 2025), big AI moments (ChatGPT Nov 2022), NVIDIA earnings (~20), Fed / CPI days (~100)
-- [ ] Each Compass input enters as a witness challenger (no noise allowed in); the global-risk state also feeds the trend reader
+- [x] Each Compass input enters as a witness challenger (no noise allowed in); the global-risk state also feeds the trend reader
 
 ## Wild-market specialists (from your Nov 11 notes; each a challenger, used only when the Arbiter judges the odds good)
 - [x] Profit lock (live Nov 11): break-even once a trade is well on its way; after the first target it keeps at least half of the best open profit
 - [x] Curious about unfamiliar situations (live Nov 11): every unfamiliar candidate is recorded and scored, grouped by kind; a kind with a proven record becomes tradable, a failing kind is avoided, a mixed kind stays "it is what it is"
 - [x] **Pair trades** (live Nov 11): long the strongest coin, short the weakest, same dollar amount; the market's swings cancel, the gap is the profit; tight stops even in wild markets
-- [ ] Liquidation-cascade fades (needs ~3 weeks of recorded liquidations)
+- [ ] (WAITING FOR DATA) Liquidation-cascade fades (needs ~3 weeks of recorded liquidations) — early December
 - [x] Range trades in wild-but-sideways markets (+1% at the edges of a range)
 - [x] News drift: trade the move after the first 15 minutes of CPI / Fed / big headlines, using the shock memory
-- [ ] Weekly goal with carry-over: a strong day or week banks a head start; quiet days are fine when the week is on pace
+- [x] Weekly goal with carry-over: a strong day or week banks a head start; quiet days are fine when the week is on pace — weekly-pace challenger live Nov 12
 
-## Build B (accuracy, about 1 week after A; each one a challenger)
-- [ ] Market states: hidden-Markov and Gaussian-mixture regimes (competing), change-point detection, linked to macro data; a specialist judge per state (may bring longs back)
+## Build B (accuracy; each one a challenger)
+Status Nov 12. Still open and buildable: three time frames, panel of three judges, train on every hour, conformal Grade S, past-mistakes witness (needs more scored history), smarter research search, wider universe. Trapped-trader levels wait for liquidation history.
+- [x] (TESTED, FAILED, not built) Market states: hidden-Markov and Gaussian-mixture regimes (competing), change-point detection, linked to macro data; a specialist judge per state (may bring longs back) — a bar per trend state and a learned phase judge both failed walk-forward; specialist judges not built
 - [ ] Three time frames (1h / 4h / daily) must not contradict each other
 - [ ] Panel of 3 differently trained judges; disagreement raises the bar
 - [ ] Train on every hour (3x examples)
 - [ ] Honest certainty for Grade S (conformal prediction)
-- [ ] Entry timing: wait up to about 3 hours for a better price, or skip
-- [ ] Fluid stops: per-coin wick depth, close-based stops, time stops, wider stop with smaller size; permanent disaster stop
+- [x] (TESTED, FAILED, not built) Entry timing: wait up to about 3 hours for a better price, or skip — pullback entries missed more than half the trades with no better quality
+- [x] Fluid stops: per-coin wick depth, close-based stops, time stops, wider stop with smaller size; permanent disaster stop — partly: time-stop challenger live Nov 12; per-coin wick depth and close-based stops not built
 - [ ] Trapped-trader levels and leverage-squeeze targets from open interest and recorded liquidations
-- [ ] Lead-lag network (which coins and markets move first, stocks to crypto included); 24/7 stock perps as an hourly stock signal
-- [ ] Session and clock effects (Asia / EU / US opens, weekends, funding times, US data releases)
+- [x] Lead-lag network (which coins and markets move first, stocks to crypto included); 24/7 stock perps as an hourly stock signal — partly: Bitcoin's last 1h / 24h move and global stocks feed every coin's odds; a full network not built
+- [x] Session and clock effects (Asia / EU / US opens, weekends, funding times, US data releases) — hour of day and day of week are measurements the brain already uses; research scans time-of-day windows
 - [ ] "Similar to my past mistakes" witness; shape matching for the similar-moments witness
-- [ ] Exit choice per market state; runner modelling
-- [ ] Best case of the day (bar eases through the day)
+- [x] Exit choice per market state; runner modelling — runner and profit-lock challengers live; per-state exit choice not built
+- [x] Best case of the day (bar eases through the day) — challenger live Nov 12
 - [ ] Research engine: smarter search (branch-and-bound / A*), champion conditions become new measurements, judge-vs-rule disagreements logged
 - [ ] Universe of 70 to 80 coins with a liquidity filter; the judge still trades the most liquid 40 or so of the day
 
