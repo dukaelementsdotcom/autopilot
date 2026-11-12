@@ -154,6 +154,9 @@ def fit(name, J, B, Hd, log=print):
     t0 = time.time(); P = J.P; D = RF._rows(J, int(J.t.min()), J.val0); out = {"bundle": B["trainedAt"], "cols": cols, "sides": {}, "fitAt": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
     D = D[np.isfinite(RF._X(P, D, cols)).mean(1) >= 0.5]                    # only the years where this evidence existed
     if len(D) < 20000: log(f"   witness {name}: too little history ({len(D)} rows)"); return None
+    fin = np.isfinite(RF._X(P, D, cols)).mean(0); cols = [c for c, f in zip(cols, fin) if f >= 0.05]     # a measurement that did not exist yet in the training years is left out
+    if len(cols) < 2: return None
+    out["cols"] = cols
     for name_s, sd in B["sides"].items():
         side = 1 if name_s == "long" else -1
         y, _ = RF.barrier(J, D, side, RF.TARGET, RF.stop_pct(J.dvol[D]), RF.HORIZON)
