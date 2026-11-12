@@ -148,11 +148,17 @@ function guardTick(mids) {
     const adv = p.sd > 0 ? (p.entry - m) / p.entry : (m - p.entry) / p.entry;
     p.hist = (p.hist || []).filter((h) => h[0] > now - 3600); p.hist.push([now, m]);
     const ago = p.hist[0][1], fast = p.sd > 0 ? (ago - m) / ago : (m - ago) / ago;          // move against the position within the last hour
-    let kind = null;
-    if ((p.sd > 0 && m <= p.stop) || (p.sd < 0 && m >= p.stop)) kind = "stop";
-    else if ((p.sd > 0 && m >= p.target) || (p.sd < 0 && m <= p.target)) kind = "target";
-    else if (p.shockPct && fast >= p.shockPct) kind = "shock";
-    if (kind) { GUARD.events.push({ id: p.id, coin: p.coin, kind, px: m, t: now, adv: +adv.toFixed(4), fast: +fast.toFixed(4) }); if (kind !== "target") p.done = true; }
+    const ev = (kind, extra) => GUARD.events.push({ id: p.id, coin: p.coin, kind, px: m, t: now, adv: +adv.toFixed(4), fast: +fast.toFixed(4), stop: p.stop, half: !!p.half, ...extra });
+    // TRADE MANAGEMENT TO THE MINUTE: stop first; at the target half is taken and the stop moves to break-even at once; after that the stop trails the best price
+    if ((p.sd > 0 && m <= p.stop) || (p.sd < 0 && m >= p.stop)) { ev("stop"); p.done = true; continue; }
+    if (!p.half && ((p.sd > 0 && m >= p.target) || (p.sd < 0 && m <= p.target))) {
+      p.half = true; p.best = m; p.stop = p.entry * (1 + p.sd * (p.bePct || 0.001)); ev("target"); continue;
+    }
+    if (p.half && p.trailPct) {
+      p.best = p.best == null ? m : (p.sd > 0 ? Math.max(p.best, m) : Math.min(p.best, m));
+      const tr = p.best * (1 - p.sd * p.trailPct); p.stop = p.sd > 0 ? Math.max(p.stop, tr) : Math.min(p.stop, tr);
+    }
+    if (p.shockPct && fast >= p.shockPct) { ev("shock"); p.done = true; }
   }
   GUARD.events = GUARD.events.filter((e) => e.t > now - 3 * 86400);
 }
@@ -194,13 +200,17 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/guard/set" && req.method === "POST") {
     let body = ""; req.on("data", (c) => { body += c; if (body.length > 1e6) req.destroy(); });
     req.on("end", () => { try { const j = JSON.parse(body); const old = new Map(GUARD.positions.map((p) => [p.id, p]));
-      GUARD.positions = (j.positions || []).slice(0, 200).map((p) => ({ ...p, hist: (old.get(p.id) || {}).hist, done: (old.get(p.id) || {}).done })); GUARD.set = Date.now();
+      GUARD.positions = (j.positions || []).slice(0, 400).map((p) => { const o = old.get(p.id) || {}; const q = { ...p, hist: o.hist, done: o.done };
+        if (o.half || p.half) { q.half = true; q.best = o.best != null ? o.best : p.best;                 // what the server already did stays done; the tighter stop wins
+          if (o.half && o.stop != null) q.stop = p.sd > 0 ? Math.max(o.stop, p.stop) : Math.min(o.stop, p.stop); }
+        return q; }); GUARD.set = Date.now();
       res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ ok: true, watching: GUARD.positions.length })); } catch (e) { res.statusCode = 400; res.end("bad json"); } });
     return;
   }
   if (u.pathname === "/guard/events") {
     const since = +(u.searchParams.get("since") || 0); res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ events: GUARD.events.filter((e) => e.t > since), watching: GUARD.positions.length, set: GUARD.set })); return;
+    res.end(JSON.stringify({ events: GUARD.events.filter((e) => e.t > since), watching: GUARD.positions.length, set: GUARD.set, v: 2,
+      stops: Object.fromEntries(GUARD.positions.filter((p) => p.half && !p.done).map((p) => [p.id, { stop: p.stop, best: p.best }])) })); return;
   }
   if (u.pathname !== "/api/live") { res.statusCode = 404; res.end("not found"); return; }
   req.query = Object.fromEntries(u.searchParams);

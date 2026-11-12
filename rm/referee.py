@@ -638,6 +638,7 @@ def _manage(J, B, p, A, newest):
                     be_ = p["entry"] * (1 + sd * C.FEE * 2); p["stop"] = max(p["stop"], be_) if sd > 0 else min(p["stop"], be_)
                 if p["half"]:
                     if cont < 0.40: _close(A, p, px, "evidence: move fading, profit secured", t + H); return
+                    p["trailPct"] = round((1.5 if cont >= 0.6 else 1.0) * dv, 5)                      # handed to the server, which trails every minute
                     trail = p["best"] * (1 - sd * (1.5 if cont >= 0.6 else 1.0) * dv)
                     if p.get("lock"): trail = p["entry"] * (1 + sd * 0.5 * peak) if sd * (trail / p["entry"] - 1) < 0.5 * peak else trail   # keep at least half of the best open profit
                     p["stop"] = max(p["stop"], trail) if sd > 0 else min(p["stop"], trail)

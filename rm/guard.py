@@ -42,7 +42,8 @@ def sync(R, log=print):
         for p in A.get("open", []):
             x = (rule.get(p["side"].lower()) or {}).get("x") if cfg.get("shock") else None
             pos.append({"id": f"{n}|{p['coin']}|{p['t']}", "coin": p["coin"], "sd": p["sd"], "entry": p["entry"], "stop": p["stop"], "target": p["target"],
-                        "shockPct": round(x * p["stopPct"], 5) if x else 0})
+                        "shockPct": round(x * p["stopPct"], 5) if x else 0, "half": bool(p.get("half")), "best": p.get("best"), "bePct": C.FEE * 2,
+                        "trailPct": round(float(p.get("trailPct") or p.get("stopPct", 0.03) / 1.25), 5)})
     try:
         r = requests.post(base + "/guard/set", json={"positions": pos}, headers=hd, timeout=15); return {"watching": r.json().get("watching"), "sent": len(pos)}
     except Exception as e: return {"error": str(e)[:120]}
@@ -55,7 +56,7 @@ def apply(R, log=print):
     base, hd = _srv()
     if not base: return {}
     G = R.setdefault("guard", {"since": 0, "applied": []})
-    try: ev = requests.get(base + "/guard/events", params={"since": G["since"]}, headers=hd, timeout=15).json().get("events", [])
+    try: rj = requests.get(base + "/guard/events", params={"since": G["since"]}, headers=hd, timeout=15).json(); ev = rj.get("events", [])
     except Exception as e: return {"error": str(e)[:120]}
     from . import referee as RF
     n_ = 0; booked = []
@@ -72,12 +73,25 @@ def apply(R, log=print):
             elif e["kind"] == "target" and not p.get("half") and ((sd > 0 and px >= p["target"]) or (sd < 0 and px <= p["target"])):
                 RF._close(A, p, p["target"], f"half at +{p.get('tgtPct', RF.TARGET)*100:.0f}% (to the minute)", te, part=0.5); p["half"] = True
                 p["stop"] = p["entry"] * (1 + sd * C.FEE * 2); did = "half at target"
+            elif e["kind"] == "stop" and e.get("stop") is not None and (bool(e.get("half")) == bool(p.get("half"))):      # the server managed the stop to the minute (break-even / trailing): its level is the fill
+                lvl = float(e["stop"]); lvl = max(lvl, p["stop"]) if (sd > 0 and p.get("half")) else min(lvl, p["stop"]) if (sd < 0 and p.get("half")) else p["stop"]
+                RF._close(A, p, lvl, ("break-even / trailing stop" if p.get("half") else "stop") + " (to the minute)", te); did = "stop"
             elif e["kind"] in ("stop", "target") and ((sd > 0 and px <= p["stop"]) or (sd < 0 and px >= p["stop"])):
                 RF._close(A, p, p["stop"], ("break-even / trailing stop" if p.get("half") else "stop") + " (to the minute)", te); did = "stop"
             if did:
                 p["evT"] = te; p["evBar"] = bar; p["lastBar"] = max(p.get("lastBar", 0), bar); p["best"] = max(p["best"], px) if sd > 0 else min(p["best"], px)
                 booked.append({"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime(te)), "account": acct_name, "coin": coin, "what": did, "px": px})
+    moved = 0
+    for pid, st in (rj.get("stops") or {}).items():                  # the server's trailing stop (moved every minute) is copied into the accounts
+        try:
+            acct_name, coin, t = pid.split("|"); A = R.get("acct") if acct_name == "champion" else ((R.get("chal") or {}).get(acct_name) or {}).get("acct")
+            for p in (A or {}).get("open", []):
+                if p["coin"] == coin and str(p["t"]) == t and p.get("half") and st.get("stop") is not None:
+                    new = max(p["stop"], float(st["stop"])) if p["sd"] > 0 else min(p["stop"], float(st["stop"]))
+                    if abs(new - p["stop"]) > 0.001 * p["stop"]: p["stop"] = new; moved += 1     # only real moves (over 0.1%) are worth a save
+                    if st.get("best") is not None: p["best"] = max(p["best"], float(st["best"])) if p["sd"] > 0 else min(p["best"], float(st["best"]))
+        except Exception: pass
     if ev: G["since"] = max(G["since"], max(int(e["t"]) for e in ev) - 180)      # a little overlap; repeats are ignored
     G["applied"] = (G.get("applied") or [])[-50:] + booked
     if booked: log(f"   server guard booked to the minute: {booked}")
-    return {"events": len(ev), "shockExits": n_, "booked": len(booked), "last": booked[-3:]}
+    return {"events": len(ev), "shockExits": n_, "booked": len(booked), "last": booked[-3:], "stopsMoved": moved, "serverV": rj.get("v", 1), "watching": rj.get("watching")}

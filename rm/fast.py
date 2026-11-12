@@ -11,7 +11,10 @@ def main():
     if not R.get("acct"): print("fast lane: no account yet"); return 0
     from . import guard, referee as RF, integrity as IG
     res = guard.apply(R, print); print("fast lane:", res)
-    if not res.get("booked"): return 0
+    n_open = len(R["acct"].get("open", [])) + sum(len(c["acct"].get("open", [])) for c in (R.get("chal") or {}).values() if c.get("acct"))
+    if not res.get("booked") and not res.get("stopsMoved"):
+        if n_open and not res.get("watching") and "error" not in res: print("fast lane: the server was restarted; handing it the open trades again:", guard.sync(R, print))
+        return 0
     accts = [R["acct"]] + [c["acct"] for c in (R.get("chal") or {}).values() if c.get("acct")]
     for A in accts:
         try: RF._mark(A)
