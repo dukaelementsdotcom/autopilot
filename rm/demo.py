@@ -93,7 +93,18 @@ def mirror(R, log=print):
         wallet = budget + (wallet - D["base"])
     D["realWallet"] = round(real, 2); D["wallet"] = round(wallet, 2); D.setdefault("start", round(wallet, 2))
 
-    sig = f"{budget}|{getattr(C, 'DEMO_LEV', None)}|{getattr(C, 'DEMO_MARGIN', None)}"
+    sig = f"{budget}|{getattr(C, 'DEMO_LEV', None)}|{getattr(C, 'DEMO_MARGIN', None)}|{getattr(C, 'DEMO_MARGIN_MODE', 'ISOLATED')}"
+    # CROSS MARGIN on a real 500 USDT account: if the open trades' losses ate the whole account, it would be liquidated. The demo's wallet is
+    # bigger, so that is checked here and acted on as the real account would be: everything closed, the account is what is left.
+    if budget and held:
+        upnl = sum(float(p["unrealizedProfit"]) for p in acc["positions"] if float(p["positionAmt"]))
+        maint = sum(float(p.get("maintMargin") or 0) for p in acc["positions"] if float(p["positionAmt"]))
+        if wallet + upnl <= maint:
+            for sym, amt in held.items():
+                cancel_all(sym)
+                o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
+                done.append({"close": sym, "px": _fill(sym, o), "why": "LIQUIDATED: a real cross-margin account of this size would have been wiped out"})
+            D["pos"] = {}; held = {}; D["liquidated"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
     if D.get("sig") != sig and held:              # the experiment's settings changed: start clean, re-enter at the new size
         for sym, amt in held.items():
             cancel_all(sym)
@@ -124,7 +135,7 @@ def mirror(R, log=print):
         if st.get("pid") != pid and sym in held:                               # the demo already holds it (its record was lost): adopt it, never open twice
             st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "adopted": True}; cancel_all(sym)
         if st.get("pid") != pid:
-            try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType="ISOLATED")     # each trade stands alone: the rest of the wallet never backs it
+            try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType=getattr(C, "DEMO_MARGIN_MODE", "ISOLATED"))
             except Exception: pass
             # leverage 20-30x: the highest that keeps the liquidation price beyond the stop (liquidation distance ~ 1/lev - 0.6% maintenance)
             lo, hi = getattr(C, "DEMO_LEV", (20, 30)); stp_pct = abs(p["stop"] / p["entry"] - 1); lev = lo
