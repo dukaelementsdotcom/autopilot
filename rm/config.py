@@ -50,4 +50,7 @@ RULE_DWELL_DD = 0.15         # ... unless the account fell 15% from its peak und
 RULE_REPLACE_PP = 0.10       # a replacement must beat it by 0.10 points per trade on unseen trades ...
 RULE_REPLACE_N = 50          # ... over at least 50 unseen trades each
 
-DEMO_BUDGET = 200            # the Binance demo futures wallet is meant to hold this much (the rest sits in the demo's spot wallet)
+DEMO_BUDGET = 500            # the Binance demo uses this much of its futures wallet as "the account" (the rest is never touched)
+DEMO_LEV = (20, 30)          # demo experiment: leverage only between 20x and 30x (the highest that keeps liquidation beyond the stop)
+DEMO_MARGIN = {"S": 0.30, "A": 0.30, "B": 0.15}   # margin per trade as a share of the demo account, by grade
+DEMO_MARGIN_TOTAL = 0.60     # all open demo trades together use at most this share of the account as margin

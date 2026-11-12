@@ -93,7 +93,14 @@ def mirror(R, log=print):
         wallet = budget + (wallet - D["base"])
     D["realWallet"] = round(real, 2); D["wallet"] = round(wallet, 2); D.setdefault("start", round(wallet, 2))
 
-    eqA = A.get("equity", A.get("cash", 500.0)) or 500.0; scale = wallet / eqA
+    sig = f"{budget}|{getattr(C, 'DEMO_LEV', None)}|{getattr(C, 'DEMO_MARGIN', None)}"
+    if D.get("sig") != sig and held:              # the experiment's settings changed: start clean, re-enter at the new size
+        for sym, amt in held.items():
+            cancel_all(sym)
+            o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
+            done.append({"close": sym, "px": _fill(sym, o), "why": "new settings"})
+        D["pos"] = {}; held = {}
+    D["sig"] = sig
     want = {}
     D.setdefault("since", int(time.time()))
     for p in A.get("open", []):
@@ -117,15 +124,26 @@ def mirror(R, log=print):
         if st.get("pid") != pid and sym in held:                               # the demo already holds it (its record was lost): adopt it, never open twice
             st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "adopted": True}; cancel_all(sym)
         if st.get("pid") != pid:
-            try: req("POST", "/fapi/v1/leverage", symbol=sym, leverage=int(min(20, p.get("lev") or 5)))
+            try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType="ISOLATED")     # each trade stands alone: the rest of the wallet never backs it
             except Exception: pass
-            try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType="ISOLATED")
-            except Exception: pass
-            qty = _fl(p.get("notional", 0) * scale / (p.get("mark") or p["entry"]), I["step"])
+            # leverage 20-30x: the highest that keeps the liquidation price beyond the stop (liquidation distance ~ 1/lev - 0.6% maintenance)
+            lo, hi = getattr(C, "DEMO_LEV", (20, 30)); stp_pct = abs(p["stop"] / p["entry"] - 1); lev = lo
+            for L in range(hi, lo - 1, -1):
+                if 1.0 / L - 0.006 >= stp_pct * 1.1: lev = L; break
+            used = None
+            for L in [lev] + [x for x in (25, 20, 15, 10, 5) if x < lev]:            # some coins allow less: step down
+                try: req("POST", "/fapi/v1/leverage", symbol=sym, leverage=L); used = L; break
+                except IOError: continue
+            if not used: done.append({"skip": sym, "why": "leverage refused"}); continue
+            mshare = getattr(C, "DEMO_MARGIN", {}).get(str(p.get("grade") or "B"), 0.15)
+            in_use = sum((v or {}).get("margin", 0) for k, v in D["pos"].items() if k in held and k != sym)
+            margin = max(0.0, min(mshare * wallet, getattr(C, "DEMO_MARGIN_TOTAL", 0.6) * wallet - in_use))
+            px_now = float(req("GET", "/fapi/v1/ticker/price", signed=False, symbol=sym)["price"])
+            qty = _fl(margin * used / px_now, I["step"])
             if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "too small"}); continue
             o = req("POST", "/fapi/v1/order", symbol=sym, side=side, type="MARKET", quantity=_fmt(qty, I["step"]), newOrderRespType="RESULT")
-            fill = _fill(sym, o) or 0; st = {"pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
-            D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "fill": fill, "paper": p["entry"], "late": p["t"] < D["since"] - 3600, "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
+            fill = _fill(sym, o) or 0; st = {"lev": used, "margin": round(margin, 2), "liqDistPct": round((1.0 / used - 0.006) * 100, 2), "stopDistPct": round(stp_pct * 100, 2), "pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
+            D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "lev": used, "margin": round(margin, 2), "fill": fill, "paper": p["entry"], "late": p["t"] < D["since"] - 3600, "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
         # stop order (whole position) and the half target (before the half is taken)
         stp = float(_fmt(p["stop"], I["tick"]))
         if st.get("stop") != stp:
