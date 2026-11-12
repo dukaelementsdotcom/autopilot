@@ -372,7 +372,11 @@ renderAcct(D.account,"box",false);
    if(!dead&&age>150){t=`⚠ Old reading (${age} min). `+t.replace(/^[✓⚠] /,"");c="warn"}
    const v=el.querySelector(".cv");v.style.color=`var(--${c})`;
    v.innerHTML=`${t}<div class="mute" style="font-weight:400;font-size:12.5px">Now ${fx(now)}${dead?"":` · entered now: SL ${fx(now*(1-sd*st))} · TP ${fx(now*(1+sd*0.02))}`}</div>`;
-   el.style.opacity=dead?"0.5":"1";el.classList.toggle("go",!dead&&el.dataset.ok=="1"&&c!="warn")})}
+   el.style.opacity=dead?"0.5":"1";el.classList.toggle("go",!dead&&el.dataset.ok=="1"&&c!="warn");el.dataset.rank=(dead?2:c=="warn"?1:0)});
+  // order: still-valid first, then late / weaker, then expired; inside each group the strongest evidence first (the order the Arbiter gave them)
+  const box=cards[0].parentNode,ord=cards.map((el,i)=>[+(el.dataset.rank||0),i,el]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(ord.some((o,i)=>box.children[i]!==o[2]))ord.forEach(o=>box.appendChild(o[2]));
+  let k=0;ord.forEach(o=>{let n=o[2].querySelector(".rk");if(!n){n=document.createElement("span");n.className="rk mute";n.style.cssText="font-size:12px;margin-right:6px";o[2].querySelector(".ch").prepend(n)}n.textContent=o[0]<2?"#"+(++k):""})}
  kl().then(tick);setInterval(kl,60000);setInterval(tick,5000)})();
 // health warnings (only shown when something is wrong)
 (()=>{const h=(Date.now()-builtMs)/36e5;const de=D.runs[0]?.dataEnd;const dd=de?(Date.now()-Date.parse(de.replace(" ","T")+"Z"))/36e5:0;
