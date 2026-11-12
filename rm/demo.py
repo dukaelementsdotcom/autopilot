@@ -85,6 +85,7 @@ def mirror(R, log=print):
     A = R.get("acct") or {}; D = R.setdefault("demo", {"pos": {}, "log": []}); done = []
     acc = req("GET", "/fapi/v2/account"); wallet = float(acc["totalWalletBalance"]); D["wallet"] = round(wallet, 2)
     held = {p["symbol"]: float(p["positionAmt"]) for p in acc["positions"] if float(p["positionAmt"])}
+    levs = {p["symbol"]: int(float(p.get("leverage") or 20)) for p in acc["positions"] if float(p["positionAmt"])}
     from . import config as C
     budget = getattr(C, "DEMO_BUDGET", None)
     real = wallet
@@ -151,7 +152,7 @@ def mirror(R, log=print):
         side = "SELL" if p["sd"] < 0 else "BUY"; opp = "BUY" if side == "SELL" else "SELL"; st = D["pos"].get(sym) or {}
         if st.get("pid") == pid and sym not in held: continue                 # the exchange closed it (its stop or target filled): never reopen
         if st.get("pid") != pid and sym in held:                               # the demo already holds it (its record was lost): adopt it, never open twice
-            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "adopted": True}; cancel_all(sym)
+            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "adopted": True, "lev": levs.get(sym, 30), "fill": p["entry"], "t0": time.time()}; cancel_all(sym)
         if st.get("pid") != pid:
             try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType=getattr(C, "DEMO_MARGIN_MODE", "ISOLATED"))
             except Exception: pass

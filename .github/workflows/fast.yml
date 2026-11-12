@@ -4,6 +4,7 @@ on:
     - cron: "*/5 * * * *"        # every 5 minutes (GitHub may delay it when busy); it does real work only when a trade's target or stop was reached
   workflow_dispatch: {}
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -36,7 +37,14 @@ jobs:
           echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
           git --work-tree=state checkout FETCH_HEAD -- .
           git reset -q
+      - name: is the hourly run working right now?
+        id: busy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "n=$(gh run list -R ${{ github.repository }} --workflow research.yml --status in_progress --json databaseId -q length 2>/dev/null || echo 0)" >> "$GITHUB_OUTPUT"
       - run: python -W ignore -m rm.fast
+        if: steps.busy.outputs.n == '0'
+        continue-on-error: true
       - name: save memory (only if something was booked and nobody else saved meanwhile)
         if: hashFiles('fast_changed') != ''
         run: |

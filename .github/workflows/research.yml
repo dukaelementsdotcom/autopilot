@@ -115,3 +115,9 @@ jobs:
         if: hashFiles('docs/index.html') != ''
         uses: actions/deploy-pages@v4
         continue-on-error: true
+
+      - name: alert (a red run sends the owner an e-mail)
+        if: hashFiles('alert.txt') != ''
+        run: |
+          cat alert.txt
+          exit 1

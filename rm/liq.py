@@ -72,10 +72,13 @@ def _merge(path, new):
 def update(log=print, budget=600):
     if not os.environ.get("COINALYZE_KEY", "").strip(): return {"skipped": "no COINALYZE_KEY secret"}
     t0 = time.time(); now = int(time.time()); info = {}
-    try: st = json.load(open(P_M() + ".state"))
+    SP = f"{C.STATE_DIR}/liq_state.json"
+    try: st = json.load(open(SP))
     except Exception: st = {}
-    have_d = os.path.exists(P_D()); have_h = os.path.exists(P_H())
-    if have_d and have_h and now - st.get("at", 0) < 6 * H: return {"fresh": True, "daysStored": st.get("days"), "hoursStored": st.get("hours")}
+    have_d = os.path.exists(P_D()); have_h = os.path.exists(P_H()); today = time.strftime("%Y-%m-%d", time.gmtime())
+    # once a UTC day after 01:00 (yesterday is complete then); Coinalyze keeps ~2 months of hours, so nothing is missed. Each symbol costs
+    # one of 40 calls a minute, so a full pull takes ~10 minutes: doing it every run would slow every run down.
+    if have_d and have_h and (st.get("day") == today or time.gmtime().tm_hour < 1): return {"fresh": True, "daysStored": st.get("days"), "hoursStored": st.get("hours")}
     mp = markets(log)
     if not mp: return {"error": "no markets matched"}
     d, done, total = _pull(mp, "daily", (now - 8 * DAY) if have_d else 1598918400, now, budget, t0)
@@ -83,11 +86,11 @@ def update(log=print, budget=600):
         d = d[d.t < now // DAY * DAY] if True else d                                 # completed days only
         allD = _merge(P_D(), d); info["days"] = int(allD.t.nunique()); info["dailyFrom"] = str(pd.to_datetime(allD.t.min(), unit="s").date())
     complete = done >= total
-    h, doneh, _ = _pull(mp, "1hour", (now - 3 * DAY) if have_h else now - 90 * DAY, now, budget, t0)
+    h, doneh, _ = _pull(mp, "1hour", (now - 4 * DAY) if have_h else now - 90 * DAY, now, budget, t0)
     if h is not None:
         h = h[h.t < now // H * H]; allH = _merge(P_H(), h); info["hours"] = int(allH.t.nunique())
     complete = complete and doneh >= total
-    if complete: json.dump({"at": now, **info}, open(P_M() + ".state", "w"))
+    if complete: json.dump({"at": now, "day": today, **info}, open(SP, "w"))
     open(f"{C.DATA_DIR}/raw/version_liq.txt", "w").write(time.strftime("%Y-%m-%d", time.gmtime()) + f"|{info.get('days')}")
     info.update({"coins": len(mp), "complete": complete})
     log(f"liquidation history: {info}, {time.time() - t0:.0f}s"); return info

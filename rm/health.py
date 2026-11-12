@@ -147,6 +147,17 @@ def write(mem, J, timings, problems, live, t0, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     json.dump(rep, open(f"{C.DOCS_DIR}/health.json.tmp", "w"), default=lambda o: o.item() if hasattr(o, "item") else str(o), indent=1)
     os.replace(f"{C.DOCS_DIR}/health.json.tmp", f"{C.DOCS_DIR}/health.json")
+    hist[0]["overall"] = worst
+    try:      # an e-mail from GitHub (a red run) when something stays broken: FAIL in 3 runs in a row, WARN for 12, or the kill switch
+        last = [h.get("overall") for h in hist[:12]]; why = None
+        if len(last) >= 3 and all(x == "FAIL" for x in last[:3]): why = "FAIL in the last 3 runs"
+        elif len(last) >= 12 and all(x in ("WARN", "FAIL") for x in last): why = "warnings for 12 runs in a row"
+        if RA.get("killed") and not mem.get("killAlerted"): why = "the kill switch tripped: " + str(RA["killed"].get("reason")); mem["killAlerted"] = RA["killed"].get("at")
+        if not RA.get("killed"): mem.pop("killAlerted", None)
+        if why and mem.get("alertedFor") != why + snap["at"][:10]:          # at most one alert per reason per day
+            mem["alertedFor"] = why + snap["at"][:10]
+            open("alert.txt", "w").write(f"Volvox needs a look: {why}.\n" + "\n".join(f"{c['check']}: {c['status']} - {c['detail']}" for c in checks if c["status"] != "OK"))
+    except Exception as e: log(f"alert check failed: {e}")
     mem["healthSummary"] = {"overall": worst, "checks": [[c["check"], c["status"], c["detail"]] for c in checks], "at": snap["at"]}
     log(f"health: {worst} ({sum(c['status']=='OK' for c in checks)}/{len(checks)} OK)")
     return rep
