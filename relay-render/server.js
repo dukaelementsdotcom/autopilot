@@ -212,6 +212,15 @@ http.createServer(async (req, res) => {
     res.end(JSON.stringify({ events: GUARD.events.filter((e) => e.t > since), watching: GUARD.positions.length, set: GUARD.set, v: 2,
       stops: Object.fromEntries(GUARD.positions.filter((p) => p.half && !p.done).map((p) => [p.id, { stop: p.stop, best: p.best }])) })); return;
   }
+  if (u.pathname === "/demo/fwd" && req.method === "POST") {      // forwards an already-signed request to Binance's DEMO futures only (the secret never comes here)
+    let body = ""; req.on("data", (c) => { body += c; if (body.length > 1e5) req.destroy(); });
+    req.on("end", () => { let j; try { j = JSON.parse(body); } catch (e) { res.statusCode = 400; res.end("bad json"); return; }
+      if (!/^\/fapi\/v[1-3]\/[A-Za-z\/]+$/.test(j.path || "") || !["GET", "POST", "DELETE"].includes(j.method)) { res.statusCode = 400; res.end("bad path"); return; }
+      const r2 = require("https").request({ host: "demo-fapi.binance.com", path: j.path + "?" + (j.query || ""), method: j.method, headers: { "X-MBX-APIKEY": j.key || "" }, timeout: 20000 }, (r3) => {
+        let out = ""; r3.on("data", (c) => (out += c)); r3.on("end", () => { res.statusCode = r3.statusCode; res.setHeader("content-type", "application/json"); res.end(out); }); });
+      r2.on("error", (e) => { res.statusCode = 502; res.end(JSON.stringify({ msg: String(e) })); }); r2.on("timeout", () => r2.destroy(new Error("timeout"))); r2.end(); });
+    return;
+  }
   if (u.pathname !== "/api/live") { res.statusCode = 404; res.end("not found"); return; }
   req.query = Object.fromEntries(u.searchParams);
   try { await handler(req, res); } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: String(e) })); }

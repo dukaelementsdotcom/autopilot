@@ -14,7 +14,11 @@ def req(method, path, signed=True, **params):
         params["timestamp"] = int(time.time() * 1000); params.setdefault("recvWindow", 10000)
         q = urllib.parse.urlencode(params); q += "&signature=" + hmac.new(s.encode(), q.encode(), hashlib.sha256).hexdigest()
     else: q = urllib.parse.urlencode(params)
-    r = S.request(method, f"{BASE}{path}?{q}", headers={"X-MBX-APIKEY": k}, timeout=20)
+    via = os.environ.get("RM_OWN_RELAY", "").strip()
+    if via:      # Binance refuses GitHub's US machines: the signed request goes through the own server in Stockholm (it holds no secret)
+        base = via.split("/api/")[0].rstrip("/")
+        r = S.post(base + "/demo/fwd", json={"method": method, "path": path, "query": q, "key": k}, headers={"x-relay-key": os.environ.get("RM_RELAY_KEY", "")}, timeout=30)
+    else: r = S.request(method, f"{BASE}{path}?{q}", headers={"X-MBX-APIKEY": k}, timeout=20)
     try: j = r.json()
     except Exception: j = {"raw": r.text[:200]}
     if r.status_code >= 400: raise IOError(f"HTTP {r.status_code} {path}: {str(j)[:200]}")
@@ -39,7 +43,7 @@ def check():
     acc = req("GET", "/fapi/v2/account"); out["wallet"] = round(float(acc["totalWalletBalance"]), 2); out["openPositions"] = sum(1 for p in acc["positions"] if float(p["positionAmt"]))
     out["hedgeMode"] = req("GET", "/fapi/v1/positionSide/dual").get("dualSidePosition")
     dp = {x["symbol"]: float(x["price"]) for x in req("GET", "/fapi/v1/ticker/price", signed=False)}
-    try: rp = {x["symbol"]: float(x["price"]) for x in S.get(REAL + "/fapi/v1/ticker/price", timeout=20).json()}
+    try: rp = {x["symbol"]: float(x["price"]) for x in S.get("https://data-api.binance.vision/api/v3/ticker/price", timeout=20).json()}     # the real market (spot; futures is a hair apart)
     except Exception as e: rp = {}; out["realPricesError"] = str(e)[:120]
     gaps = {s: round((dp[s] / rp[s] - 1) * 100, 3) for s in ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BCHUSDT", "HBARUSDT", "DOGEUSDT") if s in dp and s in rp}
     out["priceGapPct"] = gaps; out["symbols"] = len(dp)
