@@ -10,6 +10,16 @@ TICKERS = {"spx": "^GSPC", "ndx": "^IXIC", "dji": "^DJI", "dax": "^GDAXI", "ftse
            "dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F", "us10y": "^TNX", "vix": "^VIX", "nvda": "NVDA", "chips": "SMH", "coin": "COIN"}
 RAW = lambda n: f"{C.DATA_DIR}/raw/{n}"; KEEP = lambda n: f"{C.STATE_DIR}/collect/{n}"
 
+def _age(name):
+    """seconds since a saved-memory file was last refreshed. The memory is restored by a git checkout, which stamps every file
+    with the restore time, so a file's own clock always looked fresh and never refreshed; the refresh time is kept in stamps.json"""
+    try: return time.time() - float(json.load(open(KEEP("stamps.json"))).get(name, 0))
+    except Exception: return 1e12
+def _stamp(name):
+    try: st = json.load(open(KEEP("stamps.json")))
+    except Exception: st = {}
+    st[name] = int(time.time()); json.dump(st, open(KEEP("stamps.json"), "w"))
+
 def markets(log=print):
     path = RAW("compass_mkt.parquet")
     if os.path.exists(path) and time.time() - os.path.getmtime(path) < 6 * H: return {"fresh": True}
@@ -37,7 +47,7 @@ def calendar(log=print):
     """economic calendar (this week, high/medium impact) and the IPO calendar (this month and next), kept forever"""
     os.makedirs(KEEP(""), exist_ok=True); out = {}
     p = KEEP("calendar.json")
-    if os.path.exists(p) and time.time() - os.path.getmtime(p) < 6 * H: return {"fresh": True}     # the calendar feed allows only a few requests
+    if _age("calendar") < 6 * H: return {"fresh": True}     # the calendar feed allows only a few requests
     try:
         ev = requests.get("https://nfs.faireconomy.media/ff_calendar_thisweek.json", headers=UA, timeout=30).json()
         p = KEEP("calendar.json"); old = json.load(open(p)) if os.path.exists(p) else []
@@ -56,6 +66,7 @@ def calendar(log=print):
                     if k: old[k] = {**old.get(k, {}), **{kk: r.get(kk) for kk in ("companyName", "proposedExchange", "pricedDate", "expectedPriceDate", "filedDate", "dollarValueOfSharesOffered", "proposedSharePrice")}, "status": part}
         json.dump(old, open(p, "w")); out["ipos"] = len(old)
     except Exception as e: out["iposError"] = str(e)[:100]
+    if "calendar" in out or "ipos" in out: _stamp("calendar")
     return out
 
 def stablecoins(log=print):
@@ -86,11 +97,12 @@ def dvol(log=print):
     df.to_parquet(path + ".tmp", index=False); os.replace(path + ".tmp", path); return {"days": int(df.t.nunique())}
 
 def digest(log=print):
-    """the AI reads the newest headlines four times a day and writes a short market brief + a risk reading (-2 fearful .. +2 confident),
+    """the AI reads the newest headlines eight times a day and writes a short market brief + a risk reading (-2 fearful .. +2 confident),
     with the events it thinks matter. Stored forever (a future witness needs the history); shown on the Overview."""
     import gzip, glob
     p = KEEP("digest.jsonl"); os.makedirs(KEEP(""), exist_ok=True)
-    if os.path.exists(p) and time.time() - os.path.getmtime(p) < 6 * H: return {"fresh": True}
+    last = latest_brief()
+    if last and time.time() - last.get("t", 0) < 3 * H: return {"fresh": True, "ageH": round((time.time() - last["t"]) / H, 1)}
     files = sorted(glob.glob(KEEP("news/*.jsonl.gz")))[-2:]; items = []
     for f in files:
         try:

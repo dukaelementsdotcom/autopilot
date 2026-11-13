@@ -94,6 +94,10 @@ def write(mem, J, timings, problems, live, t0, log=print):
                            f"memory free {sy.get('memFreeMB')}/{sy.get('memTotalMB')} MB, load {sy.get('load15')} on {sy.get('cpus')} CPUs")
         else:
             chk(f"collector: {nm}", "error" not in x, warn=True, detail=json.dumps(x)[:200])
+    try:                                                    # the AI market brief must not silently go stale again
+        from . import compass; b = compass.latest_brief() or {}; ag = (time.time() - b.get("t", 0)) / 3600
+        chk("AI market brief is fresh", ag < 8, warn=True, detail=f"last written {ag:.1f}h ago (refreshed every 3h from the newest headlines)")
+    except Exception: pass
     # saved memory must stay far below GitHub's 100 MB per-file limit (a bigger file could not be saved at all)
     try:
         sizes = {f: os.path.getsize(os.path.join(dp, f)) / 1e6 for dp, _, fs in os.walk(C.STATE_DIR) for f in fs}
