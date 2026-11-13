@@ -79,120 +79,79 @@ def check():
     out["priceGapPct"] = gaps; out["symbols"] = len(dp)
     return out
 
-def mirror(R, log=print):
-    """keep the demo account holding what the Arbiter holds, scaled to the demo's size. Idempotent: run every few minutes."""
-    if not all(_keys()): return {"skipped": "no demo keys"}
-    A = R.get("acct") or {}; D = R.setdefault("demo", {"pos": {}, "log": []}); done = []
-    acc = req("GET", "/fapi/v2/account"); wallet = float(acc["totalWalletBalance"]); D["wallet"] = round(wallet, 2)
-    held = {p["symbol"]: float(p["positionAmt"]) for p in acc["positions"] if float(p["positionAmt"])}
-    levs = {p["symbol"]: int(float(p.get("leverage") or 20)) for p in acc["positions"] if float(p["positionAmt"])}
-    from . import config as C
-    budget = getattr(C, "DEMO_BUDGET", None)
-    real = wallet
-    if budget and wallet > 1.5 * budget:            # the demo cannot shrink its wallet: only `budget` of it is used, plus whatever the copied trades win or lose
-        if D.get("waiting") or "base" not in D: D.pop("waiting", None); D["base"] = round(wallet, 4); D["since"] = int(time.time()); D["pos"] = {} if not held else D.get("pos", {})
-        wallet = budget + (wallet - D["base"])
-    D["realWallet"] = round(real, 2); D["wallet"] = round(wallet, 2); D.setdefault("start", round(wallet, 2))
+def _mkt(sym, side, qty, reduce=False):
+    I = info(sym); kw = {"reduceOnly": "true"} if reduce else {}
+    o = req("POST", "/fapi/v1/order", symbol=sym, side=side, type="MARKET", quantity=_fmt(qty, I["step"]), newOrderRespType="RESULT", **kw)
+    return _fill(sym, o)
 
-    sig = f"{budget}|{getattr(C, 'DEMO_LEV', None)}|{getattr(C, 'DEMO_MARGIN', None)}|{getattr(C, 'DEMO_MARGIN_MODE', 'ISOLATED')}"
-    # CROSS MARGIN on a real 500 USDT account: if the open trades' losses ate the whole account, it would be liquidated. The demo's wallet is
-    # bigger, so that is checked here and acted on as the real account would be: everything closed, the account is what is left.
-    if budget and held:
-        upnl = sum(float(p["unrealizedProfit"]) for p in acc["positions"] if float(p["positionAmt"]))
-        maint = sum(float(p.get("maintMargin") or 0) for p in acc["positions"] if float(p["positionAmt"]))
-        if wallet + upnl <= maint:
-            for sym, amt in held.items():
-                cancel_all(sym)
-                o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
-                done.append({"close": sym, "px": _fill(sym, o), "why": "LIQUIDATED: a real cross-margin account of this size would have been wiped out"})
-            D["pos"] = {}; held = {}; D["liquidated"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
-    if D.get("sig") != sig and held:              # the experiment's settings changed: start clean, re-enter at the new size
+def mirror(R, log=print):
+    """THE DEMO IS A 1:1 COPY OF THE ARBITER: the same coin amount, the same leverage, isolated margin (so the same margin and the same
+    liquidation price), the same stop, the same half-target, the same break-even and trailing moves, closed when the Arbiter closes.
+    The account starts equal to the Arbiter's and from then on moves only with the demo's own real fills and fees, so any gap between
+    the two accounts is exactly the cost of real execution. Idempotent: the hourly run and the 5-minute fast lane both call it."""
+    if not all(_keys()): return {"skipped": "no demo keys"}
+    A = R.get("acct") or {}; D = R.setdefault("demo", {"pos": {}, "log": []}); done = []; now = time.strftime("%Y-%m-%d %H:%M", time.gmtime())
+    acc = req("GET", "/fapi/v2/account"); real = float(acc["totalWalletBalance"])
+    held = {p["symbol"]: float(p["positionAmt"]) for p in acc["positions"] if float(p["positionAmt"])}
+    MODE = "mirror-1:1-v1"
+    if D.get("mode") != MODE:                                  # start (again) as an exact copy: flat, account = the Arbiter's cash
         for sym, amt in held.items():
-            cancel_all(sym)
-            o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
-            done.append({"close": sym, "px": _fill(sym, o), "why": "new settings"})
-        D["pos"] = {}; held = {}
-    D["sig"] = sig
-    want = {}
-    D.setdefault("since", int(time.time()))
-    for p in A.get("open", []):
-        sym = p["coin"] + "USDT"; pid = f"{p['coin']}|{p['t']}"
-        if p.get("half") and (D["pos"].get(sym) or {}).get("pid") != pid: continue     # already half-closed on paper before the demo saw it: stays paper-only
-        want[sym] = (p, pid)
-    for st in D["pos"].values():                              # positions opened before the wider stop existed get it too (inside their liquidation)
-        if "wide" not in st and getattr(C, "DEMO_STOP_X", 1.0) > 1: st["wide"] = True; st.setdefault("t0", time.time())
-    # a trade the Arbiter closed at ITS (tighter) stop stays open here under the demo's own wider stop; the exchange's stop and half-target
-    # manage it, the stop goes to break-even once the half is taken, and it is closed after the Arbiter's time limit
-    paper_closed = {f"{c['coin']}|{c['t']}": c for c in (A.get("closed") or [])[-60:]}
-    for sym, st in list(D["pos"].items()):
-        if sym in want or sym not in held: continue
-        c = paper_closed.get(st.get("pid") or "")
-        if not c or "stop" not in str(c.get("how", "")).lower() or c.get("half") or not st.get("wide"): continue
-        I = info(sym); sd = 1 if held[sym] > 0 else -1; opp = "SELL" if sd > 0 else "BUY"; age_h = (time.time() - st.get("t0", time.time())) / 3600
-        if age_h > 48:
-            cancel_all(sym); o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="MARKET", quantity=_fmt(abs(held[sym]), I["step"]), reduceOnly="true", newOrderRespType="RESULT")
-            done.append({"close": sym, "px": _fill(sym, o), "why": "time limit (own wider stop)"}); D["pos"].pop(sym, None); held.pop(sym); continue
-        if abs(held[sym]) <= st["qty"] * 0.75 and not st.get("be"):                 # the exchange took the half: stop to break-even on the demo's own fill
-            be = float(_fmt(st["fill"] * (1 - sd * 0.002), I["tick"])); uncond(sym, st.get("stopId"))
-            st["stopId"] = cond(sym, opp, "STOP_MARKET", be, I["tick"]); st["stop"] = be; st["be"] = True; done.append({"stop": sym, "at": be, "why": "break-even"})
-        st.setdefault("ownSince", time.strftime("%Y-%m-%d %H:%M", time.gmtime())); D["pos"][sym] = st
-    keep = {k for k, st in D["pos"].items() if st.get("ownSince") and k in held and k not in want}
-    # 1) close what the Arbiter no longer holds
-    for sym, amt in held.items():
-        if sym not in want and sym not in keep:
-            cancel_all(sym)
-            o = req("POST", "/fapi/v1/order", symbol=sym, side="BUY" if amt < 0 else "SELL", type="MARKET", quantity=_fmt(abs(amt), info(sym)["step"]), reduceOnly="true", newOrderRespType="RESULT")
-            done.append({"close": sym, "px": _fill(sym, o)}); D["pos"].pop(sym, None)
-    for sym in [k for k in D["pos"] if k not in want and k not in held and k not in keep]:      # closed on the exchange and on paper: tidy up leftover orders
+            cancel_all(sym); done.append({"close": sym, "px": _mkt(sym, "BUY" if amt < 0 else "SELL", abs(amt), True), "why": "start of the 1:1 copy"})
+        acc = req("GET", "/fapi/v2/account"); real = float(acc["totalWalletBalance"]); held = {}
+        D.clear(); D.update({"mode": MODE, "pos": {}, "log": [], "base": round(real - A.get("cash", 500.0), 4), "start": round(A.get("cash", 500.0), 2), "since": int(time.time()), "startedAt": now})
+    wallet = real - D["base"]                                  # the demo account: started equal to the Arbiter's, then only its own results
+    want = {p["coin"] + "USDT": p for p in A.get("open", [])}
+    # 1) the Arbiter closed it -> close it here
+    for sym, amt in list(held.items()):
+        if sym not in want:
+            cancel_all(sym); px = _mkt(sym, "BUY" if amt < 0 else "SELL", abs(amt), True); st = D["pos"].pop(sym, {})
+            done.append({"close": sym, "px": px, "paperExit": _paper_exit(A, st.get("pid"))}); held.pop(sym)
+    for sym in [k for k in D["pos"] if k not in want and k not in held]:
         cancel_all(sym); D["pos"].pop(sym, None)
-    # 2) open what it holds and the demo does not; keep stop / target orders in line with the paper position
-    for sym, (p, pid) in want.items():
-        I = info(sym)
+    # 2) the Arbiter holds it -> the same here
+    for sym, p in want.items():
+        I = info(sym); pid = f"{p['coin']}|{p['t']}"
         if not I: done.append({"skip": sym, "why": "not on the demo"}); continue
         side = "SELL" if p["sd"] < 0 else "BUY"; opp = "BUY" if side == "SELL" else "SELL"; st = D["pos"].get(sym) or {}
-        if st.get("pid") == pid and sym not in held: continue                 # the exchange closed it (its stop or target filled): never reopen
-        if st.get("pid") != pid and sym in held:                               # the demo already holds it (its record was lost): adopt it, never open twice
-            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "adopted": True, "lev": levs.get(sym, 30), "fill": p["entry"], "t0": time.time()}; cancel_all(sym)
+        from . import referee as RF
+        size = float(RF._size(p) / RF._avg(p)) if p.get("units") else float(p.get("size") or 0)      # coins held now (halved after the target)
+        if st.get("pid") == pid and sym not in held: continue                      # the exchange closed it first (its stop or target): never reopen
+        if st.get("pid") != pid and sym in held:                                    # held but not on record (record lost): adopt, never open twice
+            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "fill": p["entry"], "lev": p.get("lev"), "adopted": True}; cancel_all(sym)
         if st.get("pid") != pid:
-            try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType=getattr(C, "DEMO_MARGIN_MODE", "ISOLATED"))
-            except Exception: pass
-            # leverage 20-30x: the highest that keeps the liquidation price beyond the stop (liquidation distance ~ 1/lev - 0.6% maintenance)
-            lo, hi = getattr(C, "DEMO_LEV", (20, 30)); stp_pct = min(abs(p["stop"] / p["entry"] - 1) * getattr(C, "DEMO_STOP_X", 1.0), 0.04); lev = lo
-            for L in range(hi, lo - 1, -1):
-                if 1.0 / L - 0.006 >= stp_pct * 1.1: lev = L; break
-            used = None
-            for L in [lev] + [x for x in (25, 20, 15, 10, 5) if x < lev]:            # some coins allow less: step down
-                try: req("POST", "/fapi/v1/leverage", symbol=sym, leverage=L); used = L; break
-                except IOError: continue
-            if not used: done.append({"skip": sym, "why": "leverage refused"}); continue
-            mshare = getattr(C, "DEMO_MARGIN", {}).get(str(p.get("grade") or "B"), 0.15)
-            in_use = sum((v or {}).get("margin", 0) for k, v in D["pos"].items() if k in held and k != sym)
-            margin = max(0.0, min(mshare * wallet, getattr(C, "DEMO_MARGIN_TOTAL", 0.6) * wallet - in_use))
-            px_now = float(req("GET", "/fapi/v1/ticker/price", signed=False, symbol=sym)["price"])
-            qty = _fl(margin * used / px_now, I["step"])
-            if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "too small"}); continue
-            o = req("POST", "/fapi/v1/order", symbol=sym, side=side, type="MARKET", quantity=_fmt(qty, I["step"]), newOrderRespType="RESULT")
-            fill = _fill(sym, o) or 0; st = {"wide": getattr(C, "DEMO_STOP_X", 1.0) > 1, "t0": time.time(), "lev": used, "margin": round(margin, 2), "liqDistPct": round((1.0 / used - 0.006) * 100, 2), "stopDistPct": round(stp_pct * 100, 2), "pid": pid, "qty": qty, "fill": fill, "paperEntry": p["entry"], "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
-            D["pos"][sym] = st; done.append({"open": sym, "side": side, "qty": qty, "lev": used, "margin": round(margin, 2), "fill": fill, "paper": p["entry"], "late": p["t"] < D["since"] - 3600, "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None})
-        # stop order (whole position) and the half target (before the half is taken)
-        stp = p["stop"]
-        if st.get("wide") and not p.get("half"):                 # before the half: the demo's own wider stop, never beyond its liquidation
-            wpct = min(abs(p["stop"] / p["entry"] - 1) * getattr(C, "DEMO_STOP_X", 1.0), 0.04, 0.9 * (1.0 / (st.get("lev") or 20) - 0.006))
-            stp = p["entry"] * (1 - p["sd"] * wpct)
-        stp = float(_fmt(stp, I["tick"]))
+            try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType="ISOLATED")
+            except IOError: pass
+            try: req("POST", "/fapi/v1/leverage", symbol=sym, leverage=int(p.get("lev") or 10))
+            except IOError as e: done.append({"note": sym, "why": f"leverage {p.get('lev')}x refused: {str(e)[:80]}"})
+            qty = _fl(size, I["step"])
+            if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "below Binance's minimum size"}); continue
+            fill = _mkt(sym, side, qty) or 0
+            st = D["pos"][sym] = {"pid": pid, "qty": qty, "fill": fill, "lev": p.get("lev"), "paperEntry": p["entry"], "at": now, "late": p["t"] < D["since"] - 3600}
+            done.append({"open": sym, "side": side, "qty": qty, "lev": p.get("lev"), "fill": fill, "paper": p["entry"],
+                         "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None, "late": st["late"]})
+            held[sym] = qty if side == "BUY" else -qty
+        # the Arbiter took (part of) the profit -> the same size here (only ever reduced to match, never added back)
+        if sym in held and abs(held[sym]) > size * 1.02 + I["step"]:
+            cut = _fl(abs(held[sym]) - size, I["step"])
+            if cut >= I["minQty"]:
+                if st.get("tpId") and st["tpId"] != "done": uncond(sym, st["tpId"])
+                done.append({"half": sym, "px": _mkt(sym, opp, cut, True)}); st["tpId"] = "done"; held[sym] = held[sym] - (cut if side == "BUY" else -cut)
+        # the same stop (moved when the Arbiter moves it) and the same half-target, waiting on the exchange
+        stp = float(_fmt(p["stop"], I["tick"]))
         if st.get("stop") != stp:
-            uncond(sym, st.get("stopId"))
-            st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "at": stp})
+            uncond(sym, st.get("stopId")); st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "at": stp})
         if not p.get("half") and not st.get("tpId"):
             hq = _fl(st["qty"] / 2, I["step"])
-            if hq >= I["minQty"]:
-                st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); done.append({"target": sym, "at": p["target"], "qty": hq})
-        if p.get("half") and sym in held and abs(held[sym]) > st["qty"] * 0.75:      # paper took half, the exchange has not (yet): take it
-            hq = _fl(abs(held[sym]) / 2, I["step"])
-            if st.get("tpId") and st["tpId"] != "done": uncond(sym, st["tpId"])
-            o = req("POST", "/fapi/v1/order", symbol=sym, side=opp, type="MARKET", quantity=_fmt(hq, I["step"]), reduceOnly="true", newOrderRespType="RESULT")
-            st["tpId"] = "done"; done.append({"half": sym, "px": _fill(sym, o)})
-    D["log"] = (D.get("log") or [])[-40:] + [{"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), **d} for d in done]
-    D["at"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()); D["holding"] = len(held)
-    if done: log(f"   demo account: {done}")
+            if hq >= I["minQty"]: st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); st["tp"] = p["target"]; done.append({"target": sym, "at": p["target"], "qty": hq})
+        st.update(side=("LONG" if side == "BUY" else "SHORT"), size=abs(held.get(sym, 0)), tgt=p["target"], grade=p.get("grade"), coin=p["coin"])
+    # 3) what the dashboard shows live (prices are added in the browser)
+    D["wallet"] = round(wallet, 2); D["realWallet"] = round(real, 2); D["holding"] = len(held); D["at"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+    D["arbiterCash"] = round(A.get("cash", 0), 2); D["gap"] = round(wallet - A.get("cash", 0), 2)
+    D["log"] = (D.get("log") or [])[-60:] + [{"at": now, **d} for d in done]
+    if done: log(f"   demo account (1:1 copy): {done}")
     return {"wallet": D["wallet"], "actions": done}
+
+def _paper_exit(A, pid):
+    for c in reversed((A.get("closed") or [])[-30:]):
+        if pid and f"{c.get('coin')}|{c.get('t')}" == pid: return {"px": c.get("exitPx"), "how": c.get("how")}
+    return None
