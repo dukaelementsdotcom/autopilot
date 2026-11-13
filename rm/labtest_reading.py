@@ -27,8 +27,9 @@ def main():
             a, b = pd.Timestamp(f"{yr}-01-01").timestamp(), pd.Timestamp(f"{yr + 1}-01-01").timestamp()
             tr = ok & (B.t.values < a - 7 * DAY); te = ok & (B.t.values >= a) & (B.t.values < b)
             if tr.sum() < 300 or te.sum() < 20: continue
-            m = HGB(max_iter=200, learning_rate=0.04, max_leaf_nodes=8, min_samples_leaf=40, l2_regularization=1.0, random_state=0).fit(B.loc[tr, feats].values, (y[tr] > 0).astype(int))
-            ps.append(m.predict_proba(B.loc[te, feats].values)[:, 1]); ys.append(y[te])
+            fs = [f for f in feats if np.isfinite(B.loc[tr, f].values).mean() > 0.2]          # a measurement that did not exist yet in the training years is left out
+            m = HGB(max_iter=200, learning_rate=0.04, max_leaf_nodes=8, min_samples_leaf=40, l2_regularization=1.0, random_state=0).fit(B.loc[tr, fs].values, (y[tr] > 0).astype(int))
+            ps.append(m.predict_proba(B.loc[te, fs].values)[:, 1]); ys.append(y[te])
         if ps:
             p, yy = np.concatenate(ps), np.concatenate(ys); res["learned"] = curve(p, yy); res["baseUp"] = round(float((yy > 0).mean()) * 100, 1)
         out[f"{d}d"] = res; print(d, json.dumps(res), flush=True)
