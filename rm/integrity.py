@@ -197,7 +197,7 @@ def observe(mem, J=None, log=print):
                f"its overall live record" if ov is not None else f"its final exam ({(sd.get('exam') or {}).get('monthly')}% a month on the newest unseen months)")
         sides[name] = {"allowed": bool(allowed), "why": why}
         audit(R, "side_gate", f"{name}, allowed {bool(allowed)}, reason: {why}, condition_met {bool(allowed)}")
-    o["regime"] = {"now": R.get("regimeNow"), "group": GROUP(R.get("regimeNow")), "trend": R.get("trend2Now"), "sides": sides,
+    o["regime"] = {"now": R.get("regimeNow"), "group": GROUP(R.get("regimeNow")), "trend": R.get("trend2Now"), "sides": sides, "changepoint": R.get("bocpd"),
                    "last": [{"regime": r["regime"], "from": r["from"], "to": r["to"], "returnPct": round((r["eq1"] / r["eq0"] - 1) * 100, 2) if r.get("eq0") and r.get("eq1") else None} for r in runs[-3:]]}
     o["haircut"] = {k: v for k, v in (mem.get("haircut") or {}).items() if k != "rules"}
     o["audit"] = R.get("auditLog")

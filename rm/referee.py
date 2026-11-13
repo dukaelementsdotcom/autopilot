@@ -244,6 +244,10 @@ def step(mem, J, now_iso, log=print, problems=None):
             _shadow_add(J, B, R, rows, S, REG)
             _ledger_add(J, B, R, rows, S, REG, Hd, V)
             ctx = {"corr": _corr(J, newest), "live": None}
+            try:
+                from . import bocpd; bocpd.update(R, J)
+            except Exception as e:
+                if problems is not None: problems.append(f"changepoint watch: {str(e)[:100]}")
             REG2 = None
             try:
                 from . import compass
@@ -427,7 +431,8 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
         today = [x for x in A["open"] + A["closed"][-20:] if int(x["t"] // 86400) == day]
         best = None
         for name, sd in B["sides"].items():
-            if not (cfg.get("statebar") or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
+            fast = cfg.get("gate2") == "bocpd" and name == "long" and (R.get("bocpd") or {}).get("unlocked")      # changepoint fast-track (contestant only)
+            if not (cfg.get("statebar") or fast or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
             if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
             if not g: continue
@@ -503,7 +508,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
