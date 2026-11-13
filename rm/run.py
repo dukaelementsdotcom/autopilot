@@ -262,10 +262,9 @@ def run(budget=None, log=print):
         L = ideas.ai_lessons(mem)
         if L: mem["lessons"] = L; mem["lessonsAt"] = now_iso()
     if os.environ.get("GROQ_API_KEY") and (not mem.get("lessonsAt") or (dt.datetime.utcnow() - dt.datetime.strptime(mem["lessonsAt"], "%Y-%m-%d %H:%M")).days >= 7): safe("weekly lessons", lessons)
-    safe("$500 account", account.step, mem, J, now_iso(), log=log)
-    def retire_accounts():                                   # the team and all-in accounts were retired in Build A: their history goes to the archive
+    def retire_accounts():                                   # retired accounts: their whole history goes to the permanent archive (nothing deleted)
         from . import archive
-        for k in ("team", "allin"):
+        for k in ("team", "allin", "account"):               # 'account' = the best-rule testing ground, retired Nov 13 (it fed no decision)
             if k in mem: archive.keep(f"retired_{k}", [mem.pop(k)])
     safe("retire old accounts", retire_accounts)
     safe("referee account", referee.step, mem, J, now_iso(), log=log)

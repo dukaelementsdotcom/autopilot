@@ -34,7 +34,7 @@ def main():
         sp = f"{C.STATE_DIR}/docs/summary.json"; d = json.load(open(sp)); A = R["acct"]; rf = d.get("referee") or {}
         rf["acct"] = {**{k: A.get(k) for k in ("born", "start", "cash", "equity", "paused", "curve")}, "open": [{k: v for k, v in p.items() if k not in ("units", "fams", "row")} for p in A["open"]],
                       "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}
-        rf["obs"] = R.get("obs"); d["referee"] = rf; d["fastAt"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+        rf["obs"] = R.get("obs"); rf["demoAcct"] = (R.get("demo") or {}).get("acct"); rf["demoSync"] = (R.get("demo") or {}).get("sync"); d["referee"] = rf; d["fastAt"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
         for n, c in (R.get("chal") or {}).items():
             if c.get("acct") and n in (rf.get("chal") or {}): rf["chal"][n]["acct"] = {k: c["acct"].get(k) for k in ("cash", "equity", "start")}
         import shutil; shutil.copytree(f"{C.STATE_DIR}/docs", C.DOCS_DIR, dirs_exist_ok=True)      # health report and the rest stay on the site

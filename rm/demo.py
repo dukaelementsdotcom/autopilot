@@ -105,8 +105,10 @@ def mirror(R, log=print):
     for sym, amt in list(held.items()):
         if sym not in want:
             cancel_all(sym); px = _mkt(sym, "BUY" if amt < 0 else "SELL", abs(amt), True); st = D["pos"].pop(sym, {})
-            done.append({"close": sym, "px": px, "paperExit": _paper_exit(A, st.get("pid"))}); held.pop(sym)
+            pe = _paper_exit(A, st.get("pid")); done.append({"close": sym, "px": px, "paperExit": pe}); held.pop(sym)
+            _record(D, sym, st, f"closed with the Arbiter ({(pe or {}).get('how') or 'Arbiter closed'})", pe)
     for sym in [k for k in D["pos"] if k not in want and k not in held]:
+        st = D["pos"].get(sym) or {}; _record(D, sym, st, "Binance filled its stop / target", _paper_exit(A, st.get("pid")))
         cancel_all(sym); D["pos"].pop(sym, None)
     # 2) the Arbiter holds it -> the same here
     for sym, p in want.items():
@@ -115,9 +117,10 @@ def mirror(R, log=print):
         side = "SELL" if p["sd"] < 0 else "BUY"; opp = "BUY" if side == "SELL" else "SELL"; st = D["pos"].get(sym) or {}
         from . import referee as RF
         size = float(RF._size(p) / RF._avg(p)) if p.get("units") else float(p.get("size") or 0)      # coins held now (halved after the target)
-        if st.get("pid") == pid and sym not in held: continue                      # the exchange closed it first (its stop or target): never reopen
+        if st.get("pid") == pid and sym not in held:                                 # the exchange closed it first (its stop or target): never reopen
+            _record(D, sym, st, "Binance filled its stop before the Arbiter closed it", None); continue
         if st.get("pid") != pid and sym in held:                                    # held but not on record (record lost): adopt, never open twice
-            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "fill": p["entry"], "lev": p.get("lev"), "adopted": True}; cancel_all(sym)
+            st = D["pos"][sym] = {"pid": pid, "qty": abs(held[sym]), "qty0": abs(held[sym]), "fill": p["entry"], "lev": p.get("lev"), "adopted": True, "t0": int(time.time()), "t0ms": int(time.time() * 1000) - 60000}; cancel_all(sym)
         if st.get("pid") != pid:
             try: req("POST", "/fapi/v1/marginType", symbol=sym, marginType="ISOLATED")
             except IOError: pass
@@ -125,8 +128,9 @@ def mirror(R, log=print):
             except IOError as e: done.append({"note": sym, "why": f"leverage {p.get('lev')}x refused: {str(e)[:80]}"})
             qty = _fl(size, I["step"])
             if qty < I["minQty"] or qty * p["entry"] < I["minNotional"]: done.append({"skip": sym, "why": "below Binance's minimum size"}); continue
-            fill = _mkt(sym, side, qty) or 0
-            st = D["pos"][sym] = {"pid": pid, "qty": qty, "fill": fill, "lev": p.get("lev"), "paperEntry": p["entry"], "at": now, "late": p["t"] < D["since"] - 3600}
+            t0ms = int(time.time() * 1000) - 2000; fill = _mkt(sym, side, qty) or 0
+            st = D["pos"][sym] = {"pid": pid, "qty": qty, "qty0": qty, "fill": fill, "lev": p.get("lev"), "paperEntry": p["entry"], "at": now, "late": p["t"] < D["since"] - 3600,
+                                  "t0": int(time.time()), "t0ms": t0ms, "grade": p.get("grade"), "prob": p.get("prob"), "card": p.get("card")}
             done.append({"open": sym, "side": side, "qty": qty, "lev": p.get("lev"), "fill": fill, "paper": p["entry"],
                          "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None, "late": st["late"]})
             held[sym] = qty if side == "BUY" else -qty
@@ -144,14 +148,57 @@ def mirror(R, log=print):
             hq = _fl(st["qty"] / 2, I["step"])
             if hq >= I["minQty"]: st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); st["tp"] = p["target"]; done.append({"target": sym, "at": p["target"], "qty": hq})
         st.update(side=("LONG" if side == "BUY" else "SHORT"), size=abs(held.get(sym, 0)), tgt=p["target"], grade=p.get("grade"), coin=p["coin"])
-    # 3) what the dashboard shows live (prices are added in the browser)
+    # 3) the demo account in the SAME shape as the Arbiter's (the dashboard draws both with the same panel), from Binance's own numbers
+    if done:
+        acc = req("GET", "/fapi/v2/account"); real = float(acc["totalWalletBalance"]); wallet = real - D["base"]
+    cv = D.setdefault("curve", [[D.get("since", int(time.time())), D.get("start")]])
+    if abs(wallet - cv[-1][1]) > 0.01: cv.append([int(time.time()), round(wallet, 2)]); D["curve"] = cv[-500:]
+    opn = []
+    try:
+        for r in req("GET", "/fapi/v2/positionRisk"):
+            amt = float(r.get("positionAmt") or 0)
+            if not amt: continue
+            sym = r["symbol"]; st = D["pos"].get(sym) or {}; e_ = float(r["entryPrice"]); lev = int(float(r.get("leverage") or st.get("lev") or 10)); n = abs(amt) * e_
+            opn.append({"coin": sym.replace("USDT", ""), "side": "LONG" if amt > 0 else "SHORT", "entry": e_, "lev": lev, "notional": round(n, 2),
+                        "margin": round(float(r.get("isolatedMargin") or 0) or n / lev, 2), "stop": st.get("stop"), "target": None if st.get("tpId") == "done" else st.get("tp"),
+                        "half": st.get("tpId") == "done", "t": st.get("t0") or int(time.time()), "mark": float(r.get("markPrice") or e_), "unreal": round(float(r.get("unRealizedProfit") or 0), 2),
+                        "grade": st.get("grade"), "prob": st.get("prob"), "card": st.get("card"), "liqBinance": float(r.get("liquidationPrice") or 0) or None})
+    except IOError: pass
+    D["acct"] = {"born": D.get("startedAt"), "start": D.get("start"), "cash": round(wallet, 2), "equity": round(wallet + sum(o["unreal"] for o in opn), 2), "open": opn,
+                 "closed": D.get("closedTrades", [])[-300:], "curve": D.get("curve") or [[D.get("since", int(time.time())), D.get("start")]], "decisions": []}
+    pa = sorted((p["coin"], p["side"]) for p in A.get("open", [])); pd_ = sorted((o["coin"], o["side"]) for o in opn)
+    D["sync"] = {"ok": pa == pd_, "arbiter": pa, "demo": pd_, "at": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())}
+    # 4) what the dashboard shows live (prices are added in the browser)
     D["wallet"] = round(wallet, 2); D["realWallet"] = round(real, 2); D["holding"] = len(held); D["at"] = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
     D["arbiterCash"] = round(A.get("cash", 0), 2); D["gap"] = round(wallet - A.get("cash", 0), 2)
     D["log"] = (D.get("log") or [])[-60:] + [{"at": now, **d} for d in done]
     if done: log(f"   demo account (1:1 copy): {done}")
     return {"wallet": D["wallet"], "actions": done}
 
+def _income(sym, t0ms):
+    """what Binance itself booked for this trade: realised profit, fees, funding (since it opened)"""
+    try: rows = req("GET", "/fapi/v1/income", symbol=sym, startTime=int(t0ms), limit=1000)
+    except IOError: return None
+    return round(sum(float(x["income"]) for x in rows if x.get("incomeType") in ("REALIZED_PNL", "COMMISSION", "FUNDING_FEE")), 2)
+
+def _exit_px(sym, t0ms, opp):
+    try: tr = [x for x in req("GET", "/fapi/v1/userTrades", symbol=sym, startTime=int(t0ms), limit=500) if x.get("side") == opp]
+    except IOError: return None
+    q = sum(float(x["qty"]) for x in tr)
+    return round(sum(float(x["price"]) * float(x["qty"]) for x in tr) / q, 8) if q else None
+
+def _record(D, sym, st, how, paper=None):
+    """a finished trade, as Binance booked it, next to the Arbiter's paper result"""
+    if st.get("recorded") or not st.get("t0ms"): return
+    side = st.get("side") or "SHORT"; opp = "BUY" if side == "SHORT" else "SELL"
+    usd = _income(sym, st["t0ms"]); ex = _exit_px(sym, st["t0ms"], opp)
+    n = float(st.get("qty0") or st.get("qty") or 0) * float(st.get("fill") or 0); lev = st.get("lev") or 10; mg = n / max(1, lev)
+    D.setdefault("closedTrades", []).append({"coin": st.get("coin") or sym.replace("USDT", ""), "side": side, "entry": st.get("fill"), "exitPx": ex, "usd": usd if usd is not None else 0.0,
+        "lev": lev, "notional": round(n, 2), "margin": round(mg, 2), "roe": round((usd or 0) / mg * 100, 1) if mg else None, "how": how, "t": st.get("t0"), "exitT": int(time.time()),
+        "grade": st.get("grade"), "paperUsd": (paper or {}).get("usd"), "paperExit": (paper or {}).get("px"), "paperHow": (paper or {}).get("how")})
+    D["closedTrades"] = D["closedTrades"][-300:]; st["recorded"] = True
+
 def _paper_exit(A, pid):
     for c in reversed((A.get("closed") or [])[-30:]):
-        if pid and f"{c.get('coin')}|{c.get('t')}" == pid: return {"px": c.get("exitPx"), "how": c.get("how")}
+        if pid and f"{c.get('coin')}|{c.get('t')}" == pid: return {"px": c.get("exitPx"), "how": c.get("how"), "usd": c.get("usd")}
     return None
