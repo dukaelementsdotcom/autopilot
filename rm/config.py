@@ -56,4 +56,4 @@ EVO_DIR = os.environ.get("RM_EVO", "evo_state")   # the evolution engine's archi
 
 # the "wider universe" contestant (rm/wide.py): extra liquid perpetuals, kept OUT of the core panel so nothing existing changes
 WIDE = ("EOS 1000BONK GALA DYDX APE SAND AXS CHZ MANA CFX GRT THETA ENS MASK 1000FLOKI TRB SNX COMP NEO AR JASMY XTZ").split()
-WIDE_MIN_USD = 20e6          # it trades only those whose median 24h volume over the last 30 days is at least this
+WIDE_MIN_USD = 3e6           # it trades only those whose median 24h volume over the last 30 days is at least this ($3M/day: ample for a small account's orders)
