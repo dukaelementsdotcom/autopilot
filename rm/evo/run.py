@@ -75,7 +75,7 @@ def main(budget_min=100.0, seed=None, log=print):
         A.cells, A.fires = {}, {}
     S0 = ST.staged(); kept = []                       # voters staged under the old (profit) fitness must pass the odds-error gate too
     for v in S0["active"]:
-        if (v.get("checks") or {}).get("valGain"): kept.append(v); continue
+        if ((v.get("checks") or {}).get("valGain") or {}).get("passesGates"): kept.append(v); continue      # checked under today's rules already
         try: vg = orc.delta(orc.voter_cols(lab.ctx, v["genome"]), "val")
         except Exception: vg = None
         if vg and vg["t"] >= 1.5 and vg["milli"] > 0 and vg["passesGates"]: v.setdefault("checks", {})["valGain"] = vg; kept.append(v)
