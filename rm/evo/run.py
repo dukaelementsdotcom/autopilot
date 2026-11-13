@@ -121,7 +121,9 @@ def main(budget_min=100.0, seed=None, log=print):
             a, b = rng.choice(el), rng.choice(el); evaluate(GEN.mutate(a["genome"], cols, rng, b["genome"]), "mutation")
         if ask and llm_calls < 8 and evals and evals % 200 == 0:
             llm_calls += 1
-            for g, origin, why in GEN.llm_voters(sorted(el, key=lambda e: -e["fit"])[:4], misses, cols, ask): evaluate(g, origin)
+            try: kids = GEN.llm_voters(sorted(el, key=lambda e: -e["fit"])[:4], misses, cols, ask)
+            except Exception as e: kids = []; log(f"   evo: AI answer unusable ({str(e)[:80]})")
+            for g, origin, why in kids: evaluate(g, origin)
         if evals % 500 == 0 and evals: log(f"   evo: {evals} tried this night, {len(A.cells)} niches filled, {new} new elites, rejected {rej}")
 
     # STAGING: the deflated bar on the discovery gain, then ONE look at the validation year (the gate) and the newest months, then the proofs

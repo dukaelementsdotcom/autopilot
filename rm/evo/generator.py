@@ -158,8 +158,10 @@ def llm_voters(elites, misses, cols, ask, n=5):
     try: d = json.loads(txt[txt.find("{"): txt.rfind("}") + 1])
     except Exception: return []
     kids = []
+    if not isinstance(d, dict): return []
     for kind in ("vetoes", "signals"):
-        for v in d.get(kind, [])[: n + 2]:
+        for v in (d.get(kind) or [])[: n + 2]:
+            if not isinstance(v, dict): continue                       # whatever shape the model answers in, nothing breaks the night
             node = v.get("expr")
             if dsl.valid(node, set(cols)):
                 kids.append(({"sig": node, "side": 1 if v.get("side") == "long" else -1, "tail": "hi", "z": 1.5, "flt": None}, "llm-" + ("veto" if kind == "vetoes" else "signal"), v.get("why", "")))

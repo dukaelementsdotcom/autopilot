@@ -35,7 +35,7 @@ jobs:
           if git ls-remote --exit-code --heads origin evo >/dev/null 2>&1; then
             git fetch --depth 1 origin evo && git --work-tree=evo_state checkout FETCH_HEAD -- . && git reset -q
           fi
-      - name: read the live memory (read-only: only the AI-invented measurements, so evolution sees the Arbiter's exact inputs)
+      - name: "read the live memory, read-only (only the AI-invented measurements, so evolution sees the same inputs)"
         run: |
           mkdir -p state
           git fetch --depth 1 origin state && git show FETCH_HEAD:memory.json > state/memory.json || true
