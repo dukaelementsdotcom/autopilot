@@ -16,10 +16,10 @@ V = {"G5": (1.5, 1.0, 5), "G10": (2.0, 1.0, 10), "G20": (3.0, 1.5, 20)}
 FEE = 0.001; RISK = 0.04
 
 def yahoo(sym):
-    j = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{requests.utils.quote(sym)}", params={"range": "max", "interval": "1d"}, headers=UA, timeout=60).json()
+    j = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{requests.utils.quote(sym)}", params={"period1": 946684800, "period2": int(time.time()), "interval": "1d"}, headers=UA, timeout=60).json()
     r = j["chart"]["result"][0]; q = r["indicators"]["quote"][0]
     d = pd.DataFrame({"o": q["open"], "h": q["high"], "l": q["low"], "c": q["close"]}, index=pd.to_datetime(r["timestamp"], unit="s").normalize())
-    return d[~d.index.duplicated(keep="last")].dropna(subset=["c"])
+    d = d[~d.index.duplicated(keep="last")].dropna(subset=["c"]); print(f"  {sym}: {len(d)} days {d.index[0].date()} .. {d.index[-1].date()}", flush=True); return d
 
 def build(asset):
     raw = {k: yahoo(s) for k, s in SYM.items()}; time.sleep(0.5)
