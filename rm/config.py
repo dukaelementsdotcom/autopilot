@@ -51,3 +51,5 @@ RULE_REPLACE_PP = 0.10       # a replacement must beat it by 0.10 points per tra
 RULE_REPLACE_N = 50          # ... over at least 50 unseen trades each
 
 # the Binance demo account is a 1:1 copy of the Arbiter (rm/demo.py): same size, leverage, isolated margin, stop and targets
+
+EVO_DIR = os.environ.get("RM_EVO", "evo_state")   # the evolution engine's archive and staged voters (the 'evo' branch)

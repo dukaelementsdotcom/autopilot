@@ -41,6 +41,11 @@ CH.WITNESSES.update({k: v for k, v in WITNESSES.items()})
 MODEL = lambda name: f"{C.DATA_DIR}/models/w_{name}.joblib"
 
 # ── features (added to the panel; prefix w_ so the research engine and the existing families never see them) ─────────────
+try:                                                   # evolved voters staged by the evolution engine (rm/evo): one witness each
+    from .evo.stage import witness_entries as _evo_w
+    WITNESSES.update(_evo_w())
+except Exception: pass
+
 def _daily_to_hourly(ts_hours, d_t, vals, lag_days=1):
     """a daily value for date d becomes usable from d + lag (no peeking); forward-filled across hours"""
     s = pd.Series(np.asarray(vals, float), index=np.asarray(d_t, np.int64) + lag_days * DAY).sort_index()

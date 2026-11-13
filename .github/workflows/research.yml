@@ -65,8 +65,25 @@ jobs:
           fi
           ls -la state
 
+      - name: restore the evolution engine's archive (read-only here)
+        run: |
+          mkdir -p evo_state
+          if git ls-remote --exit-code --heads origin evo >/dev/null 2>&1; then
+            git fetch --depth 1 origin evo && git --work-tree=evo_state checkout FETCH_HEAD -- . && git reset -q
+          fi
+
       - name: research day
         run: python -m rm.run
+
+      - name: start the nightly evolution (once a day, 01 UTC)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%H)" = "01" ] && [ "$(gh run list -R ${{ github.repository }} --workflow evolve.yml --status in_progress --json databaseId -q length)" = "0" ]; then
+            gh workflow run evolve.yml -R ${{ github.repository }} --ref main && echo "evolution started"
+          fi
 
       # saved only when the data really changed (about once a day), so the 10 GB cache never fills with hourly copies
       - name: save market data

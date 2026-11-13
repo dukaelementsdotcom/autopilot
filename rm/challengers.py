@@ -336,10 +336,10 @@ def evaluate(R, log=print):
             y = np.array([x["cp"][key].get("y", x["y"]) for x in rows], float)          # a shape challenger answers its own question
             p = np.clip(np.array([x["cp"][key]["p"] for x in rows]), 1e-3, 1 - 1e-3)
             ll = float(-(w * (y * np.log(p) + (1 - y) * np.log(1 - p))).sum() / w.sum())
-            cal = float(abs((w * (p - y)).sum() / w.sum()))
+            cal = float(abs((w * (p - y)).sum() / w.sum())); brier = float((w * (p - y) ** 2).sum() / w.sum())
             A = np.array([x["cp"][key].get("g") == "A" for x in rows]); r = np.array([x["cp"][key].get("r", x.get("ret", 0.0)) for x in rows], float)
             aret = float((w[A] * r[A]).sum() / max(1e-9, w[A].sum())) if A.any() else 0.0
-            return {"ll": round(ll, 4), "cal": round(cal, 4), "aPerDay": round(float(A.sum()) / days, 2), "aRet": round(aret * 100, 3), "aN": int(A.sum()),
+            return {"ll": round(ll, 4), "cal": round(cal, 4), "brier": round(brier, 4), "aPerDay": round(float(A.sum()) / days, 2), "aRet": round(aret * 100, 3), "aN": int(A.sum()),
                     "profitPerDay": round(aret * float(A.sum()) / days * 100, 3)}
         s, c = stats(n), stats("champion")
         # PROOF, not luck: with dozens of challengers some will look better by chance. The lead must be consistent across

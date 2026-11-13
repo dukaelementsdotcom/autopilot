@@ -177,6 +177,11 @@ def build(coins=None, log=print, blocks=()):
         extra.update(panel_extras(P, log=log))
     except Exception as e: log(f"witness features skipped: {e}")
     P = pd.concat([P, pd.DataFrame(extra, index=P.index)], axis=1); del extra
+    try:                                               # voters invented by the evolution engine and staged as Arbiter upgrades (e_ columns)
+        from .evo.stage import voter_columns
+        ev = voter_columns(P, log)
+        if ev: P = pd.concat([P, pd.DataFrame(ev, index=P.index)], axis=1)
+    except Exception as e: log(f"evolved voters skipped: {e}")
     num = [c for c in P.select_dtypes("float64").columns if c not in ("px", "_hi", "_lo", "_cl")]; P[num] = P[num].astype("float32")
     os.makedirs(C.DATA_DIR, exist_ok=True); P.to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)
     log(f"panel: {len(P):,} coin-hours, {P.coin.nunique()} coins, {pd.to_datetime(P.t.min(), unit='s').date()} → {pd.to_datetime(P.t.max(), unit='s')}")

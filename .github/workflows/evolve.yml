@@ -1,0 +1,47 @@
+name: evolve
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "search budget in minutes"
+        default: "100"
+permissions:
+  contents: write
+concurrency:
+  group: evolve
+  cancel-in-progress: false
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || secrets.GROQ }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: restore market data (read-only)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: rawdata-${{ github.run_id }}
+          restore-keys: rawdata-
+      - name: restore the archive
+        run: |
+          mkdir -p evo_state
+          if git ls-remote --exit-code --heads origin evo >/dev/null 2>&1; then
+            git fetch --depth 1 origin evo && git --work-tree=evo_state checkout FETCH_HEAD -- . && git reset -q
+          fi
+      - name: evolve
+        run: python -W ignore -m rm.evo.run ${{ github.event.inputs.minutes || '100' }}
+      - name: save the archive (its own branch, so it never collides with the hourly memory)
+        if: always()
+        run: |
+          [ -f evo_state/archive.json.gz ] || exit 0
+          cd evo_state && rm -rf .git && git init -q -b evo
+          git config user.name "research-machine" && git config user.email "research-machine@users.noreply.github.com"
+          git add -A && git commit -qm "evolution $(date -u +%F)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" evo
