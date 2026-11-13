@@ -23,6 +23,8 @@ def step(mem, J, now_iso, blocks=(), log=print):
     for p in list(A["open"]): RF._manage(Jx, B, p, A, newest)
     recent = X[X.t >= newest - 30 * 86400].groupby("coin")._qv24.median()
     liq = sorted(recent[recent >= C.WIDE_MIN_USD].index.tolist()); W["coins"] = liq
+    W["liqM"] = {c: round(float(v) / 1e6, 1) for c, v in recent.sort_values(ascending=False).items()}
+    W["rowsRecent"] = {c: int(n) for c, n in X[X.t >= newest - 30 * 86400].groupby("coin").size().items()}
     if newest > A["lastT"] and liq and not A.get("paused"):
         rows = np.flatnonzero((Jx.t > A["lastT"]) & (Jx.t <= newest) & np.isin(Jx.coin, liq) & np.isfinite(Jx.dvol) & np.isfinite(Jx.O))
         if len(rows):
