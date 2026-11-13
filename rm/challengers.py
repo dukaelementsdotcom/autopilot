@@ -325,6 +325,7 @@ def evaluate(R, log=print):
     for x in L: cl.setdefault((x["side"], x["t"] // (6 * H)), []).append(x)
     wt = {id(x): 1.0 / (1 + (len(v) - 1) * rho) for v in cl.values() for x in v}
     names = sorted({k for x in L for k in x["cp"]})
+    racing = len([n for n in (R.get("chal") or {}) if n not in (R.get("chalRejected") or {})])     # family-wise line (integrity.z_needed)
     out = {}
     for n in names:
         born = (R.get("chal") or {}).get(n, {}).get("born"); t_born = __import__("calendar").timegm(time.strptime(born, "%Y-%m-%d %H:%M")) - 6 * H if born else 0
@@ -358,12 +359,12 @@ def evaluate(R, log=print):
         # SEQUENTIAL TEST (integrity.PROMO, frozen): looked at every hour, so the boundary is pre-set and stricter than a one-off test;
         # a second pre-set boundary gives up on contestants that are clearly not better. Counted in separate market moves only.
         from . import integrity as IG
-        decision, state = IG.seq_decision(nb, tstat, days)
+        decision, state = IG.seq_decision(nb, tstat, days, racing)
         if pol: side_ok = s["aPerDay"] >= c["aPerDay"] and s["cal"] <= max(c["cal"], 0.03) + 0.02
         else: side_ok = s["aPerDay"] >= c["aPerDay"] and s["cal"] <= c["cal"] + 0.01 and s["profitPerDay"] >= c["profitPerDay"]
         better = decision == "promote" and side_ok
         if decision == "promote" and not side_ok: state = "lead proven, but it finds fewer Grade A trades or its odds are less honest"
-        out[n] = {"bets": nb, "me": s, "champion": c, "ready": nb >= IG.PROMO["minBets"] and days >= IG.PROMO["minDays"], "better": bool(better), "lead": round(tstat, 2),
+        out[n] = {"zNeeded": IG.z_needed(racing), "bets": nb, "me": s, "champion": c, "ready": nb >= IG.PROMO["minBets"] and days >= IG.PROMO["minDays"], "better": bool(better), "lead": round(tstat, 2),
                   "state": state, "decision": decision if (decision != "promote" or better) else None, "days": round(days, 1)}
         IG.audit(R, "promotion_test", f"{n}, n_eff {nb}, statistic {tstat:.2f}, decision {out[n]['decision'] or 'continue'}, boundary_crossed {state}")
         if decision == "futility" and n != "previous":

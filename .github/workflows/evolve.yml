@@ -35,8 +35,12 @@ jobs:
           if git ls-remote --exit-code --heads origin evo >/dev/null 2>&1; then
             git fetch --depth 1 origin evo && git --work-tree=evo_state checkout FETCH_HEAD -- . && git reset -q
           fi
+      - name: read the live memory (read-only: only the AI-invented measurements, so evolution sees the Arbiter's exact inputs)
+        run: |
+          mkdir -p state
+          git fetch --depth 1 origin state && git show FETCH_HEAD:memory.json > state/memory.json || true
       - name: evolve
-        run: python -W ignore -m rm.evo.run ${{ github.event.inputs.minutes || '100' }}
+        run: python -W ignore -m rm.evo.run ${{ github.event.inputs.minutes || '90' }}
       - name: save the archive (its own branch, so it never collides with the hourly memory)
         if: always()
         run: |

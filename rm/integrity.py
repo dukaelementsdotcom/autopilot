@@ -13,23 +13,32 @@ from . import config as C
 H = 3600; DAY = 86400
 
 # ── the promotion test (frozen) ─────────────────────────────────────────────────────────────────────────────────────────
-PROMO = {"z": 3.0, "minBets": 40, "minDays": 10,                 # promote: lead of 3.0 standard errors, any hourly look from 40 separate 6-hour windows over 10+ days
+PROMO = {"z": 3.0, "minBets": 40, "minDays": 10,                 # promote: lead of 3.0 standard errors for ONE contestant (raised for the number racing, see z_needed), any hourly look from 40 separate 6-hour windows over 10+ days
          "futility": [[80, -1.5], [240, 0.5]],                   # give up: clearly behind at 80 windows, or still no lead at 240
-         "alpha": "about 0.02 one-sided over the whole race (a constant boundary of 3.0 looked at every hour from 40 to about 400 windows)",
+         "alpha": "about 0.02 one-sided over the whole race, for ALL contestants together (the line rises with the number racing: Bonferroni / first step of Holm)",
          "beta": "about 0.2: a contestant truly better by a quarter of a standard deviation per window is promoted by 240 windows about 4 times in 5"}
 
-def seq_decision(n_eff, z, days):
-    """-> (decision, boundary state). decision: 'promote' | 'futility' | None"""
-    if n_eff >= PROMO["minBets"] and days >= PROMO["minDays"] and z >= PROMO["z"]: return "promote", "promotion boundary crossed"
+def z_needed(m):
+    """FAMILY-WISE promotion line (Bonferroni = the first step of Holm): with m contestants racing at once, each is held to the
+    one-sided tail of the single-contestant line divided by m, so the chance that ANY of them is promoted by luck stays where one
+    contestant's chance was. z_m = Phi^-1(1 - (1 - Phi(z_1)) / m)."""
+    from statistics import NormalDist
+    N = NormalDist(); m = max(1, int(m))
+    return round(N.inv_cdf(1 - (1 - N.cdf(PROMO["z"])) / m), 2)
+
+def seq_decision(n_eff, z, days, m=1):
+    """-> (decision, boundary state). decision: 'promote' | 'futility' | None. m = contestants racing at once"""
+    zn = z_needed(m)
+    if n_eff >= PROMO["minBets"] and days >= PROMO["minDays"] and z >= zn: return "promote", f"promotion boundary crossed ({zn} with {m} racing)"
     for nn, zz in PROMO["futility"]:
         if n_eff >= nn and z <= zz: return "futility", "futility boundary crossed"
-    if n_eff >= 20 and z >= 2.0: return None, "near promotion"
+    if n_eff >= 20 and z >= zn - 1.0: return None, "near promotion"
     if n_eff >= 40 and z <= -1.0: return None, "near futility"
     return None, "collecting"
 
 def judge_hash():
     from . import challengers as CH
-    src = inspect.getsource(seq_decision) + json.dumps(PROMO, sort_keys=True) + inspect.getsource(CH.evaluate) + inspect.getsource(CH.icc) + inspect.getsource(CH.promote)
+    src = inspect.getsource(seq_decision) + inspect.getsource(z_needed) + json.dumps(PROMO, sort_keys=True) + inspect.getsource(CH.evaluate) + inspect.getsource(CH.icc) + inspect.getsource(CH.promote)
     return hashlib.sha1(src.encode()).hexdigest()[:10]
 
 # ── audit log lines (kept in memory, shown in the health report) ────────────────────────────────────────────────────────
@@ -147,7 +156,8 @@ def observe(mem, J=None, log=print):
     R = mem.get("referee") or {}; A = R.get("acct")
     if not A: return None
     from . import referee as RF
-    o = {"judge": {"hash": judge_hash(), "rule": PROMO, "note": "The judge (promotion test, its numbers, how separate bets are counted) is fixed code. The learner cannot edit it; a change is a human decision and changes this fingerprint."}}
+    racing = len([n for n in (R.get("chal") or {}) if n not in (R.get("chalRejected") or {})])
+    o = {"judge": {"hash": judge_hash(), "rule": {**PROMO, "racing": racing, "zNow": z_needed(racing)}, "note": "The judge (promotion test, its numbers, how separate bets are counted) is fixed code. The learner cannot edit it; a change is a human decision and changes this fingerprint."}}
     o["arbiter"] = acct_stats(A)
     try:
         B = mem.get("account")

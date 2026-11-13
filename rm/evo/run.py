@@ -17,15 +17,15 @@ class Lab:
         c = P.coin.values; ends = np.r_[np.flatnonzero(c[1:] != c[:-1]), n - 1]; self.last = np.repeat(ends, np.diff(np.r_[-1, ends]))
         O, Hh, Ll, Cl = (P[k].values.astype(float) for k in ("px", "_hi", "_lo", "_cl"))
         dvol = P["vol24"].values.astype(float) * np.sqrt(24); stp = RF.stop_pct(dvol); ok = np.isfinite(dvol) & (np.arange(n) + RF.HORIZON <= self.last) & (t <= self.t_end)
-        self.ok = ok; self.R = {}; self.HRS = {}
+        self.ok = ok; self.R = {}; self.HRS = {}; self.Y = {}; self.dvol = dvol
         for side in (1, -1):
-            r = np.full(n, np.nan); hrs = np.full(n, np.nan); open_ = ok.copy(); tg = O * (1 + side * RF.TARGET); st = O * (1 - side * stp)
+            r = np.full(n, np.nan); hrs = np.full(n, np.nan); yy = np.zeros(n, np.int8); open_ = ok.copy(); tg = O * (1 + side * RF.TARGET); st = O * (1 - side * stp)
             for j in range(RF.HORIZON):
                 k = np.minimum(np.arange(n) + j, n - 1); hi, lo = Hh[k], Ll[k]
                 sh = open_ & ((lo <= st) if side > 0 else (hi >= st)); th = open_ & ((hi >= tg) if side > 0 else (lo <= tg)) & ~sh
-                r[sh] = -stp[sh]; r[th] = RF.TARGET; hrs[sh | th] = j + 1; open_ &= ~(sh | th)
+                r[sh] = -stp[sh]; r[th] = RF.TARGET; yy[th] = 1; hrs[sh | th] = j + 1; open_ &= ~(sh | th)
             k = np.minimum(np.arange(n) + RF.HORIZON - 1, n - 1); r[open_] = side * (Cl[k][open_] / O[open_] - 1); hrs[open_] = RF.HORIZON
-            self.R[side] = r - C.FEE; self.HRS[side] = hrs                       # C.FEE is the round trip
+            self.R[side] = r - C.FEE; self.HRS[side] = hrs; self.Y[side] = yy                       # C.FEE is the round trip
         b = P.loc[c == "BTC", ["t", "px", "_cl"]]; bo = pd.Series(b.px.values, index=b.t.values); bc = pd.Series(b._cl.values, index=b.t.values)
         self.btc48 = (bc.reindex(t + (RF.HORIZON - 1) * H).values / bo.reindex(t).values - 1)
         self.split = {"disc": t < self.val0, "val": (t >= self.val0) & (t < self.hold0), "exam": t >= self.hold0}
@@ -65,30 +65,51 @@ class Lab:
                 "freq": round(len(idx) / self.months[split], 2), "hold": round(float(np.nanmean(self.HRS[side][idx])), 1), "btc": round(bc, 3)}
 
 def main(budget_min=100.0, seed=None, log=print):
+    """fitness = how much a candidate lowers the ARBITER's odds error (out of sample, decision band weighted, per market move);
+    standalone trading profit is kept as a side statistic and places the candidate in its niche."""
     t0 = time.time(); EV = getattr(C, "EVO_DIR", "evo_state"); os.makedirs(EV, exist_ok=True)
-    P = features.build(blocks=[], log=log); lab = Lab(P, log); A = AR.Archive(os.path.join(EV, "archive.json.gz"))
+    from . import oracle as OR
+    P = features.build(blocks=_blocks(log), log=log); lab = Lab(P, log); orc = OR.Oracle(P, lab, log); A = AR.Archive(os.path.join(EV, "archive.json.gz"))
+    if A.cells and any(e.get("fitKind") != "oddsError" for e in A.elites()):        # the archive was scored by profit before: start it again under the new fitness
+        A.log.append({"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), "note": f"archive reset: fitness changed to the Arbiter's odds error ({len(A.cells)} profit-scored niches retired)"})
+        A.cells, A.fires = {}, {}
+    S0 = ST.staged(); kept = []                       # voters staged under the old (profit) fitness must pass the odds-error gate too
+    for v in S0["active"]:
+        if (v.get("checks") or {}).get("valGain"): kept.append(v); continue
+        try: vg = orc.delta(orc.voter_cols(lab.ctx, v["genome"]), "val")
+        except Exception: vg = None
+        if vg and vg["t"] >= 1.5 and vg["milli"] > 0: v.setdefault("checks", {})["valGain"] = vg; kept.append(v)
+        else: S0["retired"].append({**v, "retiredWhy": f"failed the validation-year odds-error gate ({vg})"}); log(f"   staged voter {v['id']} retired: no odds-error gain on the validation year")
+    if len(kept) != len(S0["active"]):
+        S0["active"] = kept; json.dump(S0, open(ST._path(), "w"), indent=1)
     rng = random.Random(seed if seed is not None else int(time.time())); cols = lab.cols
-    seen = set(); rej = {"error": 0, "too few trades": 0, "weak": 0, "correlated with the Arbiter": 0, "twin": 0, "worse than its niche": 0}; new = 0; evals = 0
+    seen = set(); rej = {"error": 0, "too little data": 0, "no gain": 0, "correlated with the Arbiter": 0, "twin": 0, "worse than its niche": 0}; new = 0; evals = 0
     try: from ..ideas import _groq_call as ask
     except Exception: ask = None
+    if not os.environ.get("GROQ_API_KEY"): ask = None
     llm_calls = 0; origins = {}
+    feats_ctx = [f for f in CTX_FEATS if f in P.columns]
+    misses = {("long" if s > 0 else "short"): orc.confident_misses(s, feats_ctx) for s in (1, -1)}
 
     def evaluate(g, origin):
         nonlocal new, evals
         k = GEN.gkey(g)
         if k in seen: return
         seen.add(k); A.N += 1; evals += 1
-        try: s, m = lab.fire(g)
+        try:
+            vc = orc.voter_cols(lab.ctx, g)
+            corr = AR.max_corr(vc["s"][lab.sample], lab.X)
+            if corr > AR.ORTHO: rej["correlated with the Arbiter"] += 1; return
+            dl = orc.delta(vc, "disc")
         except Exception: rej["error"] += 1; return
-        idx = lab.trades(m, "disc")
-        if len(idx) < MIN_TRADES: rej["too few trades"] += 1; return
-        st = lab.stats(idx, g["side"], "disc")
-        if not st or st["windows"] < MIN_WIN or st["t"] < 1.0: rej["weak"] += 1; return
-        corr = AR.max_corr(s[lab.sample], lab.X)
-        if corr > AR.ORTHO: rej["correlated with the Arbiter"] += 1; return
-        fire = m[lab.sample]; tw = A.twin_of(fire, st["t"]); c = AR.cell(g["side"], st)
+        if not dl or dl["windows"] < MIN_WIN: rej["too little data"] += 1; return
+        if dl["t"] < 1.0 or dl["milli"] <= 0: rej["no gain"] += 1; return
+        _, m = lab.fire(g); idx = lab.trades(m, "disc")                                 # standalone trading: a side statistic and its niche
+        st = lab.stats(idx, g["side"], "disc") if len(idx) >= MIN_TRADES else None
+        desc = st or {"freq": 0.0, "hold": 24.0, "btc": 0.0}
+        fire = m[lab.sample]; tw = A.twin_of(fire, dl["t"]); c = AR.cell(g["side"], desc)
         if tw is not None and tw != c: rej["twin"] += 1; return
-        e = {"key": k, "genome": g, "text": GEN.gtext(g), "fit": st["t"], "stats": st, "corr": round(corr, 3), "origin": origin,
+        e = {"key": k, "genome": g, "text": GEN.gtext(g), "fit": dl["t"], "fitKind": "oddsError", "gain": dl, "stats": st, "corr": round(corr, 3), "origin": origin,
              "born": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), "N_at": A.N, "cell": AR.cell_name(c)}
         if A.insert(c, e, fire): new += 1; origins[origin] = origins.get(origin, 0) + 1
         else: rej["worse than its niche"] += 1
@@ -98,42 +119,40 @@ def main(budget_min=100.0, seed=None, log=print):
         if len(el) < 24 or rng.random() < 0.1: evaluate(GEN.genome(cols, rng), "random")
         else:
             a, b = rng.choice(el), rng.choice(el); evaluate(GEN.mutate(a["genome"], cols, rng, b["genome"]), "mutation")
-        if ask and llm_calls < 8 and evals and evals % 250 == 0 and len(el) >= 4:
-            top = sorted(el, key=lambda e: -e["fit"])[:4]; cl = {}
-            for e in top:
-                try:
-                    _, mm = lab.fire(e["genome"]); ix = lab.trades(mm, "disc")
-                    cl[e["key"]] = GEN.failure_clusters(P, ix, lab.R[e["genome"]["side"]][ix], [f for f in CTX_FEATS if f in P.columns])
-                except Exception: pass
+        if ask and llm_calls < 8 and evals and evals % 200 == 0:
             llm_calls += 1
-            for g, origin, why in GEN.llm_children(top, cl, cols, ask): evaluate(g, origin)
+            for g, origin, why in GEN.llm_voters(sorted(el, key=lambda e: -e["fit"])[:4], misses, cols, ask): evaluate(g, origin)
         if evals % 500 == 0 and evals: log(f"   evo: {evals} tried this night, {len(A.cells)} niches filled, {new} new elites, rejected {rej}")
 
-    # STAGING: deflated bar on discovery, then ONE look at the validation year and the newest months, then the causality proof
+    # STAGING: the deflated bar on the discovery gain, then ONE look at the validation year (the gate) and the newest months, then the proofs
     bar = GD.t_min(A.N); staged_now = []
     for c, e in sorted(A.cells.items(), key=lambda kv: -kv[1]["fit"]):
         if e.get("checks") or e["fit"] < bar: continue
-        g = e["genome"]; _, m = lab.fire(g); chk = {"bar": round(bar, 2), "N": A.N, "pLuck": round(GD.p_luck(e["fit"], A.N), 4)}
-        v = lab.stats(lab.trades(m, "val"), g["side"], "val"); x = lab.stats(lab.trades(m, "exam"), g["side"], "exam")
-        chk["val"], chk["exam"] = v, x
-        passed = bool(v and v["t"] >= 1.5 and v["mean"] > 0 and x and x["t"] >= 1.0 and x["mean"] > 0)
+        g = e["genome"]; vc = orc.voter_cols(lab.ctx, g); chk = {"bar": round(bar, 2), "N": A.N, "pLuck": round(GD.p_luck(e["fit"], A.N), 4)}
+        v = orc.delta(vc, "val"); x = orc.delta(vc, "exam"); chk["valGain"], chk["examGain"] = v, x
+        passed = bool(v and v["t"] >= 1.5 and v["milli"] > 0 and x and x["milli"] >= 0)          # the validation-year odds-error gate
         if passed:
-            ok, frac = dsl.probe(g["sig"], P)                                  # the operators look backwards only
-            if g.get("flt") and ok: ok, _ = dsl.probe(g["flt"]["node"], P)
-            lk, bad = dsl.leak_check(g["sig"], P)                               # the columns contain no future
+            ok = dsl.probe(g["sig"], P)[0] and (not g.get("flt") or dsl.probe(g["flt"]["node"], P)[0])
+            lk, bad = dsl.leak_check(g["sig"], P)
             if g.get("flt"): lk2, bad2 = dsl.leak_check(g["flt"]["node"], P); lk = lk and lk2; bad.update(bad2)
-            chk["causal"] = ok; chk["noLeak"] = lk; chk["leaky"] = bad or None; ok = ok and lk
-            passed = ok
+            chk["causal"] = ok; chk["noLeak"] = lk; chk["leaky"] = bad or None; passed = ok and lk
         chk["passed"] = passed; e["checks"] = chk
         if passed and ST.stage_arbiter_upgrade(e, log): staged_now.append(e["key"])
     A.log.append({"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), "evals": evals, "new": new, "filled": len(A.cells), "N": A.N, "bar": round(bar, 2),
-                  "rejected": rej, "origins": origins, "llmCalls": llm_calls, "staged": staged_now, "mins": round((time.time() - t0) / 60, 1)})
+                  "rejected": rej, "origins": origins, "llmCalls": llm_calls, "staged": staged_now, "mins": round((time.time() - t0) / 60, 1), "fitness": "Arbiter odds-error drop"})
     A.save()
-    summ = {"at": A.log[-1]["at"], "N": A.N, "bar": round(bar, 2), "filled": len(A.cells), "cells": 2 * 4 * 4 * 4, "lastNight": A.log[-1],
-            "top": [{k: e.get(k) for k in ("text", "fit", "stats", "cell", "origin", "born", "checks", "corr")} for e in sorted(A.elites(), key=lambda e: -e["fit"])[:12]],
+    summ = {"at": A.log[-1]["at"], "N": A.N, "bar": round(bar, 2), "filled": len(A.cells), "cells": 2 * 4 * 4 * 4, "lastNight": A.log[-1], "fitness": "Arbiter odds-error drop (t per market move)",
+            "arbiterLL": orc.base_ll, "misses": misses,
+            "top": [{k: e.get(k) for k in ("text", "fit", "gain", "stats", "cell", "origin", "born", "checks", "corr")} for e in sorted(A.elites(), key=lambda e: -e["fit"])[:12]],
             "map": {AR.cell_name(c): e["fit"] for c, e in A.cells.items()}, "staged": ST.staged()}
     json.dump(summ, open(os.path.join(EV, "summary.json"), "w"), indent=1, default=str)
-    log(f"evo night: {evals} strategies tried (all-time {A.N:,}), {len(A.cells)} of 128 niches filled, {new} new elites, bar t>={bar:.2f}, staged {staged_now}")
+    log(f"evo night: {evals} voters tried (all-time {A.N:,}), {len(A.cells)} of 128 niches filled, {new} new elites, bar t>={bar:.2f}, staged {staged_now}")
+
+def _blocks(log=print):
+    """the AI-invented measurements the live Arbiter uses (read from its saved memory, read-only), so the evolution sees the same inputs"""
+    try:
+        m = json.load(open(os.path.join(getattr(C, "STATE_DIR", "state"), "memory.json"))); return m.get("blocks", [])
+    except Exception: return []
 
 if __name__ == "__main__":
     main(float(sys.argv[1]) if len(sys.argv) > 1 else 100.0)
