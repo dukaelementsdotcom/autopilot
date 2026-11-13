@@ -141,28 +141,32 @@ def llm_children(elites, clusters, cols, ask, n=4):
                 kids.append(({"sig": node, "side": 1 if s.get("side") == "long" else -1, "tail": tail, "z": 1.5, "flt": None}, "llm-signal", s.get("why", "")))
     return kids
 
-def llm_voters(elites, misses, cols, ask, n=5):
-    """FunSearch-style: show the Arbiter's CONFIDENT MISTAKES (odds above the trading bar, then lost), clustered by context, plus the
-    best voters so far; ask for expressions that are high exactly where the Arbiter is overconfident (vetoes) and for new information"""
+def llm_voters(elites, misses, cols, ask, n=4):
+    """FunSearch-style: show the Arbiter's CONFIDENT LOSERS (odds above its trading bar, then lost) and its NEAR-MISS WINNERS (odds just
+    below the bar, then +2% came first), each clustered by context, plus the best voters so far. Ask for vetoes (high where it is
+    overconfident) and boosters (high where it under-rates real winners); the judge then scores them on odds error, ranking, profit
+    and volume, so neither kind can win by just making the Arbiter quiet."""
     show = [{"voter": gtext(e["genome"]), "gainT": e["fit"], "gainMilliLogloss": (e.get("gain") or {}).get("milli")} for e in elites[:4]]
     colist = ", ".join([c for c in cols if c.startswith(PREFER)][:120])
     msg = [{"role": "system", "content": "You are a quantitative researcher. You write signal expressions in a strict JSON grammar. Answer with one JSON object."},
-           {"role": "user", "content": f"{GRAMMAR}\nColumns: {colist}\n\nA trading judge estimates the chance that a coin moves +2% before its stop within 48h. "
-            f"Here is where its CONFIDENT calls (odds above its trading bar) LOST, clustered by context (sd = standard deviations from its usual calls):\n{json.dumps(misses)}\n"
-            f"Best extra voters found so far (gain = how much they lowered the judge's odds error):\n{json.dumps(show)}\n\n"
-            f"1) Write {n} VETO expressions: values that are HIGH exactly in those losing clusters, so the judge can lower its odds there.\n"
-            f"2) Write {n} expressions carrying information the judge probably lacks (different data, cross-coin structure, BTC-residual behaviour).\n"
-            'Answer: {"vetoes": [{"expr": <expression>, "side": "long"|"short", "why": "..."}], "signals": [{"expr": <expression>, "side": "long"|"short", "why": "..."}]}'}]
+           {"role": "user", "content": f"{GRAMMAR}\nColumns: {colist}\n\nA trading judge estimates the chance that a coin moves +2% before its stop within 48h and trades when the odds clear a bar. "
+            f"Clusters by context (sd = standard deviations from its usual calls):\nCONFIDENT LOSERS (odds above the bar, then lost): {json.dumps(misses.get('confidentLosers'))}\n"
+            f"NEAR-MISS WINNERS (odds just below the bar, then +2% came first): {json.dumps(misses.get('nearMissWinners'))}\n"
+            f"Best extra voters so far (gain = how much they lowered the judge's odds error):\n{json.dumps(show)}\n\n"
+            f"1) Write {n} VETO expressions: HIGH exactly in the confident-loser clusters.\n"
+            f"2) Write {n} BOOSTER expressions: HIGH exactly in the near-miss-winner clusters (catalysts: forced liquidations, lagging coins catching up, rotations).\n"
+            f"3) Write {n} expressions carrying information the judge probably lacks.\n"
+            'Answer: {"vetoes": [{"expr": <expression>, "side": "long"|"short", "why": "..."}], "boosters": [...same...], "signals": [...same...]}'}]
     out = ask(msg); txt = out[0] if isinstance(out, tuple) else out
     if not txt: return []
     try: d = json.loads(txt[txt.find("{"): txt.rfind("}") + 1])
     except Exception: return []
     kids = []
     if not isinstance(d, dict): return []
-    for kind in ("vetoes", "signals"):
+    for kind, tag in (("vetoes", "llm-veto"), ("boosters", "llm-booster"), ("signals", "llm-signal")):
         for v in (d.get(kind) or [])[: n + 2]:
             if not isinstance(v, dict): continue                       # whatever shape the model answers in, nothing breaks the night
             node = v.get("expr")
             if dsl.valid(node, set(cols)):
-                kids.append(({"sig": node, "side": 1 if v.get("side") == "long" else -1, "tail": "hi", "z": 1.5, "flt": None}, "llm-" + ("veto" if kind == "vetoes" else "signal"), v.get("why", "")))
+                kids.append(({"sig": node, "side": 1 if v.get("side") == "long" else -1, "tail": "hi", "z": 1.5, "flt": None}, tag, v.get("why", "")))
     return kids

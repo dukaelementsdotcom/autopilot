@@ -78,18 +78,19 @@ def main(budget_min=100.0, seed=None, log=print):
         if (v.get("checks") or {}).get("valGain"): kept.append(v); continue
         try: vg = orc.delta(orc.voter_cols(lab.ctx, v["genome"]), "val")
         except Exception: vg = None
-        if vg and vg["t"] >= 1.5 and vg["milli"] > 0: v.setdefault("checks", {})["valGain"] = vg; kept.append(v)
+        if vg and vg["t"] >= 1.5 and vg["milli"] > 0 and vg["passesGates"]: v.setdefault("checks", {})["valGain"] = vg; kept.append(v)
         else: S0["retired"].append({**v, "retiredWhy": f"failed the validation-year odds-error gate ({vg})"}); log(f"   staged voter {v['id']} retired: no odds-error gain on the validation year")
     if len(kept) != len(S0["active"]):
         S0["active"] = kept; json.dump(S0, open(ST._path(), "w"), indent=1)
     rng = random.Random(seed if seed is not None else int(time.time())); cols = lab.cols
-    seen = set(); rej = {"error": 0, "too little data": 0, "no gain": 0, "correlated with the Arbiter": 0, "twin": 0, "worse than its niche": 0}; new = 0; evals = 0
+    seen = set(); rej = {"error": 0, "too little data": 0, "no gain": 0, "shy (fails ranking / profit / volume)": 0, "correlated with the Arbiter": 0, "twin": 0, "worse than its niche": 0}; new = 0; evals = 0
     try: from ..ideas import _groq_call as ask
     except Exception: ask = None
     if not os.environ.get("GROQ_API_KEY"): ask = None
     llm_calls = 0; origins = {}
     feats_ctx = [f for f in CTX_FEATS if f in P.columns]
-    misses = {("long" if s > 0 else "short"): orc.confident_misses(s, feats_ctx) for s in (1, -1)}
+    misses = {"confidentLosers": {("long" if s > 0 else "short"): orc.confident_misses(s, feats_ctx) for s in (1, -1)},
+              "nearMissWinners": {("long" if s > 0 else "short"): orc.near_misses(s, feats_ctx) for s in (1, -1)}}
 
     def evaluate(g, origin):
         nonlocal new, evals
@@ -104,6 +105,7 @@ def main(budget_min=100.0, seed=None, log=print):
         except Exception: rej["error"] += 1; return
         if not dl or dl["windows"] < MIN_WIN: rej["too little data"] += 1; return
         if dl["t"] < 1.0 or dl["milli"] <= 0: rej["no gain"] += 1; return
+        if not dl["passesGates"]: rej["shy (fails ranking / profit / volume)"] += 1; return       # may not win by making the Arbiter quiet
         _, m = lab.fire(g); idx = lab.trades(m, "disc")                                 # standalone trading: a side statistic and its niche
         st = lab.stats(idx, g["side"], "disc") if len(idx) >= MIN_TRADES else None
         desc = st or {"freq": 0.0, "hold": 24.0, "btc": 0.0}
@@ -132,7 +134,7 @@ def main(budget_min=100.0, seed=None, log=print):
         if e.get("checks") or e["fit"] < bar: continue
         g = e["genome"]; vc = orc.voter_cols(lab.ctx, g); chk = {"bar": round(bar, 2), "N": A.N, "pLuck": round(GD.p_luck(e["fit"], A.N), 4)}
         v = orc.delta(vc, "val"); x = orc.delta(vc, "exam"); chk["valGain"], chk["examGain"] = v, x
-        passed = bool(v and v["t"] >= 1.5 and v["milli"] > 0 and x and x["milli"] >= 0)          # the validation-year odds-error gate
+        passed = bool(v and v["t"] >= 1.5 and v["milli"] > 0 and v["passesGates"] and x and x["milli"] >= 0 and x["grades"]["profitAfter"] >= x["grades"]["profitBefore"])   # validation-year odds-error gate + anti-shyness
         if passed:
             ok = dsl.probe(g["sig"], P)[0] and (not g.get("flt") or dsl.probe(g["flt"]["node"], P)[0])
             lk, bad = dsl.leak_check(g["sig"], P)

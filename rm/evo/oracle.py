@@ -14,6 +14,13 @@ from .. import referee as RF, config as C
 H = 3600; DAY = 86400; EMB = 2 * DAY; BAND = 0.06
 
 def _lg(p): p = np.clip(p, 1e-3, 1 - 1e-3); return np.log(p / (1 - p))
+def _auc(p, y):
+    """ranking power: the chance a random winner gets higher odds than a random loser (rank formula, ties count half)"""
+    y = np.asarray(y) > 0; n1 = int(y.sum()); n0 = len(y) - n1
+    if n1 < 20 or n0 < 20: return None
+    r = pd.Series(np.asarray(p)).rank().values
+    return round(float((r[y].sum() - n1 * (n1 + 1) / 2) / (n1 * n0)), 4)
+
 def _ll(y, p): p = np.clip(p, 1e-4, 1 - 1e-4); return -(y * np.log(p) + (1 - y) * np.log(1 - p))
 
 class Oracle:
@@ -83,13 +90,38 @@ class Oracle:
             n = LogisticRegression(C=1.0, max_iter=300).fit(np.column_stack([d["lp"][fit], Fd[fit]]), d["y"][fit])
             pb = b.predict_proba(ev_d["lp"][ev, None])[:, 1]; pn = n.predict_proba(np.column_stack([ev_d["lp"][ev], Fe[ev]]))[:, 1]
             y = ev_d["y"][ev]; w = ev_d["w"][ev]; dl = (_ll(y, pb) - _ll(y, pn)) * w
-            per.append(pd.DataFrame({"win": ev_d["win"][ev], "d": dl, "w": w}))
+            # ANTI-SHYNESS: what the new odds do to the TRADES at the bar, against what the Arbiter does today (its raw odds)
+            p0 = ev_d["p"][ev]; bar = ev_d["be"][ev] + BAND; rr = self.lab.R[side][ev_d["rows"][ev]]; wins = ev_d["win"][ev]
+            g0, g1 = p0 >= bar, pn >= bar
+            per.append(pd.DataFrame({"win": wins, "d": dl, "w": w, "r0": np.where(g0, rr, np.nan), "r1": np.where(g1, rr, np.nan)}))
+            near = (p0 >= ev_d["be"][ev]) & (p0 < bar + BAND)                          # the decision band: where ranking decides trades
+            auc0, auc1 = _auc(p0[near], y[near]), _auc(pn[near], y[near])
             band = np.abs(ev_d["p"][ev] - (ev_d["be"][ev] + BAND)) < BAND
-            out["long" if side > 0 else "short"] = {"milli": round(float(dl.sum() / w.sum()) * 1000, 3), "bandMilli": round(float(dl[band].sum() / max(1e-9, w[band].sum())) * 1000, 3) if band.any() else None}
+            out["long" if side > 0 else "short"] = {"milli": round(float(dl.sum() / w.sum()) * 1000, 3), "bandMilli": round(float(dl[band].sum() / max(1e-9, w[band].sum())) * 1000, 3) if band.any() else None,
+                                                    "aucBand": [auc0, auc1]}
         D = pd.concat(per); g = D.groupby("win")[["d", "w"]].sum(); v = (g.d / g.w).values
         tt = float(v.mean() / (v.std(ddof=1) + 1e-12) * np.sqrt(len(v))) if len(v) > 2 else 0.0
         out.update({"t": round(tt, 2), "milli": round(float(D.d.sum() / D.w.sum()) * 1000, 3), "windows": int(len(v))})
+        # graded calls counted per separate 6-hour move (one bet each), profit per month = the edge actually harvested
+        months = max(1.0, (D.win.max() - D.win.min()) * 6 / (24 * 30.4))
+        m0 = D.groupby("win").r0.mean().dropna(); m1 = D.groupby("win").r1.mean().dropna()
+        out["grades"] = {"before": int(len(m0)), "after": int(len(m1)), "profitBefore": round(float(m0.sum()) * 100 / months, 2), "profitAfter": round(float(m1.sum()) * 100 / months, 2)}
+        a = [v["aucBand"] for k, v in out.items() if isinstance(v, dict) and v.get("aucBand") and None not in v["aucBand"]]
+        out["aucGain"] = round(float(np.mean([x[1] - x[0] for x in a])), 4) if a else None
+        G = out["grades"]
+        out["gates"] = {"ranking": bool(out["aucGain"] is not None and out["aucGain"] >= 0),
+                        "profit": bool(G["profitAfter"] >= G["profitBefore"]),
+                        "volume": bool(G["after"] >= 0.8 * G["before"])}
+        out["passesGates"] = all(out["gates"].values())
         return out
+
+    def near_misses(self, side, feats, k=3):
+        """real +2% winners the Arbiter just missed: odds below the trading bar but above break-even (where a booster creates Grade A)"""
+        from .generator import failure_clusters
+        d = self.S[side]["disc"]; m = (d["p"] >= d["be"]) & (d["p"] < d["be"] + BAND)
+        if m.sum() < 50: return []
+        cl = failure_clusters(self.P, d["rows"][m], np.where(d["y"][m] > 0, -1.0, 1.0), feats, k)      # the WINNERS are clustered
+        return [{"winners": c.pop("losses"), **c} for c in cl]
 
     def confident_misses(self, side, feats, k=3):
         """where the Arbiter's confident calls (odds above the trading bar) LOST, on the discovery years"""
