@@ -114,7 +114,7 @@ def run(budget=None, log=print):
         finally: timings[name] = timings.get(name, 0) + round(time.time() - ts, 1)
     # the more ideas ever tested, the more luck can hide: the validation bar rises slowly with the total (2.0 at 10k tests, 2.5 at 1M)
     C.VAL_T = round(max(2.0, 2.0 + 0.25 * np.log10(max(mem["total_tests"], 1) / 10000)), 2)
-    log("── 1/6 data"); safe("archive download", fetch.update, log=log); safe("market extras", fetch_ext.update, log=log)
+    log("── 1/6 data"); safe("archive download", fetch.update, coins=list(C.COINS) + list(C.WIDE), log=log); safe("market extras", fetch_ext.update, log=log)
     more = safe("spot + Hyperliquid data", fetch_more.update, log=log) or {}; mem["moreData"] = more
     # relays are tried in the fixed order (Render first, so Vercel's metered free tier is only the backup); a rate-limited
     # Render answers instantly with "cooling down", so trying it first costs nothing when it is out
@@ -269,6 +269,8 @@ def run(budget=None, log=print):
             if k in mem: archive.keep(f"retired_{k}", [mem.pop(k)])
     safe("retire old accounts", retire_accounts)
     safe("referee account", referee.step, mem, J, now_iso(), log=log)
+    from . import wide
+    safe("wider-universe contestant", wide.step, mem, J, now_iso(), blocks, log=log)
     from . import demo
     safe("binance demo account", demo.mirror, mem.get("referee") or {}, log=log)
     dropped = safe("memory clean-up", compact, mem) or 0

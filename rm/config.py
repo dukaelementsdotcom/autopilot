@@ -53,3 +53,7 @@ RULE_REPLACE_N = 50          # ... over at least 50 unseen trades each
 # the Binance demo account is a 1:1 copy of the Arbiter (rm/demo.py): same size, leverage, isolated margin, stop and targets
 
 EVO_DIR = os.environ.get("RM_EVO", "evo_state")   # the evolution engine's archive and staged voters (the 'evo' branch)
+
+# the "wider universe" contestant (rm/wide.py): extra liquid perpetuals, kept OUT of the core panel so nothing existing changes
+WIDE = ("EOS 1000BONK GALA DYDX APE SAND AXS CHZ MANA CFX GRT THETA ENS MASK 1000FLOKI TRB SNX COMP NEO AR JASMY XTZ").split()
+WIDE_MIN_USD = 20e6          # it trades only those whose median 24h volume over the last 30 days is at least this

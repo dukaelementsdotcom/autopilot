@@ -186,3 +186,37 @@ def build(coins=None, log=print, blocks=()):
     os.makedirs(C.DATA_DIR, exist_ok=True); P.to_parquet(f"{C.DATA_DIR}/panel.parquet", index=False)
     log(f"panel: {len(P):,} coin-hours, {P.coin.nunique()} coins, {pd.to_datetime(P.t.min(), unit='s').date()} → {pd.to_datetime(P.t.max(), unit='s')}")
     return P
+
+
+def build_extra(P, coins, need, log=print, blocks=()):
+    """a SEPARATE panel for extra coins, scored by the same brain without touching the core panel: per-coin measurements as usual;
+    cross-coin ranks (x_) placed against the CORE coins at the same hour (so the core coins' ranks never change); market-wide
+    measurements (Bitcoin, mood, macro, trend reading) copied from the core panel by hour."""
+    parts = []
+    for c in coins:
+        if not os.path.exists(f"{C.DATA_DIR}/raw/{c}_k.parquet"): continue
+        try: parts.append(_coin(c, blocks))
+        except Exception as e: log(f"wide panel: {c} skipped ({type(e).__name__}: {e})")
+    if not parts: return None
+    X = pd.concat(parts, ignore_index=True); del parts
+    X = X.loc[X.t.values >= pd.Timestamp(C.START).timestamp() + 30 * 86400].reset_index(drop=True)
+    btc = P.loc[P.coin.values == "BTC"].set_index("t")
+    for col in ("btc_r1", "btc_r24"):
+        src = "r1" if col == "btc_r1" else "r24"
+        if src in btc: X[col] = btc[src].reindex(X.t.values).values.astype("float32")
+    extra = {}
+    for col in ("r24", "r168", "glob", "topPos", "oi24", "timb24", "vol24"):
+        if col not in X or col not in P: continue
+        a = pd.DataFrame({"t": P.t.values, "v": P[col].values.astype(float), "core": 1})
+        b = pd.DataFrame({"t": X.t.values, "v": X[col].values.astype(float), "core": 0, "i": np.arange(len(X))})
+        z = pd.concat([a.dropna(subset=["v"]), b.dropna(subset=["v"])]).sort_values(["t", "v", "core"], ascending=[True, True, False], kind="mergesort")
+        z["cum"] = z.groupby("t").core.cumsum(); n = a.dropna(subset=["v"]).groupby("t").size()
+        bz = z[z.core == 0]; r = np.full(len(X), np.nan, "float32")
+        r[bz.i.values.astype(int)] = (bz.cum.values / n.reindex(bz.t.values).values).astype("float32")
+        extra["x_" + col] = r
+    for k, v in extra.items(): X[k] = v
+    for col in need:                                   # market-wide inputs: the same value for every coin at an hour (taken from Bitcoin's row)
+        if col not in X.columns and col in P.columns: X[col] = btc[col].reindex(X.t.values).values if col in btc else np.nan
+    num = [c for c in X.select_dtypes("float64").columns if c not in ("px", "_hi", "_lo", "_cl")]; X[num] = X[num].astype("float32")
+    log(f"wide panel: {len(X):,} coin-hours, {X.coin.nunique()} extra coins (core panel untouched)")
+    return X.sort_values(["coin", "t"]).reset_index(drop=True)

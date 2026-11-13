@@ -129,7 +129,7 @@ def update_live(log=print, prefer=None):
     urls = [u for u in C.RELAY_URLS if u]
     if prefer in urls: urls = [prefer] + [u for u in urls if u != prefer]     # the relay that worked last time goes first
     if not urls: log("live: no relay configured (archive only)"); return {}
-    coins = [c for c in C.COINS if c not in C.DEAD]
+    coins = [c for c in C.COINS if c not in C.DEAD] + [c for c in getattr(C, "WIDE", ()) if c not in C.COINS]
     d = {"coins": {}, "errors": {}, "region": None}
     # ask the relay for as little as possible (its free tier meters CPU): one page of 5-minute readings (~41h) covers the gap
     # to the archive except in the few hours before Binance publishes yesterday's file; then two pages
