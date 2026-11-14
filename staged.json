@@ -1,0 +1,66 @@
+{
+ "active": [],
+ "retired": [
+  {
+   "id": "evo47d9c47e",
+   "genome": {
+    "sig": [
+     "div",
+     [
+      "resid",
+      72,
+      1
+     ],
+     [
+      "resid",
+      168,
+      24
+     ]
+    ],
+    "side": 1,
+    "tail": "hi",
+    "z": 1.5,
+    "flt": null
+   },
+   "what": "Evolved voter (long \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish): LONG when z(div(resid_btc(72h,1h), resid_btc(168h,24h))) >=1.5",
+   "stagedAt": "2026-11-13 10:16",
+   "checks": {
+    "bar": 3.72,
+    "N": 1166,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.353,
+      "bandMilli": 0.258
+     },
+     "short": {
+      "milli": 0.03,
+      "bandMilli": -0.141
+     },
+     "t": 6.5,
+     "milli": 0.165,
+     "windows": 1460
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.428,
+      "bandMilli": 2.939
+     },
+     "short": {
+      "milli": -0.126,
+      "bandMilli": -0.275
+     },
+     "t": 2.45,
+     "milli": 0.102,
+     "windows": 472
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 11.38,
+   "retiredWhy": "failed the validation-year odds-error gate ({'long': {'milli': 0.352, 'bandMilli': 0.265, 'aucBand': [0.5871, 0.587]}, 'short': {'milli': 0.027, 'bandMilli': -0.138, 'aucBand': [0.5557, 0.5552]}, 't': 6.44, 'milli': 0.163, 'windows': 1460, 'grades': {'before': 610, 'after': 771, 'profitBefore': np.float64(-3.65), 'profitAfter': np.float64(6.36)}, 'aucGain': -0.0003, 'gates': {'ranking': False, 'profit': True, 'volume': True}, 'passesGates': False})"
+  }
+ ]
+}
