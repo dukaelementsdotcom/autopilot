@@ -1,0 +1,5479 @@
+{
+ "what": "Research Machine health report. Download and send it to Claude to diagnose problems.",
+ "generated": "2026-11-14 16:30 UTC",
+ "overall": "WARN",
+ "checks": [
+  {
+   "check": "hourly runs happen",
+   "status": "WARN",
+   "detail": "missed hours: 2026-11-12 21:46 \u2192 2026-11-12 23:26 (1.7h)"
+  },
+  {
+   "check": "no live-data outages (last 24 runs)",
+   "status": "OK",
+   "detail": "live data arrived every run"
+  },
+  {
+   "check": "run finishes in time",
+   "status": "OK",
+   "detail": "this run 12.4 min (limit 100)"
+  },
+  {
+   "check": "memory",
+   "status": "OK",
+   "detail": "peak 5.3 GB of ~16 GB"
+  },
+  {
+   "check": "live data fresh",
+   "status": "OK",
+   "detail": "newest usable hour is 1.5\u20131.5 h old; stale coins: none"
+  },
+  {
+   "check": "archive keeps arriving",
+   "status": "OK",
+   "detail": "median archive lag 17.5 h (Binance publishes daily, ~1 day late is normal)"
+  },
+  {
+   "check": "live relay answers (own server, then Render, Vercel)",
+   "status": "OK",
+   "detail": "73 coins, 0 errors, via {'13.48.108.50:8080': 5}"
+  },
+  {
+   "check": "all measurements available live",
+   "status": "OK",
+   "detail": "every measurement present at the newest hour"
+  },
+  {
+   "check": "spot data (real money vs leverage)",
+   "status": "OK",
+   "detail": "live spot 50 coins (not on spot: KAS); archive {\"added\": 0, \"tried\": 16}"
+  },
+  {
+   "check": "Hyperliquid data",
+   "status": "OK",
+   "detail": "{\"added\": 350, \"coins\": 50, \"backfilling\": 0}"
+  },
+  {
+   "check": "own-server recorder (order book, funding, liquidations)",
+   "status": "OK",
+   "detail": "{\"depth\": 100, \"funding\": 102, \"liq\": 1281, \"error\": null, \"ws\": \"connected\", \"writes\": {\"depth\": 100900, \"funding\": 20604, \"liq\": 37266}, \"lastError\": null}"
+  },
+  {
+   "check": "own server resources (disk, memory, CPU)",
+   "status": "OK",
+   "detail": "disk free 4.12 GB, recordings 16.1 MB (old days compressed, kept 120 days, oldest auto-deleted if space runs low), memory free 535/953 MB, load 0 on 2 CPUs"
+  },
+  {
+   "check": "collector: macro",
+   "status": "OK",
+   "detail": "{\"days\": 16924, \"series\": [\"ndx\", \"spx\", \"vix\", \"us10y\", \"dxy\"], \"secs\": 0.6}"
+  },
+  {
+   "check": "collector: onchain",
+   "status": "OK",
+   "detail": "{\"rows\": 5018, \"secs\": 0.8}"
+  },
+  {
+   "check": "collector: whales",
+   "status": "OK",
+   "detail": "{\"accounts\": 50, \"coins\": 167, \"secs\": 17.9}"
+  },
+  {
+   "check": "collector: news",
+   "status": "OK",
+   "detail": "{\"headlines\": 46, \"feeds\": 9, \"secs\": 1.9}"
+  },
+  {
+   "check": "collector: compass",
+   "status": "OK",
+   "detail": "{\"markets\": {\"markets\": 15}, \"fear&greed\": {\"days\": 3205}, \"calendar\": {\"fresh\": true}, \"stablecoins\": {\"days\": 3273}, \"options\": {\"days\": 2062}, \"digest\": {\"fresh\": true, \"ageH\": 2.0}, \"secs\": 11.8}"
+  },
+  {
+   "check": "AI market brief is fresh",
+   "status": "OK",
+   "detail": "last written 2.1h ago (refreshed every 3h from the newest headlines)"
+  },
+  {
+   "check": "saved memory size",
+   "status": "OK",
+   "detail": "total 16.1 MB, largest file memory.json 5.5 MB (GitHub limit 100 MB per file); permanent archive {'retired_allin': 0.0, 'retired_team': 0.01, 'retired_account': 0.0}"
+  },
+  {
+   "check": "calibration ledger",
+   "status": "OK",
+   "detail": "1372 candidates recorded, 724 scored"
+  },
+  {
+   "check": "new evidence keeps arriving (macro, on-chain, sectors, shocks)",
+   "status": "OK",
+   "detail": "newest macro day 1.7 days ago (weekends have no stock data), on-chain 1.7 days ago; 100% of witness measurements present at the newest hour"
+  },
+  {
+   "check": "server guard (minute-by-minute watch)",
+   "status": "OK",
+   "detail": "watching 18 open positions; last events: {\"events\": 17, \"shockExits\": 0, \"booked\": 0, \"last\": [], \"stopsMoved\": 1, \"serverV\": 2, \"watching\": 18}"
+  },
+  {
+   "check": "challengers (upgrades under test)",
+   "status": "OK",
+   "detail": "43 being scored (22 with shadow accounts), 484 scored candidates, not admitted: shape (failed its final exam on shorts: 1.41%/month vs the champion), statebar (failed its final exam: -4.9%/month vs today's 9.7%/month), shock (shock memory found no exit rule that beats holding); guard: {\"watching\": 18, \"sent\": 18}"
+  },
+  {
+   "check": "no broken parts",
+   "status": "OK",
+   "detail": "none"
+  },
+  {
+   "check": "referee brain trained and recent",
+   "status": "OK",
+   "detail": "trained 2026-11-11 22:23 (trained 2026-11-11 22:23 UTC in 619s on 54 coins)"
+  },
+  {
+   "check": "referee kill switch",
+   "status": "OK",
+   "detail": "not triggered"
+  },
+  {
+   "check": "AI (Groq) answers",
+   "status": "OK",
+   "detail": "{\"calls\": 1, \"ok\": true, \"last\": [{\"ok\": true, \"model\": \"openai/gpt-oss-120b\"}]}"
+  }
+ ],
+ "thisRun": {
+  "at": "2026-11-14 16:30",
+  "secs": 745,
+  "rssGB": 5.34,
+  "maxLagH": 1.5,
+  "archLagH": 17.5,
+  "relayCoins": 73,
+  "relayErr": 0,
+  "problems": [],
+  "tested": 1500,
+  "referee": 566.48,
+  "sha": "1f1e811",
+  "runId": "43614751001",
+  "timings": {
+   "archive download": 0.9,
+   "market extras": 70.3,
+   "spot + Hyperliquid data": 11.1,
+   "live data (relay)": 68.8,
+   "collectors (recorder, macro, on-chain, whales, news)": 35.0,
+   "panel": 103.3,
+   "review of rule #98": 0.6,
+   "review of rule #130": 0.7,
+   "review of rule #140": 1.4,
+   "review of rule #162": 1.9,
+   "review of rule #194": 0.4,
+   "review of rule #232": 0.3,
+   "review of rule #273": 0.2,
+   "review of rule #292": 0.2,
+   "review of rule #326": 0.9,
+   "review of rule #330": 0.3,
+   "review of rule #332": 0.3,
+   "review of rule #352": 1.0,
+   "review of rule #372": 0.8,
+   "review of rule #376": 0.5,
+   "review of rule #416": 0.1,
+   "review of rule #438": 0.5,
+   "review of rule #439": 0.4,
+   "review of rule #442": 0.6,
+   "review of rule #444": 1.8,
+   "review of rule #445": 0.4,
+   "review of rule #446": 0.5,
+   "review of rule #447": 0.4,
+   "review of rule #450": 0.4,
+   "review of rule #451": 0.1,
+   "review of rule #454": 0.7,
+   "review of rule #455": 0.4,
+   "review of rule #461": 0.1,
+   "review of rule #465": 1.2,
+   "review of rule #466": 0.2,
+   "review of rule #468": 1.6,
+   "referee training": 2.4,
+   "shape models": 1.0,
+   "new witnesses": 1.1,
+   "promotions": 30.5,
+   "twin check": 6.8,
+   "invented-measurement tests": 0.0,
+   "AI researcher": 5.4,
+   "evolution": 0.9,
+   "idea lists": 0.1,
+   "exploration": 0.0,
+   "invented measurements": 0.0,
+   "plain-English explanations": 0.0,
+   "retire old accounts": 0.0,
+   "referee account": 24.5,
+   "wider-universe contestant": 42.1,
+   "binance demo account": 4.4,
+   "memory clean-up": 0.0,
+   "rule haircut": 0.0,
+   "observability": 0.0
+  },
+  "panelRows": 2242088,
+  "coins": 54,
+  "valBar": 2.43
+ },
+ "freshness": {
+  "BTC": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ETH": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "SOL": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "XRP": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "BNB": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ADA": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "DOGE": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "AVAX": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "LINK": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "LTC": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "DOT": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "BCH": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "TRX": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "UNI": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ATOM": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "NEAR": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "FIL": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ETC": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "AAVE": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ARB": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "OP": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "SUI": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "APT": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "INJ": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "TIA": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "SEI": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "WLD": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "FET": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "HBAR": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "XLM": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ALGO": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ICP": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "VET": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "CRV": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "LDO": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "IMX": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "STX": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "RUNE": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ZEC": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "1000PEPE": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "1000SHIB": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ORDI": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "WIF": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "JUP": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ONDO": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "PENDLE": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "KAS": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "ENA": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "TON": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "TAO": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  },
+  "HYPE": {
+   "archive": "2026-11-13 23:00",
+   "archiveLagH": 17.5,
+   "usable": "2026-11-14 15:00",
+   "usableLagH": 1.5
+  }
+ },
+ "live": {
+  "region": "aws-stockholm",
+  "coins": 73,
+  "check": {
+   "ETH": {
+    "oi": 0.178,
+    "glob": 0.154,
+    "topAcc": 0.359,
+    "topPos": 0.178,
+    "close": 0.0
+   },
+   "BTC": {
+    "oi": 0.139,
+    "glob": 0.263,
+    "topAcc": 0.238,
+    "topPos": 0.297,
+    "close": 0.0
+   },
+   "XRP": {
+    "oi": 0.211,
+    "glob": 0.172,
+    "topAcc": 0.182,
+    "topPos": 0.311,
+    "close": 0.0
+   },
+   "SOL": {
+    "oi": 0.157,
+    "glob": 0.194,
+    "topAcc": 0.13,
+    "topPos": 0.168,
+    "close": 0.0
+   },
+   "ADA": {
+    "oi": 0.154,
+    "glob": 0.197,
+    "topAcc": 0.151,
+    "topPos": 0.112,
+    "close": 0.0
+   },
+   "BNB": {
+    "oi": 0.074,
+    "glob": 0.13,
+    "topAcc": 0.143,
+    "topPos": 0.099,
+    "close": 0.0
+   },
+   "DOGE": {
+    "oi": 0.158,
+    "glob": 0.177,
+    "topAcc": 0.173,
+    "topPos": 0.29,
+    "close": 0.0
+   },
+   "AVAX": {
+    "oi": 0.27,
+    "glob": 0.244,
+    "topAcc": 0.166,
+    "topPos": 0.144,
+    "close": 0.0
+   },
+   "LINK": {
+    "oi": 0.176,
+    "glob": 0.157,
+    "topAcc": 0.197,
+    "topPos": 0.285,
+    "close": 0.0
+   },
+   "LTC": {
+    "oi": 0.133,
+    "glob": 0.17,
+    "topAcc": 0.23,
+    "topPos": 0.191,
+    "close": 0.0
+   },
+   "DOT": {
+    "oi": 0.177,
+    "glob": 0.197,
+    "topAcc": 0.177,
+    "topPos": 0.169,
+    "close": 0.0
+   },
+   "BCH": {
+    "oi": 0.218,
+    "glob": 0.252,
+    "topAcc": 0.185,
+    "topPos": 0.101,
+    "close": 0.0
+   },
+   "TRX": {
+    "oi": 0.033,
+    "glob": 0.121,
+    "topAcc": 0.148,
+    "topPos": 0.065,
+    "close": 0.0
+   },
+   "ATOM": {
+    "oi": 0.145,
+    "glob": 0.178,
+    "topAcc": 0.158,
+    "topPos": 0.167,
+    "close": 0.0
+   },
+   "NEAR": {
+    "oi": 0.27,
+    "glob": 0.239,
+    "topAcc": 0.286,
+    "topPos": 0.238,
+    "close": 0.0
+   },
+   "UNI": {
+    "oi": 0.3,
+    "glob": 0.255,
+    "topAcc": 0.196,
+    "topPos": 0.184,
+    "close": 0.0
+   },
+   "FIL": {
+    "oi": 0.208,
+    "glob": 0.199,
+    "topAcc": 0.17,
+    "topPos": 0.222,
+    "close": 0.0
+   },
+   "AAVE": {
+    "oi": 0.197,
+    "glob": 0.25,
+    "topAcc": 0.193,
+    "topPos": 0.231,
+    "close": 0.0
+   },
+   "ETC": {
+    "oi": 0.125,
+    "glob": 0.191,
+    "topAcc": 0.162,
+    "topPos": 0.14,
+    "close": 0.0
+   },
+   "OP": {
+    "oi": 0.256,
+    "glob": 0.251,
+    "topAcc": 0.255,
+    "topPos": 0.21,
+    "close": 0.0
+   },
+   "ARB": {
+    "oi": 0.19,
+    "glob": 0.203,
+    "topAcc": 0.169,
+    "topPos": 0.177,
+    "close": 0.0
+   },
+   "SUI": {
+    "oi": 0.181,
+    "glob": 0.152,
+    "topAcc": 0.15,
+    "topPos": 0.126,
+    "close": 0.0
+   },
+   "INJ": {
+    "oi": 0.289,
+    "glob": 0.42,
+    "topAcc": 0.571,
+    "topPos": 0.23,
+    "close": 0.0
+   },
+   "TIA": {
+    "oi": 0.389,
+    "glob": 0.32,
+    "topAcc": 0.273,
+    "topPos": 0.302,
+    "close": 0.0
+   },
+   "APT": {
+    "oi": 0.246,
+    "glob": 0.23,
+    "topAcc": 0.329,
+    "topPos": 0.184,
+    "close": 0.0
+   },
+   "WLD": {
+    "oi": 0.267,
+    "glob": 0.162,
+    "topAcc": 0.162,
+    "topPos": 0.216,
+    "close": 0.0
+   },
+   "FET": {
+    "oi": 0.374,
+    "glob": 0.31,
+    "topAcc": 0.294,
+    "topPos": 0.321,
+    "close": 0.0
+   },
+   "SEI": {
+    "oi": 0.207,
+    "glob": 0.235,
+    "topAcc": 0.293,
+    "topPos": 0.203,
+    "close": 0.0
+   },
+   "HBAR": {
+    "oi": 0.189,
+    "glob": 0.242,
+    "topAcc": 0.219,
+    "topPos": 0.103,
+    "close": 0.0
+   },
+   "XLM": {
+    "oi": 0.194,
+    "glob": 0.175,
+    "topAcc": 0.276,
+    "topPos": 0.175,
+    "close": 0.0
+   },
+   "ALGO": {
+    "oi": 0.167,
+    "glob": 0.345,
+    "topAcc": 0.211,
+    "topPos": 0.153,
+    "close": 0.0
+   },
+   "ICP": {
+    "oi": 0.311,
+    "glob": 0.309,
+    "topAcc": 0.404,
+    "topPos": 0.18,
+    "close": 0.0
+   },
+   "VET": {
+    "oi": 0.251,
+    "glob": 0.377,
+    "topAcc": 0.394,
+    "topPos": 0.219,
+    "close": 0.0
+   },
+   "CRV": {
+    "oi": 0.268,
+    "glob": 0.228,
+    "topAcc": 0.223,
+    "topPos": 0.113,
+    "close": 0.0
+   },
+   "RUNE": {
+    "oi": 0.205,
+    "glob": 0.486,
+    "topAcc": 0.44,
+    "topPos": 0.155,
+    "close": 0.0
+   },
+   "STX": {
+    "oi": 0.381,
+    "glob": 0.455,
+    "topAcc": 0.438,
+    "topPos": 0.236,
+    "close": 0.0
+   },
+   "IMX": {
+    "oi": 0.245,
+    "glob": 0.62,
+    "topAcc": 0.553,
+    "topPos": 0.187,
+    "close": 0.0
+   },
+   "LDO": {
+    "oi": 0.098,
+    "glob": 0.152,
+    "topAcc": 0.221,
+    "topPos": 0.063,
+    "close": 0.0
+   },
+   "1000PEPE": {
+    "oi": 0.527,
+    "glob": 0.327,
+    "topAcc": 0.579,
+    "topPos": 0.544,
+    "close": 0.0
+   },
+   "ZEC": {
+    "oi": 0.388,
+    "glob": 0.467,
+    "topAcc": 0.487,
+    "topPos": 0.209,
+    "close": 0.0
+   },
+   "1000SHIB": {
+    "oi": 0.219,
+    "glob": 0.162,
+    "topAcc": 0.143,
+    "topPos": 0.242,
+    "close": 0.0
+   },
+   "ORDI": {
+    "oi": 0.324,
+    "glob": 0.323,
+    "topAcc": 0.408,
+    "topPos": 0.367,
+    "close": 0.0
+   },
+   "WIF": {
+    "oi": 0.181,
+    "glob": 0.236,
+    "topAcc": 0.262,
+    "topPos": 0.152,
+    "close": 0.0
+   },
+   "JUP": {
+    "oi": 0.224,
+    "glob": 0.349,
+    "topAcc": 0.253,
+    "topPos": 0.227,
+    "close": 0.0
+   },
+   "ONDO": {
+    "oi": 0.267,
+    "glob": 0.189,
+    "topAcc": 0.169,
+    "topPos": 0.175,
+    "close": 0.0
+   },
+   "PENDLE": {
+    "oi": 0.107,
+    "glob": 0.36,
+    "topAcc": 0.248,
+    "topPos": 0.089,
+    "close": 0.0
+   },
+   "TON": {
+    "close": 0.0
+   },
+   "KAS": {
+    "oi": 0.183,
+    "glob": 0.388,
+    "topAcc": 0.331,
+    "topPos": 0.193,
+    "close": 0.0
+   },
+   "ENA": {
+    "oi": 0.351,
+    "glob": 0.239,
+    "topAcc": 0.296,
+    "topPos": 0.238,
+    "close": 0.0
+   },
+   "TAO": {
+    "oi": 0.169,
+    "glob": 0.416,
+    "topAcc": 0.351,
+    "topPos": 0.187,
+    "close": 0.0
+   },
+   "HYPE": {
+    "oi": 0.262,
+    "glob": 0.24,
+    "topAcc": 0.199,
+    "topPos": 0.115,
+    "close": 0.0
+   },
+   "EOS": {
+    "close": 0.0
+   },
+   "1000BONK": {
+    "oi": 0.181,
+    "glob": 0.218,
+    "topAcc": 0.172,
+    "topPos": 0.179,
+    "close": 0.0
+   },
+   "DYDX": {
+    "oi": 0.262,
+    "glob": 0.423,
+    "topAcc": 0.38,
+    "topPos": 0.346,
+    "close": 0.0
+   },
+   "GALA": {
+    "oi": 0.274,
+    "glob": 0.239,
+    "topAcc": 0.204,
+    "topPos": 0.183,
+    "close": 0.0
+   },
+   "APE": {
+    "oi": 0.213,
+    "glob": 0.251,
+    "topAcc": 0.302,
+    "topPos": 0.205,
+    "close": 0.0
+   },
+   "SAND": {
+    "oi": 0.168,
+    "glob": 0.185,
+    "topAcc": 0.163,
+    "topPos": 0.126,
+    "close": 0.0
+   },
+   "CHZ": {
+    "oi": 0.225,
+    "glob": 0.325,
+    "topAcc": 0.212,
+    "topPos": 0.309,
+    "close": 0.0
+   },
+   "AXS": {
+    "oi": 0.153,
+    "glob": 0.345,
+    "topAcc": 0.402,
+    "topPos": 0.163,
+    "close": 0.0
+   },
+   "MANA": {
+    "oi": 0.194,
+    "glob": 0.391,
+    "topAcc": 0.407,
+    "topPos": 0.141,
+    "close": 0.0
+   },
+   "CFX": {
+    "oi": 0.265,
+    "glob": 0.283,
+    "topAcc": 0.304,
+    "topPos": 0.149,
+    "close": 0.0
+   },
+   "GRT": {
+    "oi": 0.201,
+    "glob": 0.42,
+    "topAcc": 0.367,
+    "topPos": 0.141,
+    "close": 0.0
+   },
+   "THETA": {
+    "oi": 0.231,
+    "glob": 0.358,
+    "topAcc": 0.271,
+    "topPos": 0.194,
+    "close": 0.0
+   },
+   "ENS": {
+    "oi": 0.163,
+    "glob": 0.487,
+    "topAcc": 0.338,
+    "topPos": 0.142,
+    "close": 0.0
+   },
+   "MASK": {
+    "oi": 0.135,
+    "glob": 0.27,
+    "topAcc": 0.256,
+    "topPos": 0.085,
+    "close": 0.0
+   },
+   "1000FLOKI": {
+    "oi": 0.143,
+    "glob": 0.245,
+    "topAcc": 0.215,
+    "topPos": 0.157,
+    "close": 0.0
+   },
+   "TRB": {
+    "oi": 0.153,
+    "glob": 0.432,
+    "topAcc": 0.323,
+    "topPos": 0.111,
+    "close": 0.0
+   },
+   "SNX": {
+    "oi": 0.215,
+    "glob": 0.378,
+    "topAcc": 0.389,
+    "topPos": 0.124,
+    "close": 0.0
+   },
+   "COMP": {
+    "oi": 0.201,
+    "glob": 0.301,
+    "topAcc": 0.333,
+    "topPos": 0.172,
+    "close": 0.0
+   },
+   "NEO": {
+    "oi": 0.197,
+    "glob": 0.396,
+    "topAcc": 0.483,
+    "topPos": 0.112,
+    "close": 0.0
+   },
+   "JASMY": {
+    "oi": 0.191,
+    "glob": 0.316,
+    "topAcc": 0.275,
+    "topPos": 0.107,
+    "close": 0.0
+   },
+   "AR": {
+    "oi": 0.309,
+    "glob": 0.424,
+    "topAcc": 0.371,
+    "topPos": 0.218,
+    "close": 0.0
+   },
+   "XTZ": {
+    "oi": 0.179,
+    "glob": 0.251,
+    "topAcc": 0.313,
+    "topPos": 0.146,
+    "close": 0.0
+   }
+  },
+  "newest": 1794668400,
+  "via": {
+   "13.48.108.50:8080": 5
+  },
+  "pages": 2,
+  "best": "http://13.48.108.50:8080/api/live"
+ },
+ "liveErrors": {},
+ "referee": {
+  "model": {
+   "trainedAt": "2026-11-11 22:23",
+   "secs": 615,
+   "coins": 54,
+   "long": {
+    "base": 0.5994403539154013,
+    "margin": 0.04,
+    "weights": {
+     "positioning": -0.009,
+     "flow": 0.174,
+     "trend": 0.311,
+     "volatility": 0.696,
+     "leverage": 0.084,
+     "realmoney": 0.131,
+     "mood": -0.034,
+     "invented": -0.189,
+     "similar": -0.103
+    },
+    "exam": {
+     "trades": 83,
+     "win": 39.8,
+     "avg": -0.539,
+     "perMonth": 21.6,
+     "monthly": -22.41,
+     "base": 0.549,
+     "n_candidates": 46800
+    },
+    "calibration": [
+     [
+      "(0.0, 0.4]",
+      493,
+      0.375,
+      0.199
+     ],
+     [
+      "(0.4, 0.5]",
+      4287,
+      0.465,
+      0.344
+     ],
+     [
+      "(0.5, 0.55]",
+      7237,
+      0.528,
+      0.435
+     ],
+     [
+      "(0.55, 0.6]",
+      13830,
+      0.577,
+      0.534
+     ],
+     [
+      "(0.6, 0.65]",
+      15655,
+      0.625,
+      0.629
+     ],
+     [
+      "(0.65, 0.7]",
+      5177,
+      0.664,
+      0.708
+     ],
+     [
+      "(0.7, 1.0]",
+      121,
+      0.717,
+      0.636
+     ]
+    ],
+    "valMonthly": 5.84,
+    "off": false,
+    "live": false,
+    "why": "failed its final exam (83 trades, -22.41%/month)"
+   },
+   "short": {
+    "base": 0.6324810719285998,
+    "margin": 0.12,
+    "weights": {
+     "positioning": 0.054,
+     "flow": 0.213,
+     "trend": 0.537,
+     "volatility": 0.77,
+     "leverage": 0.14,
+     "realmoney": -0.039,
+     "mood": 0.024,
+     "invented": 0.089,
+     "similar": -0.021
+    },
+    "exam": {
+     "trades": 39,
+     "win": 61.5,
+     "avg": 0.395,
+     "perMonth": 10.4,
+     "monthly": 6.82,
+     "base": 0.604,
+     "n_candidates": 46800
+    },
+    "calibration": [
+     [
+      "(0.0, 0.4]",
+      951,
+      0.345,
+      0.11
+     ],
+     [
+      "(0.4, 0.5]",
+      2052,
+      0.464,
+      0.361
+     ],
+     [
+      "(0.5, 0.55]",
+      2868,
+      0.528,
+      0.496
+     ],
+     [
+      "(0.55, 0.6]",
+      5978,
+      0.578,
+      0.569
+     ],
+     [
+      "(0.6, 0.65]",
+      12559,
+      0.628,
+      0.614
+     ],
+     [
+      "(0.65, 0.7]",
+      18052,
+      0.674,
+      0.658
+     ],
+     [
+      "(0.7, 1.0]",
+      4340,
+      0.713,
+      0.69
+     ]
+    ],
+    "valMonthly": 1.49,
+    "off": false,
+    "live": true,
+    "why": "trades"
+   }
+  },
+  "account": {
+   "cash": 553.59,
+   "equity": 566.48,
+   "start": 500.0,
+   "open": 1,
+   "closed": 5,
+   "won": 4,
+   "openList": [
+    {
+     "coin": "BCH",
+     "side": "SHORT",
+     "entry": 214.7,
+     "mark": 206.7,
+     "stop": 213.75300000000001,
+     "target": 210.40599999999998,
+     "unreal": 12.89,
+     "t": 1794639600
+    }
+   ]
+  },
+  "paused": null,
+  "look": {
+   "t": 1794668400,
+   "at": "2026-11-14 16:28",
+   "rows": [
+    {
+     "coin": "FIL",
+     "side": "SHORT",
+     "prob": 0.734,
+     "for": [
+      "trend",
+      "volatility"
+     ],
+     "against": [
+      "mood",
+      "similar"
+     ],
+     "unfamiliar": false,
+     "off": false,
+     "regime": "down-wild",
+     "need": 0.703,
+     "px": 0.667,
+     "stopPct": 0.04,
+     "grade": "B",
+     "fams": {
+      "positioning": 0.614,
+      "flow": 0.621,
+      "trend": 0.733,
+      "volatility": 0.693,
+      "leverage": 0.631,
+      "realmoney": 0.641,
+      "mood": 0.475,
+      "invented": 0.645,
+      "similar": 0.6
+     },
+     "base": 0.632,
+     "unf": false,
+     "shape": {
+      "target": 0.03,
+      "hours": 48,
+      "prob": 0.606,
+      "need": 0.626
+     }
+    },
+    {
+     "coin": "CRV",
+     "side": "SHORT",
+     "prob": 0.732,
+     "for": [
+      "trend",
+      "volatility"
+     ],
+     "against": [
+      "mood",
+      "similar"
+     ],
+     "unfamiliar": false,
+     "off": false,
+     "regime": "down-wild",
+     "need": 0.703,
+     "px": 0.2185,
+     "stopPct": 0.04,
+     "grade": "B",
+     "fams": {
+      "positioning": 0.617,
+      "flow": 0.609,
+      "trend": 0.742,
+      "volatility": 0.689,
+      "leverage": 0.623,
+      "realmoney": 0.638,
+      "mood": 0.475,
+      "invented": 0.632,
+      "similar": 0.6
+     },
+     "base": 0.632,
+     "unf": false,
+     "shape": {
+      "target": 0.03,
+      "hours": 48,
+      "prob": 0.605,
+      "need": 0.626
+     }
+    },
+    {
+     "coin": "NEAR",
+     "side": "SHORT",
+     "prob": 0.73,
+     "for": [
+      "trend",
+      "volatility"
+     ],
+     "against": [
+      "mood",
+      "similar"
+     ],
+     "unfamiliar": false,
+     "off": false,
+     "regime": "down-wild",
+     "need": 0.703,
+     "px": 3.225,
+     "stopPct": 0.04,
+     "grade": "B",
+     "fams": {
+      "positioning": 0.641,
+      "flow": 0.639,
+      "trend": 0.715,
+      "volatility": 0.694,
+      "leverage": 0.641,
+      "realmoney": 0.635,
+      "mood": 0.475,
+      "invented": 0.633,
+      "similar": 0.6
+     },
+     "base": 0.632,
+     "unf": false,
+     "shape": {
+      "target": 0.03,
+      "hours": 48,
+      "prob": 0.598,
+      "need": 0.626
+     }
+    },
+    {
+     "coin": "1000PEPE",
+     "side": "SHORT",
+     "prob": 0.727,
+     "for": [
+      "trend",
+      "volatility",
+      "similar"
+     ],
+     "against": [
+      "leverage",
+      "mood"
+     ],
+     "unfamiliar": false,
+     "off": false,
+     "regime": "down-wild",
+     "need": 0.703,
+     "px": 0.0041358,
+     "stopPct": 0.04,
+     "grade": "B",
+     "fams": {
+      "positioning": 0.646,
+      "flow": 0.643,
+      "trend": 0.719,
+      "volatility": 0.696,
+      "leverage": 0.6,
+      "realmoney": 0.633,
+      "mood": 0.475,
+      "invented": 0.63,
+      "similar": 0.72
+     },
+     "base": 0.632,
+     "unf": false,
+     "shape": {
+      "target": 0.03,
+      "hours": 48,
+      "prob": 0.587,
+      "need": 0.626
+     }
+    },
+    {
+     "coin": "TIA",
+     "side": "SHORT",
+     "prob": 0.725,
+     "for": [
+      "trend",
+      "volatility",
+      "similar"
+     ],
+     "against": [
+      "mood"
+     ],
+     "unfamiliar": false,
+     "off": false,
+     "regime": "down-wild",
+     "need": 0.703,
+     "px": 0.3618,
+     "stopPct": 0.04,
+     "grade": "A",
+     "fams": {
+      "positioning": 0.627,
+      "flow": 0.619,
+      "trend": 0.712,
+      "volatility": 0.702,
+      "leverage": 0.634,
+      "realmoney": 0.633,
+      "mood": 0.475,
+      "invented": 0.624,
+      "similar": 0.76
+     },
+     "base": 0.632,
+     "unf": false,
+     "shape": {
+      "target": 0.03,
+      "hours": 48,
+      "prob": 0.578,
+      "need": 0.626
+     }
+    },
+    {
+     "coin": "ONDO",
+     "side": "SHORT",
+     "prob": 0.725,
+     "for": [
+      "trend",
+      "volatility",
+      "similar"
+     ],
+     "against": [
+      "mood"
+     ],
+     "unfamiliar": false,
+     "off": false,
+     "regime": "down-wild",
+     "need": 0.703,
+     "px": 0.3155,
+     "stopPct": 0.04,
+     "grade": "A",
+     "fams": {
+      "positioning": 0.617,
+      "flow": 0.661,
+      "trend": 0.72,
+      "volatility": 0.681,
+      "leverage": 0.644,
+      "realmoney": 0.642,
+      "mood": 0.475,
+      "invented": 0.653,
+      "similar": 0.74
+     },
+     "base": 0.632,
+     "unf": false,
+     "shape": {
+      "target": 0.03,
+      "hours": 48,
+      "prob": 0.59,
+      "need": 0.626
+     }
+    },
+    {
+     "coin": "TRX",
+     "side": "LONG",
+     "prob": 0.486,
+     "for": [],
+     "against": [
+      "flow",
+      "trend",
+      "volatility",
+      "invented"
+     ],
+     "unfamiliar": true,
+     "off": true,
+     "regime": "down-wild",
+     "need": 0.497,
+     "px": 0.30961,
+     "stopPct": 0.015,
+     "grade": null,
+     "fams": {
+      "positioning": 0.597,
+      "flow": 0.518,
+      "trend": 0.478,
+      "volatility": 0.518,
+      "leverage": 0.589,
+      "realmoney": 0.607,
+      "mood": 0.58,
+      "invented": 0.557,
+      "similar": 0.62
+     },
+     "base": 0.599,
+     "unf": true
+    },
+    {
+     "coin": "UNI",
+     "side": "LONG",
+     "prob": 0.635,
+     "for": [
+      "positioning",
+      "trend",
+      "volatility"
+     ],
+     "against": [
+      "realmoney",
+      "invented",
+      "similar"
+     ],
+     "unfamiliar": false,
+     "off": true,
+     "regime": "down-wild",
+     "need": 0.723,
+     "px": 5.17,
+     "stopPct": 0.04,
+     "grade": null,
+     "fams": {
+      "positioning": 0.683,
+      "flow": 0.603,
+      "trend": 0.631,
+      "volatility": 0.636,
+      "leverage": 0.61,
+      "realmoney": 0.562,
+      "mood": 0.58,
+      "invented": 0.541,
+      "similar": 0.56
+     },
+     "base": 0.599,
+     "unf": false
+    },
+    {
+     "coin": "APT",
+     "side": "LONG",
+     "prob": 0.63,
+     "for": [
+      "trend",
+      "volatility"
+     ],
+     "against": [],
+     "unfamiliar": false,
+     "off": true,
+     "regime": "down-wild",
+     "need": 0.723,
+     "px": 0.488,
+     "stopPct": 0.04,
+     "grade": null,
+     "fams": {
+      "positioning": 0.592,
+      "flow": 0.598,
+      "trend": 0.63,
+      "volatility": 0.64,
+      "leverage": 0.585,
+      "realmoney": 0.581,
+      "mood": 0.58,
+      "invented": 0.578,
+      "similar": 0.58
+     },
+     "base": 0.599,
+     "unf": false
+    }
+   ],
+   "scanned": 40
+  },
+  "calibration": {
+   "recorded": 1372,
+   "scored": 724,
+   "bands": [
+    {
+     "band": "0-50%",
+     "n": 65,
+     "pred": 0.436,
+     "hit": 0.508,
+     "avg": 0.1
+    },
+    {
+     "band": "50-55%",
+     "n": 127,
+     "pred": 0.529,
+     "hit": 0.543,
+     "avg": -0.462
+    },
+    {
+     "band": "55-60%",
+     "n": 233,
+     "pred": 0.576,
+     "hit": 0.481,
+     "avg": -1.064
+    },
+    {
+     "band": "60-65%",
+     "n": 174,
+     "pred": 0.622,
+     "hit": 0.713,
+     "avg": 0.206
+    },
+    {
+     "band": "65-70%",
+     "n": 88,
+     "pred": 0.673,
+     "hit": 0.875,
+     "avg": 1.186
+    },
+    {
+     "band": "70-75%",
+     "n": 37,
+     "pred": 0.715,
+     "hit": 0.919,
+     "avg": 1.414
+    }
+   ],
+   "bySide": {
+    "long": {
+     "n": 362,
+     "pred": 0.565,
+     "hit": 0.326
+    },
+    "short": {
+     "n": 362,
+     "pred": 0.605,
+     "hit": 0.914
+    }
+   },
+   "byRegime": {
+    "down-calm": {
+     "n": 324,
+     "pred": 0.6,
+     "hit": 0.556
+    },
+    "down-wild": {
+     "n": 400,
+     "pred": 0.573,
+     "hit": 0.672
+    }
+   }
+  },
+  "collect": {
+   "recorder": {
+    "status": {
+     "writes": {
+      "depth": 100900,
+      "funding": 20604,
+      "liq": 37266
+     },
+     "errors": 0,
+     "lastError": null,
+     "ws": "connected",
+     "liqMsgs": 86727,
+     "uptimeMin": 2018,
+     "node": "v22.22.1",
+     "sys": {
+      "diskFreeGB": 4.12,
+      "recMB": 16.1,
+      "memFreeMB": 535,
+      "memTotalMB": 953,
+      "rssMB": 132,
+      "load1": 0,
+      "load15": 0,
+      "cpus": 2,
+      "keepDays": 120,
+      "housekept": "2026-11-14T12:42"
+     }
+    },
+    "depth": 100,
+    "funding": 102,
+    "liq": 1281,
+    "secs": 1.4
+   },
+   "macro": {
+    "days": 16924,
+    "series": [
+     "ndx",
+     "spx",
+     "vix",
+     "us10y",
+     "dxy"
+    ],
+    "secs": 0.6
+   },
+   "onchain": {
+    "rows": 5018,
+    "secs": 0.8
+   },
+   "whales": {
+    "accounts": 50,
+    "coins": 167,
+    "secs": 17.9
+   },
+   "news": {
+    "headlines": 46,
+    "feeds": 9,
+    "secs": 1.9
+   },
+   "compass": {
+    "markets": {
+     "markets": 15
+    },
+    "fear&greed": {
+     "days": 3205
+    },
+    "calendar": {
+     "fresh": true
+    },
+    "stablecoins": {
+     "days": 3273
+    },
+    "options": {
+     "days": 2062
+    },
+    "digest": {
+     "fresh": true,
+     "ageH": 2.0
+    },
+    "secs": 11.8
+   },
+   "liq": {
+    "fresh": true,
+    "daysStored": 2191,
+    "hoursStored": 2199,
+    "secs": 0.0
+   },
+   "book": {
+    "new": 0,
+    "stored": 66372,
+    "left": 0,
+    "complete": true,
+    "secs": 0.6
+   }
+  },
+  "scorecard": {
+   "calls": 61,
+   "scored": 54,
+   "stats": {
+    "long": {
+     "n": 2,
+     "recentN": 2,
+     "hit": 0.0,
+     "pred": 0.589,
+     "be": 0.55,
+     "avg": -2.405,
+     "open": 1,
+     "moves": 2
+    },
+    "short": {
+     "n": 52,
+     "recentN": 52,
+     "hit": 0.846,
+     "pred": 0.7,
+     "be": 0.615,
+     "avg": 0.977,
+     "open": 6,
+     "moves": 9
+    }
+   },
+   "callRate": {
+    "long": {
+     "A": 0.0,
+     "B": 0.43
+    },
+    "short": {
+     "A": 0.71,
+     "B": 7.57
+    }
+   },
+   "override": {},
+   "regimeOverride": {
+    "short": {
+     "down-calm": {
+      "live": true,
+      "n": 9,
+      "hit": 0.981,
+      "be": 0.614,
+      "avg": 1.786
+     }
+    }
+   },
+   "adapt": {
+    "short": {
+     "marginAdj": -0.1,
+     "riskMult": 1.3,
+     "n": 12,
+     "hit": 0.883,
+     "pred": 0.692,
+     "avg": 1.197,
+     "why": "live calls hit 88% vs predicted 69%: bar relaxed (-10.0 pts); size x1.30"
+    }
+   },
+   "regimeNow": "down-wild"
+  },
+  "trainings": [
+   {
+    "at": "2026-11-07 20:32",
+    "long": {
+     "exam": {
+      "trades": 58,
+      "win": 36.2,
+      "avg": -0.579,
+      "perMonth": 15.1,
+      "monthly": -15.71,
+      "base": 0.557,
+      "n_candidates": 46800
+     },
+     "margin": 0.06,
+     "off": false,
+     "live": false
+    },
+    "short": {
+     "exam": {
+      "trades": 30,
+      "win": 73.3,
+      "avg": 0.8,
+      "perMonth": 7.9,
+      "monthly": 11.26,
+      "base": 0.598,
+      "n_candidates": 46800
+     },
+     "margin": 0.12,
+     "off": false,
+     "live": true
+    }
+   },
+   {
+    "at": "2026-11-07 21:27",
+    "long": {
+     "exam": {
+      "trades": 62,
+      "win": 37.1,
+      "avg": -0.563,
+      "perMonth": 16.1,
+      "monthly": -16.37,
+      "base": 0.557,
+      "n_candidates": 46800
+     },
+     "margin": 0.06,
+     "off": false,
+     "live": false
+    },
+    "short": {
+     "exam": {
+      "trades": 33,
+      "win": 69.7,
+      "avg": 0.669,
+      "perMonth": 8.6,
+      "monthly": 10.18,
+      "base": 0.598,
+      "n_candidates": 46800
+     },
+     "margin": 0.12,
+     "off": false,
+     "live": true
+    }
+   },
+   {
+    "at": "2026-11-11 22:23",
+    "long": {
+     "exam": {
+      "trades": 83,
+      "win": 39.8,
+      "avg": -0.539,
+      "perMonth": 21.6,
+      "monthly": -22.41,
+      "base": 0.549,
+      "n_candidates": 46800
+     },
+     "margin": 0.04,
+     "off": false,
+     "live": false
+    },
+    "short": {
+     "exam": {
+      "trades": 39,
+      "win": 61.5,
+      "avg": 0.395,
+      "perMonth": 10.4,
+      "monthly": 6.82,
+      "base": 0.604,
+      "n_candidates": 46800
+     },
+     "margin": 0.12,
+     "off": false,
+     "live": true
+    }
+   }
+  ],
+  "lastDecisions": [
+   {
+    "at": "2026-11-07 20:39",
+    "t": 1794078000,
+    "coin": "BCH",
+    "side": "SHORT",
+    "grade": "B",
+    "prob": 0.705,
+    "card": {
+     "for": [
+      "volatility",
+      "trend"
+     ],
+     "against": [
+      "similar"
+     ],
+     "similar": 50,
+     "rules": [
+      "L163",
+      "S238"
+     ]
+    }
+   },
+   {
+    "at": "2026-11-08 03:31",
+    "t": 1794103200,
+    "coin": "SEI",
+    "side": "SHORT",
+    "grade": "A",
+    "prob": 0.693,
+    "card": {
+     "for": [
+      "similar",
+      "trend",
+      "volatility"
+     ],
+     "against": [],
+     "similar": 72,
+     "rules": [
+      "L238"
+     ]
+    }
+   },
+   {
+    "at": "2026-11-12 00:26",
+    "t": 1794438000,
+    "coin": "BCH",
+    "side": "SHORT",
+    "grade": "B",
+    "prob": 0.694,
+    "card": {
+     "for": [
+      "trend",
+      "volatility",
+      "mood"
+     ],
+     "against": [
+      "positioning"
+     ],
+     "similar": 64,
+     "rules": []
+    },
+    "target": 0.02,
+    "fill": "live price"
+   },
+   {
+    "at": "2026-11-12 17:39",
+    "t": 1794499200,
+    "coin": "HBAR",
+    "side": "SHORT",
+    "grade": "A",
+    "prob": 0.72,
+    "card": {
+     "for": [
+      "trend",
+      "volatility"
+     ],
+     "against": [],
+     "similar": 66,
+     "rules": [
+      "L380",
+      "L444"
+     ]
+    },
+    "target": 0.02,
+    "fill": "live price"
+   },
+   {
+    "at": "2026-11-13 04:28",
+    "t": 1794538800,
+    "coin": "SOL",
+    "side": "SHORT",
+    "grade": "A",
+    "prob": 0.708,
+    "card": {
+     "for": [
+      "similar",
+      "trend",
+      "positioning"
+     ],
+     "against": [
+      "mood"
+     ],
+     "similar": 78,
+     "rules": [
+      "L372",
+      "L380",
+      "L382",
+      "L446"
+     ]
+    },
+    "target": 0.02,
+    "fill": "live price"
+   },
+   {
+    "at": "2026-11-14 08:29",
+    "t": 1794639600,
+    "coin": "BCH",
+    "side": "SHORT",
+    "grade": "A",
+    "prob": 0.71,
+    "card": {
+     "for": [
+      "similar",
+      "trend",
+      "volatility"
+     ],
+     "against": [
+      "mood"
+     ],
+     "similar": 76,
+     "rules": [
+      "L444",
+      "L454",
+      "L455"
+     ]
+    },
+    "target": 0.02,
+    "fill": "live price"
+   }
+  ]
+ },
+ "accounts": {
+  "best": null
+ },
+ "challengers": {
+  "champion": null,
+  "promotions": [],
+  "scores": {
+   "bestofday": {
+    "zNeeded": 4.0,
+    "bets": 2,
+    "me": {
+     "ll": 0.6032,
+     "cal": 0.0267,
+     "brier": 0.2075,
+     "aPerDay": 2.0,
+     "aRet": 1.9,
+     "aN": 2,
+     "profitPerDay": 3.8
+    },
+    "champion": {
+     "ll": 0.6032,
+     "cal": 0.0267,
+     "brier": 0.2075,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "champion": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "cointrust": {
+    "zNeeded": 4.0,
+    "bets": 5,
+    "me": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.2
+   },
+   "curious": {
+    "zNeeded": 4.0,
+    "bets": 5,
+    "me": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.2
+   },
+   "doubt": {
+    "zNeeded": 4.0,
+    "bets": 5,
+    "me": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.2
+   },
+   "gate": {
+    "zNeeded": 4.0,
+    "bets": 3,
+    "me": {
+     "ll": 0.6094,
+     "cal": 0.0337,
+     "brier": 0.2104,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6094,
+     "cal": 0.0337,
+     "brier": 0.2104,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "lowbar": {
+    "zNeeded": 4.0,
+    "bets": 5,
+    "me": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 3.43,
+     "aRet": 1.9,
+     "aN": 4,
+     "profitPerDay": 6.514
+    },
+    "champion": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 1.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.2
+   },
+   "online-fast": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6238,
+     "cal": 0.0274,
+     "brier": 0.217,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 2.2,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "online-slow": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6238,
+     "cal": 0.0274,
+     "brier": 0.217,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 2.2,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "recal": {
+    "zNeeded": 4.0,
+    "bets": 1,
+    "me": {
+     "ll": 0.5949,
+     "cal": 0.0015,
+     "brier": 0.2034,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.5949,
+     "cal": 0.0015,
+     "brier": 0.2034,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "rules": {
+    "zNeeded": 4.0,
+    "bets": 5,
+    "me": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6308,
+     "cal": 0.0008,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.2
+   },
+   "without-flow": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6205,
+     "cal": 0.0134,
+     "brier": 0.2153,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 2.51,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-invented": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6233,
+     "cal": 0.0123,
+     "brier": 0.2166,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 1.61,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-leverage": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6233,
+     "cal": 0.0108,
+     "brier": 0.2166,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 1.45,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-mood": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6229,
+     "cal": 0.0106,
+     "brier": 0.2165,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 1.54,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-positioning": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6229,
+     "cal": 0.0116,
+     "brier": 0.2165,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 1.56,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-realmoney": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6225,
+     "cal": 0.0117,
+     "brier": 0.2163,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 1.66,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-similar": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6212,
+     "cal": 0.0124,
+     "brier": 0.2157,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 2.13,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-trend": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6231,
+     "cal": 0.0071,
+     "brier": 0.2165,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.88,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "without-volatility": {
+    "zNeeded": 4.0,
+    "bets": 6,
+    "me": {
+     "ll": 0.6287,
+     "cal": 0.0145,
+     "brier": 0.219,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6311,
+     "cal": 0.0292,
+     "brier": 0.2203,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.35,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.4
+   },
+   "witness-book": {
+    "zNeeded": 4.0,
+    "bets": 1,
+    "me": {
+     "ll": 0.5924,
+     "cal": 0.0051,
+     "brier": 0.2023,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.5949,
+     "cal": 0.0015,
+     "brier": 0.2034,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-flows": {
+    "zNeeded": 4.0,
+    "bets": 2,
+    "me": {
+     "ll": 0.6161,
+     "cal": 0.0311,
+     "brier": 0.2136,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6032,
+     "cal": 0.0267,
+     "brier": 0.2075,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-global": {
+    "zNeeded": 4.0,
+    "bets": 2,
+    "me": {
+     "ll": 0.5947,
+     "cal": 0.0218,
+     "brier": 0.2034,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6032,
+     "cal": 0.0267,
+     "brier": 0.2075,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-liq": {
+    "zNeeded": 4.0,
+    "bets": 1,
+    "me": {
+     "ll": 0.5891,
+     "cal": 0.0047,
+     "brier": 0.2007,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.5949,
+     "cal": 0.0015,
+     "brier": 0.2034,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-macro": {
+    "zNeeded": 4.0,
+    "bets": 4,
+    "me": {
+     "ll": 0.6404,
+     "cal": 0.057,
+     "brier": 0.2253,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6346,
+     "cal": 0.0446,
+     "brier": 0.2224,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-mood": {
+    "zNeeded": 4.0,
+    "bets": 2,
+    "me": {
+     "ll": 0.6138,
+     "cal": 0.0185,
+     "brier": 0.2122,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6032,
+     "cal": 0.0267,
+     "brier": 0.2075,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-onchain": {
+    "zNeeded": 4.0,
+    "bets": 3,
+    "me": {
+     "ll": 0.6124,
+     "cal": 0.0318,
+     "brier": 0.2118,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6094,
+     "cal": 0.0337,
+     "brier": 0.2104,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-sectors": {
+    "zNeeded": 4.0,
+    "bets": 3,
+    "me": {
+     "ll": 0.6098,
+     "cal": 0.0353,
+     "brier": 0.2107,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6094,
+     "cal": 0.0337,
+     "brier": 0.2104,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "witness-shock": {
+    "zNeeded": 4.0,
+    "bets": 2,
+    "me": {
+     "ll": 0.6074,
+     "cal": 0.0282,
+     "brier": 0.2095,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "champion": {
+     "ll": 0.6032,
+     "cal": 0.0267,
+     "brier": 0.2075,
+     "aPerDay": 0.0,
+     "aRet": 0.0,
+     "aN": 0,
+     "profitPerDay": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "lead": 0.0,
+    "state": "collecting",
+    "decision": null,
+    "days": 1.0
+   },
+   "pace": {
+    "bets": 3,
+    "me": {
+     "growth": 3.14,
+     "maxDD": 4.11,
+     "trades": 3
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "guard": {
+    "bets": 2,
+    "me": {
+     "growth": 0.55,
+     "maxDD": 4.16,
+     "trades": 2
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "kelly": {
+    "bets": 3,
+    "me": {
+     "growth": 1.35,
+     "maxDD": 6.14,
+     "trades": 3
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "alloc": {
+    "bets": 3,
+    "me": {
+     "growth": 4.16,
+     "maxDD": 6.23,
+     "trades": 3
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "lock": {
+    "bets": 3,
+    "me": {
+     "growth": 3.08,
+     "maxDD": 4.11,
+     "trades": 3
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "pairs": {
+    "bets": 3,
+    "me": {
+     "growth": -6.28,
+     "maxDD": 7.21,
+     "trades": 3
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "news": {
+    "bets": 2,
+    "me": {
+     "growth": -2.09,
+     "maxDD": 4.06,
+     "trades": 2
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "range": {
+    "bets": 1,
+    "me": {
+     "growth": -4.31,
+     "maxDD": 4.31,
+     "trades": 1
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "trend2": {
+    "bets": 3,
+    "me": {
+     "growth": 3.02,
+     "maxDD": 4.11,
+     "trades": 3
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "runner": {
+    "bets": 1,
+    "me": {
+     "growth": -4.22,
+     "maxDD": 4.22,
+     "trades": 1
+    },
+    "champion": {
+     "growth": 3.05,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "timestop": {
+    "bets": 2,
+    "me": {
+     "growth": 1.33,
+     "maxDD": 4.11,
+     "trades": 2
+    },
+    "champion": {
+     "growth": 3.03,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "weekpace": {
+    "bets": 5,
+    "me": {
+     "growth": 7.83,
+     "maxDD": 4.09,
+     "trades": 5
+    },
+    "champion": {
+     "growth": 3.03,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": true,
+    "state": "collecting",
+    "account": true
+   },
+   "tiers": {
+    "bets": 2,
+    "me": {
+     "growth": -2.56,
+     "maxDD": 4.06,
+     "trades": 2
+    },
+    "champion": {
+     "growth": 2.77,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "bold": {
+    "bets": 2,
+    "me": {
+     "growth": 1.07,
+     "maxDD": 8.14,
+     "trades": 2
+    },
+    "champion": {
+     "growth": 2.77,
+     "maxDD": 4.11
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   },
+   "bocpd-gate": {
+    "bets": 0,
+    "me": {
+     "growth": 3.08,
+     "maxDD": 0.0,
+     "trades": 0
+    },
+    "champion": {
+     "growth": 3.17,
+     "maxDD": 0.0
+    },
+    "ready": false,
+    "better": false,
+    "state": "collecting",
+    "account": true
+   }
+  },
+  "stats": {
+   "icc": 0.558,
+   "rows": 484
+  },
+  "rejected": {
+   "shape": "failed its final exam on shorts: 1.41%/month vs the champion's 6.82%/month (retried after the next weekly retrain)",
+   "statebar": "failed its final exam: -4.9%/month vs today's 9.7%/month",
+   "shock": "shock memory found no exit rule that beats holding"
+  },
+  "witnesses": {
+   "macro": {
+    "what": "Outside-world witness: Nasdaq, S&P 500, VIX, US yields and the dollar (risk-on / risk-off), known only from the next day",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.6714,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6476,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "onchain": {
+    "what": "On-chain witness: Bitcoin and Ethereum flowing into / out of exchanges, and exchange balances",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.672,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6476,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "sectors": {
+    "what": "Sector witness: money rotating between AI, memes, layer-1s, DeFi and exchange tokens",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.672,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6478,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "global": {
+    "what": "Compass global-markets witness: US, European and Asian stocks, the dollar, gold, oil, NVIDIA and chips, Coinbase, and how tightly Bitcoin follows stocks right now",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.6718,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6478,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "mood": {
+    "what": "Compass mood witness: the crypto Fear & Greed index and the options market's fear gauge (implied volatility), and how fast they are changing",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.672,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6473,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "flows": {
+    "what": "Compass money-flow witness: dollar stablecoin supply growing or shrinking (new money arriving in / leaving crypto)",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.6718,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6477,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "book": {
+    "what": "Order-book witness: how much money has been waiting to buy versus to sell near the price over the last days, and whether the book is getting thinner (Binance's own archive since 2023, one day behind)",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.672,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6477,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "liq": {
+    "what": "Liquidation witness: how many longs and shorts were forcibly closed yesterday and over the last week, per coin and market-wide (Binance, Bybit and OKX, history since 2020)",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.6714,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6465,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "shock": {
+    "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)",
+    "state": "challenger (being scored live)",
+    "exam": {
+     "long": {
+      "valLL": 0.672,
+      "champValLL": 0.672
+     },
+     "short": {
+      "valLL": 0.6478,
+      "champValLL": 0.6478
+     }
+    }
+   },
+   "recorder": {
+    "what": "Recorder witness: liquidations, order-book and order-flow imbalance, live funding (own server)",
+    "state": "recording; needs ~21 days of history (5 so far)"
+   },
+   "whales": {
+    "what": "Whale witness: the largest Hyperliquid accounts' positions",
+    "state": "recording; needs ~21 days of history (5 so far)"
+   },
+   "news": {
+    "what": "News witness: headlines tagged by the AI",
+    "state": "recording; needs ~21 days of history (6 so far)"
+   }
+  },
+  "shapeExam": {
+   "long": {
+    "exam": {
+     "trades": 0,
+     "monthly": null
+    },
+    "k": null,
+    "margin": null,
+    "fixedExam": {
+     "trades": 83,
+     "win": 39.8,
+     "avg": -0.539,
+     "perMonth": 21.6,
+     "monthly": -22.41,
+     "base": 0.549,
+     "n_candidates": 46800
+    }
+   },
+   "short": {
+    "exam": {
+     "trades": 16,
+     "win": 62.5,
+     "avg": 0.159,
+     "perMonth": 4.3,
+     "monthly": 1.41,
+     "avgTarget": 2.91
+    },
+    "k": 0.75,
+    "margin": 0.04,
+    "fixedExam": {
+     "trades": 39,
+     "win": 61.5,
+     "avg": 0.395,
+     "perMonth": 10.4,
+     "monthly": 6.82,
+     "base": 0.604,
+     "n_candidates": 46800
+    }
+   }
+  },
+  "accounts": {
+   "pace": {
+    "equity": 517.51,
+    "cash": 505.59,
+    "open": 1,
+    "closed": 3
+   },
+   "guard": {
+    "equity": 504.67,
+    "cash": 493.04,
+    "open": 1,
+    "closed": 2
+   },
+   "kelly": {
+    "equity": 507.6,
+    "cash": 501.8,
+    "open": 1,
+    "closed": 3
+   },
+   "doubt": {
+    "equity": 507.15,
+    "cash": 507.15,
+    "open": 0,
+    "closed": 1
+   },
+   "cointrust": {
+    "equity": 503.23,
+    "cash": 492.07,
+    "open": 1,
+    "closed": 2
+   },
+   "rules": {
+    "equity": 517.06,
+    "cash": 505.59,
+    "open": 1,
+    "closed": 3
+   },
+   "alloc": {
+    "equity": 515.92,
+    "cash": 511.67,
+    "open": 1,
+    "closed": 3
+   },
+   "lock": {
+    "equity": 516.91,
+    "cash": 505.59,
+    "open": 1,
+    "closed": 3
+   },
+   "curious": {
+    "equity": 516.91,
+    "cash": 505.59,
+    "open": 1,
+    "closed": 3
+   },
+   "lowbar": {
+    "equity": 563.56,
+    "cash": 551.22,
+    "open": 1,
+    "closed": 3
+   },
+   "pairs": {
+    "equity": 468.58,
+    "cash": 468.58,
+    "open": 0,
+    "closed": 3
+   },
+   "news": {
+    "equity": 489.54,
+    "cash": 489.54,
+    "open": 0,
+    "closed": 2
+   },
+   "range": {
+    "equity": 478.47,
+    "cash": 478.47,
+    "open": 0,
+    "closed": 1
+   },
+   "trend2": {
+    "equity": 517.21,
+    "cash": 505.59,
+    "open": 1,
+    "closed": 3
+   },
+   "runner": {
+    "equity": 478.91,
+    "cash": 478.91,
+    "open": 0,
+    "closed": 1
+   },
+   "gate": {
+    "equity": 517.36,
+    "cash": 505.59,
+    "open": 1,
+    "closed": 3
+   },
+   "bestofday": {
+    "equity": 475.69,
+    "cash": 465.0,
+    "open": 1,
+    "closed": 2
+   },
+   "timestop": {
+    "equity": 509.19,
+    "cash": 497.6,
+    "open": 1,
+    "closed": 2
+   },
+   "weekpace": {
+    "equity": 541.6,
+    "cash": 529.87,
+    "open": 1,
+    "closed": 5
+   },
+   "tiers": {
+    "equity": 487.4,
+    "cash": 486.33,
+    "open": 1,
+    "closed": 2
+   },
+   "bold": {
+    "equity": 508.71,
+    "cash": 491.66,
+    "open": 1,
+    "closed": 2
+   },
+   "bocpd-gate": {
+    "equity": 517.66,
+    "cash": 506.18,
+    "open": 1,
+    "closed": 0
+   }
+  }
+ },
+ "review": {
+  "types": {
+   "wrong read": 79,
+   "right direction, stopped first": 104,
+   "no follow-through": 92,
+   "worked": 449
+  },
+  "nearMiss": {
+   "n": 97,
+   "hit": 0.619,
+   "avg": -0.002
+  },
+  "gradeA": {
+   "n": 0,
+   "hit": null,
+   "avg": null
+  },
+  "cautionCosts": false
+ },
+ "auditLog": {
+  "rule_selection": [
+   "2026-11-13 09:27 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 09:42 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 10:25 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 11:10 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 11:24 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 12:28 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 13:28 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best",
+   "2026-11-13 14:27 rule_selection: incumbent #372, candidate #372, dwell_days -, replace False, reason incumbent is still the best"
+  ],
+  "calibration": [
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 30-35%, predicted 0.325, actual 0.427, n_eff 1.9",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 40-45%, predicted 0.423, actual 0.891, n_eff 2.5",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 45-50%, predicted 0.478, actual 1.0, n_eff 4.7",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 50-55%, predicted 0.53, actual 1.0, n_eff 10.4",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 55-60%, predicted 0.576, actual 0.838, n_eff 20.4",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 60-65%, predicted 0.623, actual 0.957, n_eff 25.8",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 65-70%, predicted 0.674, actual 0.915, n_eff 22.7",
+   "2026-11-14 16:29 calibration: version 20261114-s9, bucket 70-75%, predicted 0.715, actual 0.919, n_eff 10.1"
+  ],
+  "side_gate": [
+   "2026-11-14 15:35 side_gate: long, allowed False, reason: its final exam (-22.41% a month on the newest unseen months), condition_met False",
+   "2026-11-14 15:35 side_gate: short, allowed True, reason: its final exam (6.82% a month on the newest unseen months), condition_met True",
+   "2026-11-14 16:06 side_gate: long, allowed False, reason: its final exam (-22.41% a month on the newest unseen months), condition_met False",
+   "2026-11-14 16:06 side_gate: short, allowed True, reason: its final exam (6.82% a month on the newest unseen months), condition_met True",
+   "2026-11-14 16:16 side_gate: long, allowed False, reason: its final exam (-22.41% a month on the newest unseen months), condition_met False",
+   "2026-11-14 16:16 side_gate: short, allowed True, reason: its final exam (6.82% a month on the newest unseen months), condition_met True",
+   "2026-11-14 16:30 side_gate: long, allowed False, reason: its final exam (-22.41% a month on the newest unseen months), condition_met False",
+   "2026-11-14 16:30 side_gate: short, allowed True, reason: its final exam (6.82% a month on the newest unseen months), condition_met True"
+  ],
+  "risk_tier": [
+   "2026-11-14 08:29 risk_tier: BCH, SHORT, edge +0.027, tier grade A, risk_pct 5.2, witnesses 3, regime down-wild, portfolio_risk_after 5.2",
+   "2026-11-14 08:29 risk_tier: BCH, SHORT, edge +0.027, tier grade A, risk_pct 5.2, witnesses 3, regime down-wild, portfolio_risk_after 5.2",
+   "2026-11-14 08:29 risk_tier: UNI, SHORT, edge +0.033, tier grade A, risk_pct 5.2, witnesses 2, regime down-wild, portfolio_risk_after 10.4",
+   "2026-11-14 08:29 risk_tier: BCH, SHORT, edge +0.027, tier probe, risk_pct 0.5, witnesses 3, regime down-wild, portfolio_risk_after 0.5",
+   "2026-11-14 08:29 risk_tier: BCH, SHORT, edge +0.027, tier bold, risk_pct 8.0, witnesses 3, regime down-wild, portfolio_risk_after 8.0",
+   "2026-11-14 08:29 risk_tier: BCH, SHORT, edge +0.027, tier grade A, risk_pct 5.2, witnesses 3, regime down-wild, portfolio_risk_after 5.2",
+   "2026-11-14 08:30 risk_tier: SAND, SHORT, edge +0.049, tier grade A, risk_pct 5.2, witnesses 3, regime down-wild, portfolio_risk_after 5.2",
+   "2026-11-14 16:28 risk_tier: TIA, SHORT, edge +0.042, tier grade A, risk_pct 6.0, witnesses 3, regime down-wild, portfolio_risk_after 6.0"
+  ],
+  "fast_lane": [
+   "2026-11-13 07:10 fast_lane: bold SOL: stop at 80.435 (2026-11-13 07:09 UTC)",
+   "2026-11-13 08:36 fast_lane: range ICP: stop at 2.6505 (2026-11-13 08:35 UTC)",
+   "2026-11-13 13:31 fast_lane: news ONDO: stop at 0.34775 (2026-11-13 13:30 UTC)",
+   "2026-11-14 13:15 fast_lane: weekpace UNI: half at target at 5.4005 (2026-11-14 13:14 UTC)",
+   "2026-11-14 14:05 fast_lane: alloc OP: half at target at 0.087105 (2026-11-14 14:01 UTC)",
+   "2026-11-14 16:06 fast_lane: tiers BCH: half at target at 210.365 (2026-11-14 16:05 UTC)",
+   "2026-11-14 16:06 fast_lane: bold BCH: half at target at 210.365 (2026-11-14 16:05 UTC)",
+   "2026-11-14 16:06 fast_lane: bocpd-gate BCH: half at target at 210.365 (2026-11-14 16:05 UTC)"
+  ],
+  "promotion_test": [
+   "2026-11-14 16:29 promotion_test: witness-flows, n_eff 2, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-global, n_eff 2, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-liq, n_eff 1, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-macro, n_eff 4, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-mood, n_eff 2, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-onchain, n_eff 3, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-sectors, n_eff 3, statistic 0.00, decision continue, boundary_crossed collecting",
+   "2026-11-14 16:29 promotion_test: witness-shock, n_eff 2, statistic 0.00, decision continue, boundary_crossed collecting"
+  ]
+ },
+ "integrity": {
+  "judge": {
+   "hash": "c068620f87",
+   "rule": {
+    "z": 3.0,
+    "minBets": 40,
+    "minDays": 10,
+    "futility": [
+     [
+      80,
+      -1.5
+     ],
+     [
+      240,
+      0.5
+     ]
+    ],
+    "alpha": "about 0.02 one-sided over the whole race, for ALL contestants together (the line rises with the number racing: Bonferroni / first step of Holm)",
+    "beta": "about 0.2: a contestant truly better by a quarter of a standard deviation per window is promoted by 240 windows about 4 times in 5",
+    "racing": 43,
+    "zNow": 4.0
+   },
+   "note": "The judge (promotion test, its numbers, how separate bets are counted) is fixed code. The learner cannot edit it; a change is a human decision and changes this fingerprint."
+  },
+  "risk": {
+   "openRiskPct": 2.51,
+   "positions": [
+    {
+     "coin": "BCH",
+     "side": "SHORT",
+     "riskPct": 2.51,
+     "lev": 9,
+     "tier": null
+    }
+   ],
+   "perTradeMaxPct": 8.0,
+   "kill": {
+    "drawdown": 0.007,
+    "limit": 0.3,
+    "peak": 570.29,
+    "tripsAt": 399.2,
+    "drift": null,
+    "driftTol": 0.05
+   },
+   "killed": null,
+   "wouldTrip": "The account falling to $399.2 (it is $566; 29 points of room), or graded calls winning far below predicted once 30 separate moves are scored"
+  },
+  "learning": {
+   "nEffSincePromotion": 18,
+   "scoredCandidates": 724,
+   "lastPromotion": "none yet",
+   "calibration": {
+    "long": {
+     "moves": 9,
+     "table": [
+      {
+       "bucket": "45-50%",
+       "predicted": 0.481,
+       "actual": 0.111,
+       "n_eff": 1.8,
+       "n": 18
+      },
+      {
+       "bucket": "50-55%",
+       "predicted": 0.529,
+       "actual": 0.349,
+       "n_eff": 9.1,
+       "n": 89
+      },
+      {
+       "bucket": "55-60%",
+       "predicted": 0.576,
+       "actual": 0.315,
+       "n_eff": 16.2,
+       "n": 159
+      },
+      {
+       "bucket": "60-65%",
+       "predicted": 0.62,
+       "actual": 0.425,
+       "n_eff": 8.2,
+       "n": 80
+      }
+     ],
+     "version": "20261114-l9",
+     "waiting": "needs 20 separate market moves (9 so far): until then the calibrated odds are the raw odds"
+    },
+    "short": {
+     "moves": 9,
+     "table": [
+      {
+       "bucket": "30-35%",
+       "predicted": 0.325,
+       "actual": 0.427,
+       "n_eff": 1.9,
+       "n": 7
+      },
+      {
+       "bucket": "40-45%",
+       "predicted": 0.423,
+       "actual": 0.891,
+       "n_eff": 2.5,
+       "n": 9
+      },
+      {
+       "bucket": "45-50%",
+       "predicted": 0.478,
+       "actual": 1.0,
+       "n_eff": 4.7,
+       "n": 17
+      },
+      {
+       "bucket": "50-55%",
+       "predicted": 0.53,
+       "actual": 1.0,
+       "n_eff": 10.4,
+       "n": 38
+      },
+      {
+       "bucket": "55-60%",
+       "predicted": 0.576,
+       "actual": 0.838,
+       "n_eff": 20.4,
+       "n": 74
+      },
+      {
+       "bucket": "60-65%",
+       "predicted": 0.623,
+       "actual": 0.957,
+       "n_eff": 25.8,
+       "n": 94
+      },
+      {
+       "bucket": "65-70%",
+       "predicted": 0.674,
+       "actual": 0.915,
+       "n_eff": 22.7,
+       "n": 83
+      },
+      {
+       "bucket": "70-75%",
+       "predicted": 0.715,
+       "actual": 0.919,
+       "n_eff": 10.1,
+       "n": 37
+      }
+     ],
+     "version": "20261114-s9",
+     "waiting": "needs 20 separate market moves (9 so far): until then the calibrated odds are the raw odds"
+    }
+   },
+   "top": [
+    {
+     "name": "without-flow",
+     "nEff": 6,
+     "z": 2.51,
+     "state": "collecting",
+     "decision": null
+    },
+    {
+     "name": "online-fast",
+     "nEff": 6,
+     "z": 2.2,
+     "state": "collecting",
+     "decision": null
+    },
+    {
+     "name": "online-slow",
+     "nEff": 6,
+     "z": 2.2,
+     "state": "collecting",
+     "decision": null
+    }
+   ],
+   "edge": [
+    {
+     "day": "11-12",
+     "calibratedEdge": 0.075,
+     "realisedEdge": 0.39,
+     "moves": 1
+    }
+   ]
+  },
+  "regime": {
+   "now": "down-wild",
+   "group": "wild",
+   "trend": "strong down wild",
+   "sides": {
+    "long": {
+     "allowed": false,
+     "why": "its final exam (-22.41% a month on the newest unseen months)"
+    },
+    "short": {
+     "allowed": true,
+     "why": "its final exam (6.82% a month on the newest unseen months)"
+    }
+   },
+   "changepoint": {
+    "pNow": 0.028,
+    "pMax72h": 0.661,
+    "lastChange": 1793836800,
+    "threshold": 0.8,
+    "unlocked": false,
+    "longCalls": 0
+   },
+   "last": [
+    {
+     "regime": "down-calm",
+     "from": "2026-11-11",
+     "to": "2026-11-12",
+     "returnPct": 9.34
+    },
+    {
+     "regime": "down-wild",
+     "from": "2026-11-13",
+     "to": "2026-11-14",
+     "returnPct": 3.62
+    }
+   ]
+  },
+  "arbiter": {
+   "trades": 5,
+   "expectancyUsd": 9.37,
+   "expectancyPct": 1.874,
+   "onMarginPct": 19.6,
+   "won": 4,
+   "avgWin": 17.57,
+   "avgLoss": -23.45,
+   "maxDrawdownPct": 4.1,
+   "peak": 570.29,
+   "byRegime": {
+    "unknown": {
+     "trades": 1,
+     "usd": 15.42,
+     "won": 1,
+     "returnPct": 3.08,
+     "perTrade": 15.42
+    },
+    "falling": {
+     "trades": 4,
+     "usd": 31.42,
+     "won": 3,
+     "returnPct": 6.28,
+     "perTrade": 7.86
+    }
+   },
+   "returnPct": 13.3
+  },
+  "bestRule": null,
+  "haircut": {
+   "ideasTried": 508500,
+   "champions": 30,
+   "admissible": 17
+  }
+ },
+ "research": {
+  "totalTests": 508500,
+  "champions": 30,
+  "lastRuns": [
+   {
+    "at": "2026-11-14 16:30",
+    "secs": 745,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1296,
+     "near": 119,
+     "dead_val": 83,
+     "validated": 2
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 15:00"
+   },
+   {
+    "at": "2026-11-14 15:26",
+    "secs": 515,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1341,
+     "near": 92,
+     "dead_val": 67
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 14:00"
+   },
+   {
+    "at": "2026-11-14 14:28",
+    "secs": 672,
+    "tested": 1500,
+    "counts": {
+     "near": 109,
+     "dead_disc": 1314,
+     "dead_val": 76,
+     "validated": 1
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 13:00"
+   },
+   {
+    "at": "2026-11-14 13:27",
+    "secs": 613,
+    "tested": 1500,
+    "counts": {
+     "near": 86,
+     "dead_disc": 1348,
+     "dead_val": 64,
+     "validated": 2
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 12:00"
+   },
+   {
+    "at": "2026-11-14 12:27",
+    "secs": 622,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1312,
+     "dead_val": 85,
+     "near": 102,
+     "validated": 1
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 11:00"
+   },
+   {
+    "at": "2026-11-14 11:27",
+    "secs": 592,
+    "tested": 1500,
+    "counts": {
+     "dead_val": 97,
+     "near": 95,
+     "dead_disc": 1307,
+     "validated": 1
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 10:00"
+   },
+   {
+    "at": "2026-11-14 10:39",
+    "secs": 634,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1323,
+     "near": 96,
+     "dead_val": 78,
+     "validated": 3
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 09:00"
+   },
+   {
+    "at": "2026-11-14 10:28",
+    "secs": 638,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1316,
+     "near": 96,
+     "dead_val": 86,
+     "validated": 2
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 09:00"
+   },
+   {
+    "at": "2026-11-14 09:29",
+    "secs": 704,
+    "tested": 1500,
+    "counts": {
+     "near": 97,
+     "dead_disc": 1334,
+     "dead_val": 66,
+     "validated": 3
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 08:00"
+   },
+   {
+    "at": "2026-11-14 08:30",
+    "secs": 773,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1320,
+     "near": 92,
+     "dead_val": 87,
+     "validated": 1
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 07:00"
+   },
+   {
+    "at": "2026-11-14 07:43",
+    "secs": 685,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1327,
+     "near": 87,
+     "dead_val": 86
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 06:00"
+   },
+   {
+    "at": "2026-11-14 07:30",
+    "secs": 769,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1330,
+     "dead_val": 58,
+     "near": 109,
+     "validated": 3
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 06:00"
+   },
+   {
+    "at": "2026-11-14 06:29",
+    "secs": 738,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1309,
+     "dead_val": 86,
+     "validated": 3,
+     "near": 102
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 05:00"
+   },
+   {
+    "at": "2026-11-14 05:27",
+    "secs": 612,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1324,
+     "near": 101,
+     "dead_val": 72,
+     "validated": 3
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 04:00"
+   },
+   {
+    "at": "2026-11-14 04:30",
+    "secs": 747,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1310,
+     "near": 112,
+     "validated": 3,
+     "dead_val": 75
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 03:00"
+   },
+   {
+    "at": "2026-11-14 03:26",
+    "secs": 534,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1322,
+     "near": 102,
+     "dead_val": 74,
+     "validated": 2
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 02:00"
+   },
+   {
+    "at": "2026-11-14 02:28",
+    "secs": 621,
+    "tested": 1500,
+    "counts": {
+     "dead_val": 92,
+     "near": 90,
+     "dead_disc": 1316,
+     "validated": 2
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 01:00"
+   },
+   {
+    "at": "2026-11-14 01:37",
+    "secs": 1211,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1317,
+     "near": 91,
+     "dead_val": 86,
+     "validated": 6
+    },
+    "problems": [],
+    "dataEnd": "2026-11-14 00:00"
+   },
+   {
+    "at": "2026-11-14 00:28",
+    "secs": 662,
+    "tested": 1500,
+    "counts": {
+     "near": 85,
+     "dead_disc": 1337,
+     "dead_val": 76,
+     "validated": 2
+    },
+    "problems": [],
+    "dataEnd": "2026-11-13 23:00"
+   },
+   {
+    "at": "2026-11-13 23:28",
+    "secs": 622,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1307,
+     "dead_val": 86,
+     "near": 107
+    },
+    "problems": [],
+    "dataEnd": "2026-11-13 22:00"
+   },
+   {
+    "at": "2026-11-13 22:28",
+    "secs": 662,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1322,
+     "dead_val": 82,
+     "near": 89,
+     "validated": 7
+    },
+    "problems": [],
+    "dataEnd": "2026-11-13 21:00"
+   },
+   {
+    "at": "2026-11-13 22:10",
+    "secs": 766,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1306,
+     "dead_val": 82,
+     "near": 104,
+     "validated": 8
+    },
+    "problems": [],
+    "dataEnd": "2026-11-13 21:00"
+   },
+   {
+    "at": "2026-11-13 21:28",
+    "secs": 665,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1306,
+     "near": 108,
+     "validated": 5,
+     "dead_val": 81
+    },
+    "problems": [],
+    "dataEnd": "2026-11-13 20:00"
+   },
+   {
+    "at": "2026-11-13 20:30",
+    "secs": 779,
+    "tested": 1500,
+    "counts": {
+     "dead_disc": 1318,
+     "dead_val": 84,
+     "near": 95,
+     "validated": 3
+    },
+    "problems": [],
+    "dataEnd": "2026-11-13 19:00"
+   }
+  ]
+ },
+ "history": [
+  {
+   "at": "2026-11-14 16:30",
+   "secs": 745,
+   "rssGB": 5.34,
+   "maxLagH": 1.5,
+   "archLagH": 17.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 566.48,
+   "sha": "1f1e811",
+   "runId": "43614751001"
+  },
+  {
+   "at": "2026-11-14 15:26",
+   "secs": 515,
+   "rssGB": 5.38,
+   "maxLagH": 1.4,
+   "archLagH": 16.4,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 557.39,
+   "sha": "1f1e811",
+   "runId": "43609333404",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 14:28",
+   "secs": 672,
+   "rssGB": 5.31,
+   "maxLagH": 1.5,
+   "archLagH": 15.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 549.44,
+   "sha": "1f1e811",
+   "runId": "43604045949",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 13:27",
+   "secs": 613,
+   "rssGB": 5.37,
+   "maxLagH": 1.5,
+   "archLagH": 14.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 543.15,
+   "sha": "1f1e811",
+   "runId": "43598973422",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 12:27",
+   "secs": 622,
+   "rssGB": 5.39,
+   "maxLagH": 1.5,
+   "archLagH": 13.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 537.19,
+   "sha": "1f1e811",
+   "runId": "43594038790",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 11:27",
+   "secs": 592,
+   "rssGB": 5.38,
+   "maxLagH": 1.5,
+   "archLagH": 12.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 539.51,
+   "sha": "1f1e811",
+   "runId": "43589275836",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 10:39",
+   "secs": 634,
+   "rssGB": 5.29,
+   "maxLagH": 1.7,
+   "archLagH": 11.7,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 542.16,
+   "sha": "1f1e811",
+   "runId": "43584530296",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 10:28",
+   "secs": 638,
+   "rssGB": 5.3,
+   "maxLagH": 1.5,
+   "archLagH": 11.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 540.83,
+   "sha": "1f1e811",
+   "runId": "43584512466",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 09:29",
+   "secs": 704,
+   "rssGB": 5.42,
+   "maxLagH": 1.5,
+   "archLagH": 10.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 544.14,
+   "sha": "1f1e811",
+   "runId": "43579812600",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 08:30",
+   "secs": 773,
+   "rssGB": 5.41,
+   "maxLagH": 1.5,
+   "archLagH": 33.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.13,
+   "sha": "1f1e811",
+   "runId": "43575070133",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 07:43",
+   "secs": 685,
+   "rssGB": 5.44,
+   "maxLagH": 1.7,
+   "archLagH": 32.7,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "1f1e811",
+   "runId": "43571248885",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 07:30",
+   "secs": 769,
+   "rssGB": 5.62,
+   "maxLagH": 1.5,
+   "archLagH": 32.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "1e77f50",
+   "runId": "43570363307",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 06:29",
+   "secs": 738,
+   "rssGB": 5.33,
+   "maxLagH": 1.5,
+   "archLagH": 31.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43565570796",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 05:27",
+   "secs": 612,
+   "rssGB": 5.37,
+   "maxLagH": 1.5,
+   "archLagH": 30.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43560774220",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 04:30",
+   "secs": 747,
+   "rssGB": 5.33,
+   "maxLagH": 1.5,
+   "archLagH": 29.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43555862827",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 03:26",
+   "secs": 534,
+   "rssGB": 5.39,
+   "maxLagH": 1.4,
+   "archLagH": 28.4,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43550818471",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 02:28",
+   "secs": 621,
+   "rssGB": 5.34,
+   "maxLagH": 1.5,
+   "archLagH": 27.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43545417502",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 01:37",
+   "secs": 1211,
+   "rssGB": 5.41,
+   "maxLagH": 1.6,
+   "archLagH": 26.6,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43539637818",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-14 00:28",
+   "secs": 662,
+   "rssGB": 5.36,
+   "maxLagH": 1.5,
+   "archLagH": 25.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43533135610",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 23:28",
+   "secs": 622,
+   "rssGB": 5.32,
+   "maxLagH": 1.5,
+   "archLagH": 24.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43525939631",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 22:28",
+   "secs": 662,
+   "rssGB": 5.22,
+   "maxLagH": 1.5,
+   "archLagH": 23.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43517991424",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 22:10",
+   "secs": 766,
+   "rssGB": 5.25,
+   "maxLagH": 2.2,
+   "archLagH": 23.2,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43515152085",
+   "overall": "WARN",
+   "alertLevel": "WARN"
+  },
+  {
+   "at": "2026-11-13 21:28",
+   "secs": 665,
+   "rssGB": 5.29,
+   "maxLagH": 1.5,
+   "archLagH": 22.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43509288557",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 20:30",
+   "secs": 779,
+   "rssGB": 5.29,
+   "maxLagH": 1.5,
+   "archLagH": 21.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "2585b6c",
+   "runId": "43500112988",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 19:30",
+   "secs": 747,
+   "rssGB": 5.29,
+   "maxLagH": 1.5,
+   "archLagH": 20.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "5240b32",
+   "runId": "43490719814",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 18:28",
+   "secs": 646,
+   "rssGB": 5.26,
+   "maxLagH": 1.5,
+   "archLagH": 19.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "5240b32",
+   "runId": "43481112726",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 17:28",
+   "secs": 637,
+   "rssGB": 5.26,
+   "maxLagH": 1.5,
+   "archLagH": 18.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "5240b32",
+   "runId": "43471249089",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 16:30",
+   "secs": 763,
+   "rssGB": 5.26,
+   "maxLagH": 1.5,
+   "archLagH": 17.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "5240b32",
+   "runId": "43461152261",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 15:29",
+   "secs": 548,
+   "rssGB": 5.22,
+   "maxLagH": 1.5,
+   "archLagH": 16.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "839ed21",
+   "runId": "43451034964",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 15:19",
+   "secs": 716,
+   "rssGB": 5.32,
+   "maxLagH": 1.3,
+   "archLagH": 16.3,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "af7b2f6",
+   "runId": "43449253277",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 14:59",
+   "secs": 607,
+   "rssGB": 5.35,
+   "maxLagH": 2.0,
+   "archLagH": 16.0,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "cee6981",
+   "runId": "43446339440",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 14:28",
+   "secs": 647,
+   "rssGB": 5.26,
+   "maxLagH": 1.5,
+   "archLagH": 15.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "6d2e9a1",
+   "runId": "43441256258",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 13:29",
+   "secs": 716,
+   "rssGB": 5.23,
+   "maxLagH": 1.5,
+   "archLagH": 14.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "6d2e9a1",
+   "runId": "43432333734",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 12:29",
+   "secs": 707,
+   "rssGB": 5.3,
+   "maxLagH": 1.5,
+   "archLagH": 13.5,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "6d2e9a1",
+   "runId": "43423850625",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 11:25",
+   "secs": 484,
+   "rssGB": 5.25,
+   "maxLagH": 1.4,
+   "archLagH": 12.4,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "c5d002e",
+   "runId": "43415809346",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 11:10",
+   "secs": 1017,
+   "rssGB": 5.89,
+   "maxLagH": 1.2,
+   "archLagH": 12.2,
+   "relayCoins": 73,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "c2413ce",
+   "runId": "43412586778",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 10:25",
+   "secs": 483,
+   "rssGB": 5.12,
+   "maxLagH": 1.4,
+   "archLagH": 11.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "9def4e7",
+   "runId": "43407989197",
+   "overall": "WARN",
+   "alertLevel": "OK"
+  },
+  {
+   "at": "2026-11-13 09:42",
+   "secs": 692,
+   "rssGB": 5.09,
+   "maxLagH": 1.7,
+   "archLagH": 10.7,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "e296b61",
+   "runId": "43401863909",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 09:28",
+   "secs": 645,
+   "rssGB": 5.13,
+   "maxLagH": 1.5,
+   "archLagH": 10.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "62e9497",
+   "runId": "43400011925",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 08:29",
+   "secs": 739,
+   "rssGB": 5.13,
+   "maxLagH": 1.5,
+   "archLagH": 9.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "8c9ae0a",
+   "runId": "43392012069",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 07:28",
+   "secs": 643,
+   "rssGB": 5.54,
+   "maxLagH": 1.5,
+   "archLagH": 32.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.84,
+   "sha": "8c9ae0a",
+   "runId": "43384637027",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 06:28",
+   "secs": 643,
+   "rssGB": 5.06,
+   "maxLagH": 1.5,
+   "archLagH": 31.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 555.74,
+   "sha": "8c9ae0a",
+   "runId": "43377619351",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 05:27",
+   "secs": 576,
+   "rssGB": 5.1,
+   "maxLagH": 1.5,
+   "archLagH": 30.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 570.06,
+   "sha": "8c9ae0a",
+   "runId": "43371007480",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 04:29",
+   "secs": 684,
+   "rssGB": 5.17,
+   "maxLagH": 1.5,
+   "archLagH": 29.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 573.89,
+   "sha": "8c9ae0a",
+   "runId": "43364496366",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 03:28",
+   "secs": 640,
+   "rssGB": 5.12,
+   "maxLagH": 1.5,
+   "archLagH": 28.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 570.94,
+   "sha": "8c9ae0a",
+   "runId": "43357912691",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 02:27",
+   "secs": 622,
+   "rssGB": 5.18,
+   "maxLagH": 1.5,
+   "archLagH": 27.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 554.15,
+   "sha": "8c9ae0a",
+   "runId": "43351040278",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 01:40",
+   "secs": 1353,
+   "rssGB": 5.07,
+   "maxLagH": 1.7,
+   "archLagH": 26.7,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.25,
+   "sha": "8c9ae0a",
+   "runId": "43343732322",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-13 00:26",
+   "secs": 518,
+   "rssGB": 5.05,
+   "maxLagH": 1.4,
+   "archLagH": 25.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.03,
+   "sha": "8c9ae0a",
+   "runId": "43335821298",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-12 23:26",
+   "secs": 514,
+   "rssGB": 5.07,
+   "maxLagH": 1.4,
+   "archLagH": 24.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.7,
+   "sha": "8c9ae0a",
+   "runId": "43327524943",
+   "overall": "WARN"
+  },
+  {
+   "at": "2026-11-12 21:46",
+   "secs": 532,
+   "rssGB": 5.11,
+   "maxLagH": 1.8,
+   "archLagH": 22.8,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 543.19,
+   "sha": "8c9ae0a",
+   "runId": "43308710442",
+   "overall": "OK"
+  },
+  {
+   "at": "2026-11-12 21:36",
+   "secs": 1209,
+   "rssGB": 5.13,
+   "maxLagH": 1.6,
+   "archLagH": 22.6,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 541.31,
+   "sha": "8c9ae0a",
+   "runId": "43308440405",
+   "overall": "OK"
+  },
+  {
+   "at": "2026-11-12 20:40",
+   "secs": 1335,
+   "rssGB": 5.07,
+   "maxLagH": 1.7,
+   "archLagH": 21.7,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 549.73,
+   "sha": "965b240",
+   "runId": "43298745643"
+  },
+  {
+   "at": "2026-11-12 19:39",
+   "secs": 1299,
+   "rssGB": 5.1,
+   "maxLagH": 1.7,
+   "archLagH": 20.7,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 549.65,
+   "sha": "81cda9d",
+   "runId": "43288555322"
+  },
+  {
+   "at": "2026-11-12 18:56",
+   "secs": 1300,
+   "rssGB": 5.0,
+   "maxLagH": 1.9,
+   "archLagH": 19.9,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 544.86,
+   "sha": "81cda9d",
+   "runId": "43278200540"
+  },
+  {
+   "at": "2026-11-12 18:33",
+   "secs": 1107,
+   "rssGB": 5.15,
+   "maxLagH": 1.6,
+   "archLagH": 19.6,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 540.67,
+   "sha": "81cda9d",
+   "runId": "43277800356"
+  },
+  {
+   "at": "2026-11-12 17:39",
+   "secs": 1297,
+   "rssGB": 5.07,
+   "maxLagH": 1.7,
+   "archLagH": 18.7,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 553.47,
+   "sha": "81cda9d",
+   "runId": "43267764625"
+  },
+  {
+   "at": "2026-11-12 16:28",
+   "secs": 670,
+   "rssGB": 5.07,
+   "maxLagH": 1.5,
+   "archLagH": 17.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 553.06,
+   "sha": "81cda9d",
+   "runId": "43256956932"
+  },
+  {
+   "at": "2026-11-12 15:30",
+   "secs": 753,
+   "rssGB": 5.02,
+   "maxLagH": 1.5,
+   "archLagH": 16.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 554.58,
+   "sha": "81cda9d",
+   "runId": "43246106076"
+  },
+  {
+   "at": "2026-11-12 14:28",
+   "secs": 669,
+   "rssGB": 5.1,
+   "maxLagH": 1.5,
+   "archLagH": 15.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 554.43,
+   "sha": "81cda9d",
+   "runId": "43235576853"
+  },
+  {
+   "at": "2026-11-12 13:28",
+   "secs": 643,
+   "rssGB": 5.12,
+   "maxLagH": 1.5,
+   "archLagH": 14.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 553.14,
+   "sha": "7a43ed3",
+   "runId": "43225815718"
+  },
+  {
+   "at": "2026-11-12 12:29",
+   "secs": 731,
+   "rssGB": 5.15,
+   "maxLagH": 1.5,
+   "archLagH": 13.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 1,
+   "tested": 1500,
+   "referee": 551.24,
+   "sha": "c0f78b0",
+   "runId": "43216485103"
+  },
+  {
+   "at": "2026-11-12 12:16",
+   "secs": 1160,
+   "rssGB": 5.92,
+   "maxLagH": 2.3,
+   "archLagH": 13.3,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 1,
+   "tested": 1500,
+   "referee": 549.87,
+   "sha": "c0f78b0",
+   "runId": "43213445865"
+  },
+  {
+   "at": "2026-11-12 11:37",
+   "secs": 1168,
+   "rssGB": 5.92,
+   "maxLagH": 1.6,
+   "archLagH": 12.6,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 548.96,
+   "sha": "7d6e58c",
+   "runId": "43207803138"
+  },
+  {
+   "at": "2026-11-12 10:47",
+   "secs": 1783,
+   "rssGB": 5.79,
+   "maxLagH": 1.8,
+   "archLagH": 35.8,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.74,
+   "sha": "7d6e58c",
+   "runId": "43198977318"
+  },
+  {
+   "at": "2026-11-12 09:48",
+   "secs": 1847,
+   "rssGB": 6.07,
+   "maxLagH": 1.8,
+   "archLagH": 34.8,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 548.96,
+   "sha": "7d6e58c",
+   "runId": "43190088864"
+  },
+  {
+   "at": "2026-11-12 08:38",
+   "secs": 1246,
+   "rssGB": 5.9,
+   "maxLagH": 1.6,
+   "archLagH": 33.6,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 549.57,
+   "sha": "5bbc952",
+   "runId": "43181666841"
+  },
+  {
+   "at": "2026-11-12 07:26",
+   "secs": 530,
+   "rssGB": 4.84,
+   "maxLagH": 1.4,
+   "archLagH": 32.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 548.2,
+   "sha": "94d63ee",
+   "runId": "43174110102"
+  },
+  {
+   "at": "2026-11-12 06:58",
+   "secs": 828,
+   "rssGB": 4.84,
+   "maxLagH": 2.0,
+   "archLagH": 32.0,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 548.5,
+   "sha": "94d63ee",
+   "runId": "43170188525"
+  },
+  {
+   "at": "2026-11-12 06:31",
+   "secs": 838,
+   "rssGB": 4.14,
+   "maxLagH": 1.5,
+   "archLagH": 31.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.59,
+   "sha": "bdc8e25",
+   "runId": "43167051169"
+  },
+  {
+   "at": "2026-11-12 05:28",
+   "secs": 623,
+   "rssGB": 4.27,
+   "maxLagH": 1.5,
+   "archLagH": 30.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 548.35,
+   "sha": "bdc8e25",
+   "runId": "43160342637"
+  },
+  {
+   "at": "2026-11-12 04:29",
+   "secs": 681,
+   "rssGB": 4.23,
+   "maxLagH": 1.5,
+   "archLagH": 29.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.52,
+   "sha": "bdc8e25",
+   "runId": "43153770242"
+  },
+  {
+   "at": "2026-11-12 03:26",
+   "secs": 563,
+   "rssGB": 4.29,
+   "maxLagH": 1.4,
+   "archLagH": 28.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.67,
+   "sha": "bdc8e25",
+   "runId": "43147148238"
+  },
+  {
+   "at": "2026-11-12 02:25",
+   "secs": 501,
+   "rssGB": 4.2,
+   "maxLagH": 1.4,
+   "archLagH": 27.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 546.67,
+   "sha": "bdc8e25",
+   "runId": "43140305676"
+  },
+  {
+   "at": "2026-11-12 01:26",
+   "secs": 560,
+   "rssGB": 4.41,
+   "maxLagH": 1.4,
+   "archLagH": 26.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 549.26,
+   "sha": "bdc8e25",
+   "runId": "43133429088"
+  },
+  {
+   "at": "2026-11-12 00:26",
+   "secs": 520,
+   "rssGB": 4.25,
+   "maxLagH": 1.4,
+   "archLagH": 25.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.13,
+   "sha": "bdc8e25",
+   "runId": "43126147123"
+  },
+  {
+   "at": "2026-11-11 23:27",
+   "secs": 588,
+   "rssGB": 4.24,
+   "maxLagH": 1.5,
+   "archLagH": 24.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "8a728f3",
+   "runId": "43118615261"
+  },
+  {
+   "at": "2026-11-11 22:53",
+   "secs": 2167,
+   "rssGB": 4.3,
+   "maxLagH": 1.9,
+   "archLagH": 23.9,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 0,
+   "referee": 547.48,
+   "sha": "b9623ff",
+   "runId": "43110445237"
+  },
+  {
+   "at": "2026-11-11 21:28",
+   "secs": 672,
+   "rssGB": 4.18,
+   "maxLagH": 1.5,
+   "archLagH": 22.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "8c68eb0",
+   "runId": "43101700706"
+  },
+  {
+   "at": "2026-11-11 20:28",
+   "secs": 625,
+   "rssGB": 4.23,
+   "maxLagH": 1.5,
+   "archLagH": 21.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "ff43344",
+   "runId": "43095033450"
+  },
+  {
+   "at": "2026-11-11 19:26",
+   "secs": 519,
+   "rssGB": 4.21,
+   "maxLagH": 1.4,
+   "archLagH": 20.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "38725df",
+   "runId": "43085739371"
+  },
+  {
+   "at": "2026-11-11 18:29",
+   "secs": 707,
+   "rssGB": 4.14,
+   "maxLagH": 1.5,
+   "archLagH": 19.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "38725df",
+   "runId": "43076282328"
+  },
+  {
+   "at": "2026-11-11 17:27",
+   "secs": 549,
+   "rssGB": 4.22,
+   "maxLagH": 1.5,
+   "archLagH": 18.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "38725df",
+   "runId": "43066635559"
+  },
+  {
+   "at": "2026-11-11 16:31",
+   "secs": 813,
+   "rssGB": 4.2,
+   "maxLagH": 1.5,
+   "archLagH": 17.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "38725df",
+   "runId": "43056773211"
+  },
+  {
+   "at": "2026-11-11 15:32",
+   "secs": 539,
+   "rssGB": 4.18,
+   "maxLagH": 1.5,
+   "archLagH": 16.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "38725df",
+   "runId": "43046797621"
+  },
+  {
+   "at": "2026-11-11 15:22",
+   "secs": 1000,
+   "rssGB": 4.15,
+   "maxLagH": 1.4,
+   "archLagH": 16.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "38725df",
+   "runId": "43044856074"
+  },
+  {
+   "at": "2026-11-11 14:28",
+   "secs": 670,
+   "rssGB": 4.12,
+   "maxLagH": 1.5,
+   "archLagH": 15.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "fd14fee",
+   "runId": "43036979078"
+  },
+  {
+   "at": "2026-11-11 13:28",
+   "secs": 660,
+   "rssGB": 4.24,
+   "maxLagH": 1.5,
+   "archLagH": 14.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "93f3899",
+   "runId": "43027721021"
+  },
+  {
+   "at": "2026-11-11 12:27",
+   "secs": 484,
+   "rssGB": 4.19,
+   "maxLagH": 1.5,
+   "archLagH": 13.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "93f3899",
+   "runId": "43018991624"
+  },
+  {
+   "at": "2026-11-11 12:18",
+   "secs": 647,
+   "rssGB": 4.24,
+   "maxLagH": 1.3,
+   "archLagH": 13.3,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "93f3899",
+   "runId": "43017596852"
+  },
+  {
+   "at": "2026-11-11 11:28",
+   "secs": 625,
+   "rssGB": 4.19,
+   "maxLagH": 1.5,
+   "archLagH": 12.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "2431c23",
+   "runId": "43010651971"
+  },
+  {
+   "at": "2026-11-11 10:26",
+   "secs": 559,
+   "rssGB": 4.14,
+   "maxLagH": 1.4,
+   "archLagH": 11.4,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "2431c23",
+   "runId": "43002303611"
+  },
+  {
+   "at": "2026-11-11 09:41",
+   "secs": 640,
+   "rssGB": 4.12,
+   "maxLagH": 1.7,
+   "archLagH": 10.7,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "2431c23",
+   "runId": "42993864128"
+  },
+  {
+   "at": "2026-11-11 09:27",
+   "secs": 617,
+   "rssGB": 4.13,
+   "maxLagH": 1.5,
+   "archLagH": 10.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "2431c23",
+   "runId": "42993750646"
+  },
+  {
+   "at": "2026-11-11 09:15",
+   "secs": 599,
+   "rssGB": 4.25,
+   "maxLagH": 1.3,
+   "archLagH": 10.3,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "f7135dd",
+   "runId": "42992107973"
+  },
+  {
+   "at": "2026-11-11 08:45",
+   "secs": 720,
+   "rssGB": 4.17,
+   "maxLagH": 1.8,
+   "archLagH": 33.8,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "e2e1b8c",
+   "runId": "42987925975"
+  },
+  {
+   "at": "2026-11-11 08:31",
+   "secs": 629,
+   "rssGB": 4.08,
+   "maxLagH": 1.5,
+   "archLagH": 33.5,
+   "relayCoins": 51,
+   "relayErr": 0,
+   "problems": 0,
+   "tested": 1500,
+   "referee": 547.48,
+   "sha": "11ae0be",
+   "runId": "42985806489"
+  }
+ ]
+}
