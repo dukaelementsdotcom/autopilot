@@ -71,11 +71,11 @@ def fit_recal(R, log=print):
             if w[m].sum() >= 1: table.append({"bucket": f"{int(round(lo*100))}-{int(round(lo*100))+5}%", "predicted": round(float((w[m] * p[m]).sum() / w[m].sum()), 3),
                                               "actual": round(float((w[m] * y[m]).sum() / w[m].sum()), 3), "n_eff": round(float(w[m].sum()), 1), "n": int(m.sum())})
         e = {"moves": moves, "nEff": round(float(w.sum()), 1), "table": table, "version": f"{time.strftime('%Y%m%d', time.gmtime())}-{side[0]}{moves}"}
-        if moves >= 30:
+        if moves >= 20:              # predictions are recorded before the outcome, so the judge still sees only out-of-sample odds
             iso = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip").fit(p, y, sample_weight=w)
-            xs = np.linspace(0.30, 0.90, 25); s = moves / (moves + 150.0)
+            xs = np.linspace(0.30, 0.90, 25); s = moves / (moves + 40.0)       # trust 1/3 at 20 moves, 2/3 at 80 (was 1/6 at 30: too slow to ever matter)
             e.update(xs=[round(float(v), 3) for v in xs], ys=[round(float(s * a + (1 - s) * b), 4) for a, b in zip(iso.predict(xs), xs)], trust=round(s, 2))
-        else: e["waiting"] = f"needs 30 separate market moves ({moves} so far): until then the calibrated odds are the raw odds"
+        else: e["waiting"] = f"needs 20 separate market moves ({moves} so far): until then the calibrated odds are the raw odds"
         out[side] = e
         for b in table: audit(R, "calibration", f"version {e['version']}, bucket {b['bucket']}, predicted {b['predicted']}, actual {b['actual']}, n_eff {b['n_eff']}")
     R["recal"] = out; return out

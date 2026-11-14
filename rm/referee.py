@@ -482,7 +482,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
         risk = float(np.clip(f / 4, 0.5 * risk, 1.5 * risk)) if f > 0 else 0.5 * risk
     tier = None
     if cfg.get("size") == "bold": risk *= 2.0                 # the bold contestant: double the Arbiter's risk
-    if cfg.get("size") == "tiers":                            # conviction tiers from the calibrated edge (raw odds until the calibration has 30 moves)
+    if cfg.get("size") == "tiers":                            # conviction tiers from the calibrated edge (raw odds until the calibration has 20 moves)
         from . import integrity as IG
         edge = IG.recal_prob(R or {}, name, prob) - be; fm = S[name]["fams"]; bs_ = B["sides"][name]["base"]; nfor = sum(float(v[pos]) >= bs_ + 0.03 for v in fm.values())
         reg_ = str((R or {}).get("regimeNow") or ""); aligned = (sd < 0 and reg_.startswith("down")) or (sd > 0 and reg_.startswith("up"))
@@ -852,14 +852,24 @@ def adapt(R):
     """three self-adjustments, each bounded and each explained on the dashboard:
     1) CALIBRATION: if live calls hit less often than predicted, demand more (raise the bar); if more often, relax it - symmetric,
        up to 10 points either way (it was 10 up / 4 down: a built-in shyness), never below break-even
-    2) SIZE: risk per trade scales 0.5x-1.25x with the live edge (never above plan)
+    2) SIZE: risk per trade scales 0.5x-1.5x with the live edge (the hard 8% per-trade ceiling still applies)
     3) REGIME: a side is switched on/off separately in each market regime once it has 15 live calls there"""
     sh = [x for x in (R.get("shadow") or []) if x.get("y") is not None]; ad = {}; rov = {}
+    # evidence = graded calls PLUS every scanned candidate in the decision band (up to 10 points below the bar, scored 48h later).
+    # Graded calls alone are a trap: when the bar is high (wild markets), the near-misses are never graded, so the record that
+    # could prove the bar too high never grows. One record per coin, side and 6 hours.
+    seen = {(x["coin"], x["side"], x["t"] // (6 * H)) for x in sh}
+    for x in (R.get("ledger") or [])[-3000:]:
+        if x.get("y") is None or x.get("unf") or x["prob"] < x.get("need", 1) - 0.10: continue
+        k = (x["coin"], x["side"], x["t"] // (6 * H))
+        if k in seen: continue
+        seen.add(k); sh.append({"t": x["t"], "coin": x["coin"], "side": x["side"], "y": x["y"], "ret": x["ret"], "prob": x["prob"], "be": x["be"], "reg": x.get("reg")})
+    sh.sort(key=lambda x: x["t"])
     for name in ("long", "short"):
         d = _moves([x for x in sh if x["side"] == name][-200:])
         if len(d) >= 10:                                               # at least 10 independent market moves, not 20 calls from one move
             hit = np.mean([x["y"] for x in d]); pred = np.mean([x["prob"] for x in d]); avg = np.mean([x["ret"] for x in d])
-            adj = float(np.clip(pred - hit, -0.10, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.25))   # +1% avg -> 1.25x, -2% -> 0.5x
+            adj = float(np.clip(pred - hit, -0.10, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.5))    # +1% avg -> 1.25x, +2% -> 1.5x, -2% -> 0.5x (the 8% ceiling still caps every trade)
             ad[name] = {"marginAdj": round(adj, 3), "riskMult": round(mult, 2), "n": len(d), "hit": round(float(hit), 3), "pred": round(float(pred), 3), "avg": round(float(avg) * 100, 3),
                         "why": (f"live calls hit {hit:.0%} vs predicted {pred:.0%}: " + ("bar raised" if adj > 0.005 else "bar relaxed" if adj < -0.005 else "well calibrated")
                                 + f" ({adj*100:+.1f} pts); size x{mult:.2f}")}

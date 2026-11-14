@@ -30,7 +30,7 @@ def registry(B=None):
         "online-fast": ({"odds": "online:0.97"}, "Learns which evidence is right from every scored candidate, forgets old evidence fast (Kalman-style online learning)", "odds"),
         "online-slow": ({"odds": "online:0.995"}, "Same online learning, forgets slowly (more stable)", "odds"),
     }
-    reg["recal"] = ({"odds": "recal"}, "Recalibrated odds: the raw odds are corrected by what really happened to past candidates at each odds level (learned from the live ledger; no correction until 30 separate market moves are scored)", "odds")
+    reg["recal"] = ({"odds": "recal"}, "Recalibrated odds: the raw odds are corrected by what really happened to past candidates at each odds level (learned from the live ledger; no correction until 20 separate market moves are scored)", "odds")
     reg["tiers"] = ({"size": "tiers"}, "Conviction tiers: a small probe (0.5% risk) when the edge is thin, standard (1-2%) with 3+ points of edge and 2 witnesses, high conviction (3-4%) with 8+ points, 3 witnesses and the market state on its side", "policy")
     reg["bold"] = ({"size": "bold"}, "Bold: the same trades as the Arbiter at double the risk (8% of the account at the stop for Grade A, 4% for Grade B)", "policy")
     reg["statebar"] = ({"statebar": True}, "A bar per trend state: asks for less evidence in the market states where the Arbiter proved accurate, more elsewhere, and trades longs only in the states where they worked (learned on one year, examined on the newest months)", "policy")
@@ -381,10 +381,19 @@ def evaluate(R, log=print):
         n_tr = len(a.get("closed", []))
         out[n] = {"bets": n_tr, "me": {"growth": round((g_me - 1) * 100, 2), "maxDD": dd_me, "trades": n_tr},
                   "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": n_tr >= 20,
-                  "better": bool(g_me >= g_ch + 0.03 and dd_me <= dd_ch + 2.0),       # a clear lead (3 points), not a coin flip
-                  "state": "collecting" if n_tr < 20 else ("ahead: promotion due" if g_me >= g_ch + 0.03 and dd_me <= dd_ch + 2.0 else "ahead, not yet clearly" if g_me > g_ch else "behind"), "account": True}
+                  "better": _pol_better(g_me, g_ch, dd_me, dd_ch),
+                  "state": "collecting" if n_tr < 20 else ("ahead: promotion due" if _pol_better(g_me, g_ch, dd_me, dd_ch) else "ahead, not yet clearly" if g_me > g_ch else "behind"), "account": True}
     R["chalScores"] = out
     return out
+
+def _pol_better(g_me, g_ch, dd_me, dd_ch):
+    """a clear lead (3 points of growth, not a coin flip) AND drawdown that is either no deeper than the champion's (+2 points)
+    or paid for: at least as much growth per point of drawdown, and still far from the 30% kill switch. (The old rule capped the
+    drawdown at the champion's + 2, so a bolder policy that earns proportionally more could never win: a built-in shyness.)"""
+    if g_me < g_ch + 0.03: return False
+    if dd_me <= dd_ch + 2.0: return True
+    gm, gc = (g_me - 1) * 100, (g_ch - 1) * 100
+    return dd_me <= 20.0 and gm / max(dd_me, 1.0) >= gc / max(dd_ch, 1.0)
 
 def _maxdd(curve):
     v = [c[1] for c in (curve or [])]
