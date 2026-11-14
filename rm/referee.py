@@ -840,7 +840,7 @@ def regimes(J, ts):
     return out
 
 def margin_of(R, name, sd):
-    return sd["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0))
+    return max(0.0, sd["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0)))   # never below break-even itself
 
 def _moves(d):
     """calls made in the same 6-hour window are one market move: returns one averaged record per move"""
@@ -850,7 +850,8 @@ def _moves(d):
 
 def adapt(R):
     """three self-adjustments, each bounded and each explained on the dashboard:
-    1) CALIBRATION: if live calls hit less often than predicted, demand more (raise the bar); if more often, relax a little
+    1) CALIBRATION: if live calls hit less often than predicted, demand more (raise the bar); if more often, relax it - symmetric,
+       up to 10 points either way (it was 10 up / 4 down: a built-in shyness), never below break-even
     2) SIZE: risk per trade scales 0.5x-1.25x with the live edge (never above plan)
     3) REGIME: a side is switched on/off separately in each market regime once it has 15 live calls there"""
     sh = [x for x in (R.get("shadow") or []) if x.get("y") is not None]; ad = {}; rov = {}
@@ -858,7 +859,7 @@ def adapt(R):
         d = _moves([x for x in sh if x["side"] == name][-200:])
         if len(d) >= 10:                                               # at least 10 independent market moves, not 20 calls from one move
             hit = np.mean([x["y"] for x in d]); pred = np.mean([x["prob"] for x in d]); avg = np.mean([x["ret"] for x in d])
-            adj = float(np.clip(pred - hit, -0.04, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.25))   # +1% avg -> 1.25x, -2% -> 0.5x
+            adj = float(np.clip(pred - hit, -0.10, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.25))   # +1% avg -> 1.25x, -2% -> 0.5x
             ad[name] = {"marginAdj": round(adj, 3), "riskMult": round(mult, 2), "n": len(d), "hit": round(float(hit), 3), "pred": round(float(pred), 3), "avg": round(float(avg) * 100, 3),
                         "why": (f"live calls hit {hit:.0%} vs predicted {pred:.0%}: " + ("bar raised" if adj > 0.005 else "bar relaxed" if adj < -0.005 else "well calibrated")
                                 + f" ({adj*100:+.1f} pts); size x{mult:.2f}")}
