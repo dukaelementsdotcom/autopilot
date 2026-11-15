@@ -89,14 +89,18 @@ def main():
     t0 = time.time(); blocks = []
     try: blocks = json.load(open(f"{C.STATE_DIR}/memory.json")).get("blocks") or []
     except Exception: pass
+    from . import fetch_ext
+    try: print("market extras:", fetch_ext.update(log=print), flush=True)        # Coinbase premium, Fear & Greed, options fear gauge (not in the lab cache)
+    except Exception as e: print("market extras failed:", e, flush=True)
     P = features.build(blocks=blocks); J = Judge(P); n = len(P); out = {"windows": WIN}
+    print("coverage", {c: round(float(P[c].notna().mean()), 2) for c in ("p_cbp24", "p_dvol", "p_basis", "w_c_div72", "w_l_long1", "p_oi24") if c in P}, flush=True)
     coin = P.coin.values; t = P.t.values
     # Kalman velocity per coin (on the previous bar's close: causal), scaled by the coin's hourly volatility
     kv = np.full(n, np.nan)
     st_ = sorted(a_ for a_, _ in J._blk.values()); en_ = st_[1:] + [n]
     for a_, b_ in zip(st_, en_):
         lp = np.log(np.r_[np.nan, J.Cl[a_:b_ - 1]]); kv[a_:b_] = kalman_velocity(lp)
-    kvz = kv / (J.dvol / np.sqrt(24))
+    P["_kv"] = kv; kvr = P.groupby("coin")["_kv"].transform(lambda s_: s_.rolling(720, min_periods=240).rank(pct=True)).values   # velocity vs its own last 30 days
     # ── market gates (BTC, causal) ──
     bt = P.loc[coin == "BTC", ["t", "_cl"]].set_index("t")._cl.astype(float)
     prev = bt.shift(1)
@@ -136,10 +140,11 @@ def main():
         for bmax in (0.5, 0.7):
             fam[f"A spot-led (cvd>={q}, cbp up, basis<={bmax})"] = ("A", (div72r >= q) & (cbp >= 0.5) & (basis <= bmax), div72r)
     for vmax in (0.3, 0.5):
-        fam[f"B compression breakout (volr<={vmax}, dvol<=0.5, OI up, velocity up)"] = ("B", (volr <= vmax) & (pdv <= 0.5) & (oi24 >= 0.6) & (kvz > 0.5) & (r24 > 0), kvz)
+        fam[f"B compression breakout (volr<={vmax}, dvol<=0.5, OI up, velocity up)"] = ("B", (volr <= vmax) & (pdv <= 0.5) & (oi24 >= 0.6) & (kvr >= 0.7) & (kv > 0) & (r24 > 0), kvr)
     for lz in (1.0, 1.5):
         fam[f"C post-flush (long liq z>={lz}, spot absorbing, down >=1 daily move)"] = ("C", (lq >= lz) & (div24 > 0) & (r24 <= -J.dvol), lq)
-    fam["BASELINE: any liquid coin (strongest 7d trend)"] = ("Z", np.ones(n, bool), g("r168"))
+    fam["BASELINE: momentum (strongest 7d trend)"] = ("Z", np.ones(n, bool), g("r168"))
+    fam["BASELINE: neutral (any coin, random)"] = ("N", np.ones(n, bool), np.random.default_rng(7).random(n))
     stp = np.clip(1.25 * J.dvol, 0.015, 0.04); trail = 2.5 * 1.25 * J.dvol
     res = []
     for name, (fk, sig, strength) in fam.items():
