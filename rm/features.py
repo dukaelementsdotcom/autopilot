@@ -53,6 +53,21 @@ def _optional(coin, part, idx):
         return x.sort_index().reindex(idx)
     except Exception: return None
 
+CVD_COLS = ["w_c_div24", "w_c_div72", "w_c_div168", "w_c_dz", "w_c_dchg", "w_c_spot72", "w_c_perp72"]
+
+def cvd_cols(k, sp):
+    """pure function of the hourly bars (each value uses only its own hour and earlier ones)"""
+    pq = k.v * k.c; pf = (2 * k.tb - k.v) * k.c                       # perp: dollar volume and signed taker flow
+    sq = sp.sqv.reindex(k.index); sf = 2 * sp.stbq.reindex(k.index) - sq  # spot: the same, already in dollars
+    def share(flow, vol, n): return flow.rolling(n, min_periods=n // 2).sum() / vol.rolling(n, min_periods=n // 2).sum().replace(0, np.nan)
+    o = {}
+    for n in (24, 72, 168): o[f"w_c_div{n}"] = share(sf, sq, n) - share(pf, pq, n)
+    cum = (sf.rolling(72, min_periods=36).sum() - pf.rolling(72, min_periods=36).sum()) / (sq + pq).rolling(72, min_periods=36).sum().replace(0, np.nan)
+    o["w_c_dz"] = (cum - cum.rolling(720, min_periods=240).mean()) / (cum.rolling(720, min_periods=240).std() + 1e-9)
+    o["w_c_dchg"] = o["w_c_div24"] - o["w_c_div24"].shift(24)
+    o["w_c_spot72"] = share(sf, sq, 72); o["w_c_perp72"] = share(pf, pq, 72)
+    return o
+
 def _coin(coin, blocks=()):
     k = pd.read_parquet(f"{C.DATA_DIR}/raw/{coin}_k.parquet").set_index("t")
     mp = f"{C.DATA_DIR}/raw/{coin}_m.parquet"
@@ -106,6 +121,10 @@ def _coin(coin, blocks=()):
     hl = _optional(coin, "hl", idx)
     if hl is not None: f["hlprem"] = hl.hlp * 100; f["hlprem24"] = f.hlprem.rolling(24, min_periods=12).mean(); f["hlfund24"] = (hl.hlf * 100).rolling(24, min_periods=12).mean()
     else: f["hlprem"] = f["hlprem24"] = f["hlfund24"] = np.nan
+    # spot-vs-perp CVD divergence (witness 'cvd'): who is really buying. Signed taker flow (aggressive buys minus sells) in dollars,
+    # spot and perp separately; the divergence is spot's flow share minus perp's over 24h / 72h / 7d, its z-score against the coin's
+    # last 30 days, and whether it is opening or closing. Shifted with everything else below (row t sees hours <= t-1 only).
+    f = f.join(pd.DataFrame(cvd_cols(k, sp), index=idx)) if sp is not None else f.assign(**{x: np.nan for x in CVD_COLS})
     if blocks:                         # measurements invented by the AI (safe formulas, see blocks.py)
         from .blocks import compute
         env = {"o": k.o, "h": k.h, "l": k.l, "c": k.c, "v": k.v, "tb": k.tb}

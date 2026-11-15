@@ -2,8 +2,8 @@
 exam on a past validation year. Instead, once enough days are recorded (the warm-up), the witness learns from the Arbiter's own
 scored candidates, in time order:
 
-  1. measurements, hourly, per coin, each known BEFORE the decision that uses it (bar t is decided after t+1h; every input here
-     is stamped no later than t+1h)
+  1. measurements, hourly, per coin, each known BEFORE the decision that uses it (panel row t is decided at the start of hour t;
+     a recording stamped hour h only counts from row h+1h)
   2. at the end of the warm-up: a small model that corrects the Arbiter's recorded odds with the new measurements, trained on the
      earlier 70% of the scored candidates and examined on the later 30% (2-day gap so no outcome overlaps); if it is not worse
      there, it is trained on everything and joins the race as 'witness-<name>' under the same frozen judge (live, out-of-sample)
@@ -57,13 +57,18 @@ def warm_left(name): return max(0.0, LIVE[name]["warm"] - days(name))
 def _roll(df, col, n, fn="mean", minp=None):
     return df.groupby("coin")[col].transform(lambda s: getattr(s.rolling(n, min_periods=minp or max(1, n // 3)), fn)())
 
+# Panel row t is decided at the START of hour t (features use hours <= t-1). A recording stamped hour h covers [h, h+1h) (or was
+# taken during it), so it may only appear from row h+1h: every live measurement is moved one hour later. (No look-ahead.)
+LAG = H
+
 def _per_coin(P, df, cols):
     """per-coin hourly table -> panel columns (rows without a recording stay NaN)"""
-    idx = pd.MultiIndex.from_arrays([P.coin.values, P.t.values]); df = df.drop_duplicates(["coin", "t"]).set_index(["coin", "t"])
+    idx = pd.MultiIndex.from_arrays([P.coin.values, P.t.values]); df = df.drop_duplicates(["coin", "t"]).assign(t=lambda x: x.t + LAG).set_index(["coin", "t"])
     return {c: df[c].reindex(idx).astype("float32").values for c in cols}
 
 def _market(P, s, name):
-    return {name: pd.Series(s).reindex(P.t.values).astype("float32").values}
+    s = pd.Series(s); s.index = s.index + LAG
+    return {name: s.reindex(P.t.values).astype("float32").values}
 
 def recorder_features(P):
     out = {}

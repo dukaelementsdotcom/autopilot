@@ -32,6 +32,10 @@ WITNESSES = {
                 "what": "Order-book witness: how much money has been waiting to buy versus to sell near the price over the last days, and whether the book is getting thinner (Binance's own archive since 2023, one day behind)"},
     "liq":     {"cols": ["w_l_net1", "w_l_size1", "w_l_net7", "w_l_size7", "w_l_long1", "w_l_short1", "w_l_mnet1", "w_l_msize1", "w_l_msize7", "w_l_rel"],
                 "what": "Liquidation witness: how many longs and shorts were forcibly closed yesterday and over the last week, per coin and market-wide (Binance, Bybit and OKX, history since 2020)"},
+    "cvd":     {"cols": ["w_c_div24", "w_c_div72", "w_c_div168", "w_c_dz", "w_c_dchg", "w_c_spot72", "w_c_perp72", "w_c_mkt", "w_c_rel"],
+                "what": "Spot-vs-perp CVD witness: is a move bought with real money (spot) or with leverage (perps)? The gap between spot's and perps' net aggressive buying over 1, 3 and 7 days, how unusual it is for this coin, and whether it is opening or closing (Binance archive since 2020)"},
+    "xoi":     {"cols": ["w_x_oi1", "w_x_oi7", "w_x_oiz", "w_x_bn7", "w_x_fr", "w_x_frz", "w_x_fr7", "w_x_frsp", "w_x_moi7", "w_x_mfr", "w_x_frrel"],
+                "what": "Cross-exchange leverage witness: total open interest and funding summed over Binance, Bybit and OKX (not just Binance), how fast leverage is building and where, what longs pay across the market, and how much the exchanges disagree (Coinalyze, daily since 2020)"},
     "shock":   {"cols": ["w_shock1", "w_shock4", "w_shockN"], "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)"},
 }
 WAITING = {}            # (was: recorder / whales / news as a status line only; they are now real witnesses, see livew.py)
@@ -97,6 +101,14 @@ def panel_extras(P, log=print):
     try:
         from . import book; out.update(book.features(P, log))
     except Exception as e: log(f"   order-book features skipped: {e}")
+    try:                                                       # spot-vs-perp CVD: market-wide divergence and this coin against it
+        if "w_c_div24" in P:
+            mk = P.groupby("t").w_c_div24.transform("mean")
+            out["w_c_mkt"] = mk.astype("float32").values; out["w_c_rel"] = (P.w_c_div24 - mk).astype("float32").values
+    except Exception as e: log(f"   cvd market columns skipped: {e}")
+    try:
+        from . import xoi; out.update(xoi.features(P, log))
+    except Exception as e: log(f"   cross-exchange OI & funding features skipped: {e}")
     try: out.update(LW.features(P, log))                       # recorder / whales / news, from our own recordings
     except Exception as e: log(f"   live witness features skipped: {e}")
     try:
@@ -187,7 +199,15 @@ def fit(name, J, B, Hd, log=print):
         comb = LogisticRegression(C=0.5, max_iter=500).fit(Xc, hv["y"][ok])
         base_ll = _ll(hv["y"][ok], sd["comb"].predict_proba(hv["lg"][ok])[:, 1]); new_ll = _ll(hv["y"][ok], comb.predict_proba(Xc)[:, 1])
         out["sides"][name_s] = {"model": m, "comb": comb, "order": list(sd["order"]) + [f"w:{name}"], "valLL": round(new_ll, 4), "champValLL": round(base_ll, 4)}
-    out["secs"] = round(time.time() - t0); out["exam"] = {n: {"valLL": v["valLL"], "champValLL": v["champValLL"]} for n, v in out["sides"].items()}
+        try:                                                    # FINAL EXAM on the newest months (never used for training or the combiner)
+            X = RF._rows(J, J.hold0, J.t_end - RF.HORIZON * H, every=3); SX = RF.score(J, B, X)
+            yx, _ = RF.barrier(J, X, side, RF.TARGET, RF.stop_pct(J.dvol[X]), RF.HORIZON)
+            lgx = np.column_stack([CH._lg(np.asarray(SX[name_s]["fams"][f])) for f in sd["order"]])
+            wx = m.predict_proba(RF._X(P, X, cols))[:, 1]
+            out["sides"][name_s].update(holdLL=round(_ll(yx, comb.predict_proba(np.column_stack([lgx, CH._lg(wx)]))[:, 1]), 4),
+                                        champHoldLL=round(_ll(yx, sd["comb"].predict_proba(lgx)[:, 1]), 4))
+        except Exception as e: log(f"   witness {name}: final exam skipped ({e})")
+    out["secs"] = round(time.time() - t0); out["exam"] = {n: {k: v[k] for k in ("valLL", "champValLL", "holdLL", "champHoldLL") if k in v} for n, v in out["sides"].items()}
     log(f"   witness {name}: trained in {out['secs']}s, validation log-loss {out['exam']}")
     return out
 

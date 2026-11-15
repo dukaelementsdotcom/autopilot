@@ -30,6 +30,8 @@ CLASSIC = [  # (source, witness that uses it)
     ("Stablecoin supply (new money in / out)", "flows"),
     ("Sector rotation (from prices)", "sectors"),
     ("Shock memory (size of the last moves)", "shock"),
+    ("Spot-vs-perp CVD divergence (Binance archive)", "cvd"),
+    ("Cross-exchange open interest and funding (Coinalyze)", "xoi"),
 ]
 LIVE = [("Own server recorder: live order book, Binance live funding, live liquidations", "recorder"),
         ("Whales: the 50 largest Hyperliquid accounts", "whales"),
@@ -52,12 +54,16 @@ def promises(mem, J):
     def racing(n):
         k = f"witness-{n}"; s = sc.get(k) or {}
         return k in chal and k in cp, (f"racing: {s.get('bets', 0)} separate market moves scored, lead {s.get('lead', 0):+.2f} (needs +{s.get('zNeeded', 4)})" if s else "racing: first scores in ~2 days")
+    wait = mem.setdefault("overseer", {}).setdefault("waitingSince", {})
     for name, w in CLASSIC:
         s = (st.get(w) or {}).get("state", "")
         ok, txt = racing(w)
-        if ok: out.append({"source": name, "user": f"witness-{w}", "status": "in use", "detail": txt})
-        elif "back-filling" in s: out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": s})
-        else: out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN", "detail": f"should be racing but is not ({s or 'no status'})"})
+        if ok: wait.pop(w, None); out.append({"source": name, "user": f"witness-{w}", "status": "in use", "detail": txt}); continue
+        since = wait.setdefault(w, int(time.time())); hrs = (time.time() - since) / H
+        if "back-filling" in s: out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": s})
+        elif hrs < 48:          # new, or the brain just retrained: one witness trains per run, then its first live scores appear
+            out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": f"{s or 'waiting to be trained'}: training and entering the race within the next runs ({hrs:.0f}h so far, allowed 48h)"})
+        else: out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN", "detail": f"should be racing but is not after {hrs:.0f}h ({s or 'no status'})"})
     for name, w in LIVE:
         s = st.get(w) or {}; left = LW.warm_left(w); lt = LW.last_t(w)
         stale = lt is None or time.time() - lt > (4 if w != "news" else 6) * H
