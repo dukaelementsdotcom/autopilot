@@ -13,8 +13,9 @@ def check(name, fn):
         print(f"{name}: {'OK' if ok else 'FAIL'} model={model} keys={keys} {time.time() - t0:.1f}s", flush=True); return ok
     except Exception as e: print(f"{name}: FAIL {e}", flush=True); return False
 res = {"gemini key present": bool(os.environ.get("GEMINI_API_KEY")), "groq key present": bool(os.environ.get("GROQ_API_KEY"))}; print(res)
-res["gemini flash"] = check("gemini flash", lambda: ideas._gemini(P, 400, ("gemini-2.5-flash",)))
-res["gemini pro"] = check("gemini pro", lambda: ideas._gemini(P, 400, ("gemini-2.5-pro",)))
+print("gemini models found:", ideas._gemini_models(os.environ.get("GEMINI_API_KEY", ""), "flash"), ideas._gemini_models(os.environ.get("GEMINI_API_KEY", ""), "pro"), flush=True)
+res["gemini flash"] = check("gemini flash", lambda: ideas._gemini(P, 400, kind="flash"))
+res["gemini pro"] = check("gemini pro", lambda: ideas._gemini(P, 400, kind="pro"))
 res["normal route (Groq first)"] = check("normal route", lambda: ideas._groq_call(P, 400))
 g = os.environ.pop("GROQ_API_KEY", None)
 res["fallback when Groq fails"] = check("fallback when Groq fails", lambda: ideas._groq_call(P, 400))
