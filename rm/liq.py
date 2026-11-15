@@ -73,6 +73,8 @@ def update(log=print, budget=600):
     if not os.environ.get("COINALYZE_KEY", "").strip(): return {"skipped": "no COINALYZE_KEY secret"}
     t0 = time.time(); now = int(time.time()); info = {}
     SP = f"{C.STATE_DIR}/liq_state.json"
+    try: os.remove(P_M() + ".state")                     # leftover of an older version (its state now lives in the saved memory): nothing reads it
+    except OSError: pass
     try: st = json.load(open(SP))
     except Exception: st = {}
     have_d = os.path.exists(P_D()); have_h = os.path.exists(P_H()); today = time.strftime("%Y-%m-%d", time.gmtime())
