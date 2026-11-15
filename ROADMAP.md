@@ -210,6 +210,13 @@ Gate (fluid): Grade A about daily, live hit rate close to predicted over 25+ cal
 - [ ] Honest paper costs: funding charged per hour held, cost allowance = what the demo really pays (fees + slippage)
 - [ ] Stricter promotion bar for trading-style contestants (family-wise, like the odds contestants; alloc would need ~40 trades instead of 20)
 
+## JANUARY #1 (top priority): find a bull-market LONG edge
+The live system stays untouched through December (graduations Nov 29-30, the December exam). Then, combining:
+- [ ] Asymmetric bull exits: keep +2% half-profit and the break-even stop, but the runner rides a VOLATILITY TRAILING STOP instead of a fixed exit, so bull trends can pay 3x-5x the stop risk
+- [ ] Spot-led squeeze triggers for long discovery: spot CVD rising while perp funding is negative or flat (the CVD and cross-exchange funding witnesses), the Coinbase premium, short-liquidation Hawkes bursts (squeezes), and HMM bull-regime gating (longs off in chop and bear regimes)
+- [ ] Data ready for it: Deribit 25-delta skew and IV term structure recorded hourly since Nov 15 (storage only; ~45+ days by January)
+- [x] Recording started Nov 15: state/collect/deribit_opt.parquet (+ a compact daily chain), overseer promise "keeps recording"
+
 ## PARKED until after December's exam (brainstorm Nov 15, ranked)
 Algorithms (each enters as a contestant or a witness under the locked judge):
 - [ ] 1. Uncertainty-adjusted fractional Kelly: size from the LOWER edge of what each odds band really won live (sizing for the 8-call plan)

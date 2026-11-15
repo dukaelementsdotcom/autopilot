@@ -199,7 +199,8 @@ def prob_rows(m, side, J, rows, base):
 # its z-score against its own recent past, shifted one hour later - or one day + one hour for daily tables - so nothing is known
 # early), recorded until its warm-up is over, then trained and entered exactly like the recorder / whales / news witnesses.
 import re
-KNOWN_COLLECT = {"rec_depth.parquet", "rec_funding.parquet", "rec_liq.parquet", "hl_whales.parquet"}
+KNOWN_COLLECT = {"rec_depth.parquet", "rec_funding.parquet", "rec_liq.parquet", "hl_whales.parquet",
+                 "deribit_opt.parquet"}         # Deribit options: recorded for the January bull-market build, deliberately NOT auto-wired
 EXT = lambda: [os.path.join(KEEP(""), f) for f in os.listdir(KEEP(""))] if os.path.isdir(KEEP("")) else []
 
 def _ext_files():
@@ -284,7 +285,7 @@ def features(P, log=print):
 # ── orphan check: every saved data file must belong to something that uses it ────────────────────────────────────────────
 RAW_PATTERNS = [r"^[0-9A-Z]+_(k|m|s|f|hl)\.parquet$", r"^book_[0-9A-Z]+\.parquet$", r"^(book_|spot_)?manifest\.json$", r"^version(_\w+)?\.txt$",
                 r"^cz_(liq_d|liq_h|oifr_d|markets)\.(parquet|json)$", r"^(macro|onchain)\.parquet$", r"^compass_\w+\.parquet$", r"^ext$"]
-COLLECT_KNOWN = KNOWN_COLLECT | {"digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "stamps.json", "news"}
+COLLECT_KNOWN = KNOWN_COLLECT | {"digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "stamps.json", "news", "deribit"}
 
 def orphans(recent_days=14):
     """files that nothing reads, written in the last two weeks (a collector whose data is never used). Old leftovers are listed by

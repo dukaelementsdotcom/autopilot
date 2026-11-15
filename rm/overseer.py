@@ -77,6 +77,12 @@ def promises(mem, J):
         else:
             late = LW.days(w) - LW.LIVE[w]["warm"] > 1.5
             out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN" if late else "on track", "detail": "warm-up finished but it has not trained" if late else "warm-up finished: training in the next runs"})
+    try:                                    # recorded now, used from January (the owner's plan): the promise is that it keeps recording
+        import pandas as pd
+        d = pd.read_parquet(os.path.join(C.STATE_DIR, "collect", "deribit_opt.parquet"), columns=["t"]); lt = int(d.t.max()); days_ = (lt - int(d.t.min())) / DAY
+        out.append({"source": "Deribit options: 25-delta skew, IV term structure, dealer gamma (BTC/ETH)", "user": "the January bull-market build (storage only until then)",
+                    "status": "on track" if time.time() - lt < 4 * H else "BROKEN", "detail": f"{days_:.0f} days recorded, newest {_ago(lt)}" if time.time() - lt < 4 * H else f"the recording stopped (newest {_ago(lt)})"})
+    except Exception: pass
     if J is not None:
         newest = J.P.t.max(); row = J.P[J.P.t == newest]
         for name, col, user in IN_ARBITER:
