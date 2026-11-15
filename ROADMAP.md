@@ -192,3 +192,37 @@ Gate (fluid): Grade A about daily, live hit rate close to predicted over 25+ cal
 - [x] Luck haircut on research rules (marked down for every idea ever tried); results by market state, expectancy and drawdown instead of win rate
 - [x] Dashboard: Results, Is it learning?, Risk, Market state panels; audit log lines in the health report
 - [ ] Not built on purpose: longs switched on by a rising market alone (lost money in the 7-period test); a 9% cap on total open risk (owner wants more risk, not less); "too few bets since the last promotion -> go flat" (would stop trading for good)
+
+## Built Nov 15: the autonomous loop (running)
+- [x] Overseer: every data source declares who uses it and from when (broken promise = alert); checks the automatic parts; safe repairs; daily report as a GitHub issue (07:00 EAT)
+- [x] Recorder / whales / news witnesses: graduate by themselves Nov 29-30 (21-day warm-up), exam-gated, retrain with every brain retrain
+- [x] New witnesses with full history: spot-vs-perp CVD divergence, cross-exchange open interest and funding (Coinalyze)
+- [x] Live drift damper; exam gate for witnesses; auto-discovery of new data tables + orphan check; lessons fed to evolution; exploration mode when evolution stalls
+- [x] Alerts only for red health, an outside service failing for 6 runs, or the kill switch
+
+## DECEMBER EXAM (Dec 1-30): does the 25% x 20x plan earn the right to run in January?
+- [ ] Pass mark, fixed before the month: the 8 highest-odds Grade A calls (max 3 a week), traded as the plan would (25% margin, 20x, half-profit + break-even, real costs; 1.25% stop shown next to the volatility stop) are net positive, worst drop < 20%, at least 6 of 8 independent market moves
+- [ ] Optional before Dec 1: an exam tracker line in the daily report (bookkeeping only, no trading change)
+- [ ] January: if passed, the aggressive contestant goes live with the stop December proved; if not, it stays parked
+
+## Waiting on your decision (from the Nov 15 audit)
+- [ ] Portfolio open-risk cap of 10% for the Arbiter (today it can reach ~15% with 3 overlapping shorts)
+- [ ] Honest paper costs: funding charged per hour held, cost allowance = what the demo really pays (fees + slippage)
+- [ ] Stricter promotion bar for trading-style contestants (family-wise, like the odds contestants; alloc would need ~40 trades instead of 20)
+
+## PARKED until after December's exam (brainstorm Nov 15, ranked)
+Algorithms (each enters as a contestant or a witness under the locked judge):
+- [ ] 1. Uncertainty-adjusted fractional Kelly: size from the LOWER edge of what each odds band really won live (sizing for the 8-call plan)
+- [ ] 2. Multivariate Hawkes on liquidations: live cascade risk per coin and market-wide (short entries + exits before squeezes); needs event-level liquidation timestamps from our server, ~3-week warm-up
+- [ ] 3. BOCPD extensions: "time since the regime changed" as a measurement for every witness; damper forgets old evidence after a change
+- [ ] 4. Hidden Markov regimes: regime probabilities and transition odds (fit on past data only, FILTERED probabilities - smoothed ones use the future)
+- [ ] 5. Kalman filters: hour-by-hour beta to Bitcoin and cleaner trend estimates, as evolution building blocks
+- [ ] 6. Contextual bandits (Thompson sampling): once 2-3 policies are proven, choose between them per market state
+- [ ] 7. Path signatures / rough volatility: better volatility forecasts for stop sizing (lowest priority: overfitting risk)
+Data feeds:
+- [ ] A. One Deribit options collector (free): 25-delta skew, implied-volatility term structure, dealer gamma exposure, from one hourly chain snapshot (BTC/ETH, market-wide); start recording early so the warm-up is done. The auto-discovery wires it in by itself
+- [ ] B. Spot BTC/ETH ETF daily net flows (history since Jan 2024, so it can take the exams at once; scraper risk)
+- [ ] C. CFTC weekly CME positioning (official free API; slow, context only)
+Structured event reasoning (after the above):
+- [ ] D. Event engine: a case opens on a cross-asset price shock (>4x normal) or a severity-3 AI event; the AI only EXTRACTS facts into strict JSON (numbers must appear in the headlines, "confirmed" needs 2 sources or an official domain, first-seen time stored); Python judges: shock size, 24h/72h priced-in drift and pre-event volume, live cross-asset correlation and lead-lag, CVD / liquidations / whales; forced flow vs absorption (forced dollars / daily spot volume and order-book depth); 2-4 scenarios with base-rate priors, updated hourly by Bayes from live evidence; output an 'events' witness + an 'event-guard' contestant; every case graded afterwards
+- [ ] E. News witness upgrades: use the AI's events (assets, direction, severity) per coin, rumour vs confirmed, price-aware briefs
