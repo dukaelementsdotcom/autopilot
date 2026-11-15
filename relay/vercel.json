@@ -1,5 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["fra1"],
-  "functions": { "api/live.js": { "maxDuration": 60 } }
+  "regions": [
+    "fra1"
+  ],
+  "functions": {
+    "api/live.js": {
+      "maxDuration": 60
+    }
+  },
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."
 }
