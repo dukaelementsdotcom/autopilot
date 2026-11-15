@@ -51,9 +51,10 @@ def write(mem, J, timings, problems, live, t0, log=print):
     for a, b in zip(hist, hist[1:]):
         try:
             g = (dt.datetime.strptime(a["at"], "%Y-%m-%d %H:%M") - dt.datetime.strptime(b["at"], "%Y-%m-%d %H:%M")).total_seconds() / 3600
-            if g > 1.6: gaps.append(f"{b['at']} → {a['at']} ({g:.1f}h)")
+            recent = (dt.datetime.utcnow() - dt.datetime.strptime(a["at"], "%Y-%m-%d %H:%M")).total_seconds() < 48 * 3600   # a healed gap counts for 48h, then drops off
+            if g > 1.6 and recent: gaps.append(f"{b['at']} → {a['at']} ({g:.1f}h)")
         except Exception: pass
-    chk("hourly runs happen", not gaps, warn=len(gaps) <= 2, detail=("missed hours: " + "; ".join(gaps[:8])) if gaps else f"{len(hist)} runs on record, no gaps")
+    chk("hourly runs happen", not gaps, warn=len(gaps) <= 2, detail=("missed hours (last 48h): " + "; ".join(gaps[:8])) if gaps else f"{len(hist)} runs on record, no gaps in the last 48h")
     outs = [h["at"] for h in hist[:24] if (h.get("maxLagH") or 0) > 3]
     chk("no live-data outages (last 24 runs)", not outs, warn=len(outs) <= 2,
         detail=(f"{len(outs)} runs without fresh live data: {', '.join(outs[-1:] + outs[:1])} … (no new trades are made on stale data)") if outs else "live data arrived every run")
