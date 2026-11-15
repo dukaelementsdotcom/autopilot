@@ -4,7 +4,7 @@
   3. combine  : two surviving ideas must agree (AND), the "confirmation" idea
   4. ai       : an AI researcher (Groq, free) proposes new hypotheses with a mechanism, from the machine's own notes
   5. explore  : random two-condition rules, so it also tries things nobody would think of"""
-import itertools, json, random, re, os, requests
+import itertools, json, random, re, os, time, requests
 from . import config as C
 from .judge import hid, valid, family
 from .features import DESC
@@ -194,7 +194,7 @@ def _groq(messages, max_tokens=2500):
     out = _groq_call(messages, max_tokens)
     AI_LOG.append({"ok": out[0] is not None, "model" if out[0] is not None else "error": str(out[1])[:160]}); return out
 
-_GM = {}
+_GM = {}; _GDEAD = set()
 def _gemini_models(key, kind="flash"):
     """ask Google which Gemini models exist today (names change), newest stable first; 'flash' = fast, 'pro' = deep"""
     if kind not in _GM:
@@ -216,12 +216,14 @@ def _gemini(messages, max_tokens=2500, models=None, kind="flash"):
     if not key: return None, "no GEMINI_API_KEY"
     sys_ = "\n".join(m["content"] for m in messages if m.get("role") == "system")
     contents = [{"role": "model" if m.get("role") == "assistant" else "user", "parts": [{"text": m["content"]}]} for m in messages if m.get("role") != "system"]
-    last = ""
-    for model in (models or _gemini_models(key, kind)):
+    last = ""; t0 = time.time()
+    for model in [m for m in (models or _gemini_models(key, kind)) if m not in _GDEAD]:
+        if time.time() - t0 > 100: last += " | time cap reached"; break               # never hold an hourly run up for long
         body = {"contents": contents, "generationConfig": {"temperature": 0.7, "maxOutputTokens": int(max_tokens) + 4096, "responseMimeType": "application/json"}}
         if sys_: body["systemInstruction"] = {"parts": [{"text": sys_}]}
         try:
-            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", headers={"x-goog-api-key": key}, json=body, timeout=120)
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", headers={"x-goog-api-key": key}, json=body, timeout=50)
+            if r.status_code in (403, 404) or (r.status_code == 429 and "limit: 0" in r.text): _GDEAD.add(model)    # not available to this key: skip it from now on
             if r.ok:
                 parts = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
                 txt = "".join(p.get("text", "") for p in parts if not p.get("thought"))
