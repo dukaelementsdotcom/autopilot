@@ -38,7 +38,7 @@ jobs:
       - name: "read the live memory, read-only (only the AI-invented measurements, so evolution sees the same inputs)"
         run: |
           mkdir -p state
-          git fetch --depth 1 origin state && git show FETCH_HEAD:memory.json > state/memory.json || true
+          git fetch --depth 1 origin state && git --work-tree=state checkout FETCH_HEAD -- . && git reset -q || true      # memory + recorded data (recorder, whales, news), so evolution sees every column
       - name: evolve
         run: python -W ignore -m rm.evo.run ${{ github.event.inputs.minutes || '90' }}
       - name: save the archive (its own branch, so it never collides with the hourly memory)

@@ -159,10 +159,15 @@ def write(mem, J, timings, problems, live, t0, log=print):
     # for alerts, a past gap in the run history is not "something broken now" (it stays in that check's 24h window long after it healed)
     now_bad = [c for c in checks if c["status"] != "OK" and c["check"] != "hourly runs happen"]
     hist[0]["alertLevel"] = "FAIL" if any(c["status"] == "FAIL" for c in now_bad) else "WARN" if now_bad else "OK"
-    try:      # an e-mail from GitHub (a red run) when something stays broken: FAIL in 3 runs in a row, WARN for 12, or the kill switch
+    from .overseer import API_CHECKS
+    hist[0]["apiBad"] = sorted(c["check"] for c in checks if c["status"] != "OK" and c["check"].startswith(API_CHECKS))
+    try:      # an e-mail only when it matters: health red (FAIL) in 3 runs in a row, the same outside service failing for 6 runs, or the kill switch
         last = [h.get("alertLevel", "OK") for h in hist[:12]]; why = None
-        if len(last) >= 3 and all(x == "FAIL" for x in last[:3]): why = "FAIL in the last 3 runs"
-        elif len(last) >= 12 and all(x in ("WARN", "FAIL") for x in last): why = "warnings for 12 runs in a row"
+        if len(last) >= 3 and all(x == "FAIL" for x in last[:3]): why = "health red (FAIL) in the last 3 runs"
+        else:
+            stuck = set(hist[0]["apiBad"])
+            for h in hist[1:6]: stuck &= set(h.get("apiBad") or [])
+            if len(hist) >= 6 and stuck: why = "an outside service has been failing for 6 runs: " + ", ".join(sorted(stuck))
         if RA.get("killed") and not mem.get("killAlerted"): why = "the kill switch tripped: " + str(RA["killed"].get("reason")); mem["killAlerted"] = RA["killed"].get("at")
         if not RA.get("killed"): mem.pop("killAlerted", None)
         if why and mem.get("alertedFor") != why + snap["at"][:10]:          # at most one alert per reason per day

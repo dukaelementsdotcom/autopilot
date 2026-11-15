@@ -151,8 +151,9 @@ def load():
     try: return joblib.load(MODEL_PATH()) if os.path.exists(MODEL_PATH()) else None
     except Exception: return None
 
-def score(J, B, rows):
-    """probabilities, family opinions and familiarity for candidate rows, both sides"""
+def score(J, B, rows, damp=None):
+    """probabilities, family opinions and familiarity for candidate rows, both sides. `damp` (live trading only, never in exams):
+    {side: {family: d}} shrinks a drifting family's vote toward 'no opinion' by d (0..0.5); its raw opinion is still reported."""
     P = J.P; out = {}
     lg = lambda p: np.log(np.clip(p, 1e-3, 1 - 1e-3) / (1 - np.clip(p, 1e-3, 1 - 1e-3)))
     for name, sd in B["sides"].items():
@@ -161,7 +162,8 @@ def score(J, B, rows):
             if all(c in P.columns for c in cols): fp[f] = sd["models"][f].predict_proba(_X(P, rows, cols))[:, 1]
             else: fp[f] = np.full(len(rows), sd["base"])
         Q = np.nan_to_num(_X(P, rows, sd["knnCols"]), nan=0.5); d, ix = sd["knn"].kneighbors(Q); fp["similar"] = sd["knnY"][ix].mean(1)
-        prob = sd["comb"].predict_proba(np.column_stack([lg(fp[f]) for f in sd["order"]]))[:, 1]
+        dm = (damp or {}).get(name) or {}; lb = float(lg(np.array([sd["base"]]))[0])
+        prob = sd["comb"].predict_proba(np.column_stack([lb + (lg(fp[f]) - lb) * (1 - dm.get(f, 0.0)) for f in sd["order"]]))[:, 1]
         out[name] = {"prob": prob, "fams": fp, "dist": d.mean(1), "unfamiliar": d.mean(1) > sd["unfamiliar"]}
     return out
 
@@ -220,7 +222,7 @@ def step(mem, J, now_iso, log=print, problems=None):
         live = liquid_coins(J)
         rows = np.flatnonzero((J.t > A["lastT"]) & (J.t <= newest) & np.isin(J.coin, list(live)) & np.isfinite(J.dvol) & np.isfinite(J.O))
         if len(rows):
-            S = score(J, B, rows); V = votes(mem, J, rows); REG = regimes(J, np.unique(J.t[rows])); R["regimeNow"] = REG.get(int(J.t[rows].max()))
+            S = score(J, B, rows, damp={s: {f: v["d"] for f, v in d.items()} for s, d in (R.get("damp") or {}).items() if d and not s.startswith("_")}); V = votes(mem, J, rows); REG = regimes(J, np.unique(J.t[rows])); R["regimeNow"] = REG.get(int(J.t[rows].max()))
             R["_votes"] = {int(k): v for k, v in V.items() if v}
             look = []; newest_rows = np.flatnonzero(J.t[rows] == J.t[rows].max())
             for pos in newest_rows:
@@ -262,6 +264,8 @@ def step(mem, J, now_iso, log=print, problems=None):
     for _, AA, _cfg in accts: AA["lastT"] = max(AA["lastT"], newest)
     newly = _ledger_resolve(J, R, newest, Hd)
     _shadow_resolve(J, R, newest); adapt(R)
+    try: drift_damp(R, B)
+    except Exception as e: (problems.append(f"drift damper: {e}") if problems is not None else None)
     try:
         from . import integrity as IG
         if newly or "recal" not in R: IG.fit_recal(R, log)
@@ -847,6 +851,34 @@ def _moves(d):
     g = {}
     for x in d: g.setdefault(x["t"] // (6 * H), []).append(x)
     return [{k: float(np.mean([x[k] for x in v])) for k in ("y", "prob", "ret", "be")} for v in g.values()]
+
+def drift_damp(R, B=None):
+    """LIVE DRIFT DAMPER (between weekly retrains): a family whose opinion has pointed the WRONG way on scored candidates, consistently
+    across at least 10 separate market moves since the brain was trained (t >= 2.5 on per-move averages), has its vote shrunk toward
+    'no opinion': 30% at t >= 2.5, 50% at t >= 3. Released below t = 1.5. Everything resets when the brain retrains. Its own
+    opinion keeps being recorded, so recovery is measured too."""
+    L = [x for x in (R.get("ledger") or [])[-4000:] if x.get("y") is not None and x.get("fams")]
+    since = 0
+    try: since = time.mktime(time.strptime((B or {}).get("trainedAt") or (R.get("model") or {}).get("trainedAt"), "%Y-%m-%d %H:%M"))
+    except Exception: pass
+    old = R.get("damp") or {}; out = {}
+    if old.get("_bundle") and old.get("_bundle") != ((B or {}).get("trainedAt") or (R.get("model") or {}).get("trainedAt")): old = {}
+    for side in ("long", "short"):
+        d = [x for x in L if x["side"] == side and x["t"] >= since]; blocks = {}
+        for x in d:
+            for f, p in x["fams"].items():
+                blocks.setdefault(f, {}).setdefault(x["t"] // (6 * H), []).append((p - x.get("base", 0.5)) * (1 if x["y"] == 0 else -1))
+        res = {}
+        for f, bl in blocks.items():
+            v = np.array([np.mean(a) for a in bl.values()])
+            if len(v) < 10 or v.std(ddof=1) == 0: continue
+            t = float(v.mean() / (v.std(ddof=1) / np.sqrt(len(v)))); prev = (old.get(side) or {}).get(f, {}).get("d", 0.0)
+            dd = 0.5 if t >= 3 else 0.3 if t >= 2.5 else (prev if t >= 1.5 else 0.0)
+            if dd > 0: res[f] = {"d": dd, "t": round(t, 2), "moves": len(v), "since": (old.get(side) or {}).get(f, {}).get("since") or time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
+        out[side] = res
+    out["_bundle"] = (B or {}).get("trainedAt") or (R.get("model") or {}).get("trainedAt")
+    R["damp"] = out
+    return out
 
 def adapt(R):
     """three self-adjustments, each bounded and each explained on the dashboard:

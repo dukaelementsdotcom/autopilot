@@ -192,3 +192,108 @@ def prob_rows(m, side, J, rows, base):
     X = np.column_stack([J.P[c].values[rows] for c in m["cols"]]).astype(float)
     Z = np.clip(np.nan_to_num((X - np.array(s["mu"])) / np.array(s["sd"])), -4, 4)
     return s["comb"].predict_proba(np.column_stack([_lg(base), Z]))[:, 1]
+
+# ── AUTO-DISCOVERY: any NEW data table becomes evidence without hand wiring ─────────────────────────────────────────────────
+# A future collector only has to save a table with a time column 't' (unix seconds), optionally 'coin', and numeric columns, into
+# the saved collect folder (state/collect/) or data/raw/ext/. It is found on the next run, turned into measurements (the value and
+# its z-score against its own recent past, shifted one hour later - or one day + one hour for daily tables - so nothing is known
+# early), recorded until its warm-up is over, then trained and entered exactly like the recorder / whales / news witnesses.
+import re
+KNOWN_COLLECT = {"rec_depth.parquet", "rec_funding.parquet", "rec_liq.parquet", "hl_whales.parquet"}
+EXT = lambda: [os.path.join(KEEP(""), f) for f in os.listdir(KEEP(""))] if os.path.isdir(KEEP("")) else []
+
+def _ext_files():
+    fs = [f for f in EXT() if f.endswith(".parquet") and os.path.basename(f) not in KNOWN_COLLECT]
+    d = f"{C.DATA_DIR}/raw/ext"
+    if os.path.isdir(d): fs += [os.path.join(d, f) for f in os.listdir(d) if f.endswith(".parquet")]
+    return sorted(fs)
+
+def _slug(path): return re.sub(r"[^a-z0-9]+", "", os.path.basename(path)[:-8].lower())[:12]
+
+def discover():
+    """new tables -> witness specs {name: {...}} (schema checked; anything unusable is skipped, never a crash)"""
+    out = {}
+    for p in _ext_files():
+        try:
+            import pyarrow.parquet as pq
+            sch = pq.read_schema(p); names = sch.names
+            if "t" not in names: continue
+            num = [n for n in names if n not in ("t", "coin") and str(sch.field(n).type) in ("double", "float", "int64", "int32", "float32", "float64")][:8]
+            if not num: continue
+            nm = "auto-" + _slug(p)
+            cols = [f"w_a_{_slug(p)}_{re.sub(r'[^a-z0-9]', '', c.lower())[:10]}{suf}" for c in num for suf in ("", "_z")]
+            out[nm] = {"cols": cols, "what": f"Auto-discovered data '{os.path.basename(p)}' ({', '.join(num)}){' per coin' if 'coin' in names else ', market-wide'}: found by the overseer, measured automatically",
+                       "warm": 21, "path": p, "num": num, "perCoin": "coin" in names}
+        except Exception: continue
+    return out
+
+AUTO = discover()
+LIVE.update(AUTO)
+
+def auto_features(P, name, spec):
+    d = pd.read_parquet(spec["path"]); d = d[d.t.notna()].copy(); d["t"] = d.t.astype("int64")
+    if d.t.max() > 1e11: d["t"] = d.t // 1000
+    step = float(np.median(np.diff(np.sort(d.t.unique())))) if d.t.nunique() > 3 else H
+    daily = step >= 20 * H; lag = DAY + H if daily else H; win = 30 if daily else 168
+    d["t"] = (d.t // (DAY if daily else H)) * (DAY if daily else H)
+    out = {}; cols = iter(spec["cols"])
+    if spec["perCoin"]:
+        d = d.groupby(["coin", "t"], as_index=False)[spec["num"]].mean().sort_values(["coin", "t"])
+        for c in spec["num"]:
+            v, z = next(cols), next(cols)
+            d[v] = d[c].astype(float); g = d.groupby("coin")[v]
+            d[z] = (d[v] - g.transform(lambda s: s.rolling(win, min_periods=win // 3).mean())) / (g.transform(lambda s: s.rolling(win, min_periods=win // 3).std()) + 1e-9)
+            for col in (v, z):
+                s = d[["coin", "t", col]].copy(); s["t"] = s.t + lag
+                if daily:                                      # a daily value is held for the whole next day
+                    s = pd.concat([s.assign(t=s.t + k * H) for k in range(24)])
+                idx = pd.MultiIndex.from_arrays([P.coin.values, P.t.values])
+                out[col] = s.drop_duplicates(["coin", "t"]).set_index(["coin", "t"])[col].reindex(idx).astype("float32").values
+    else:
+        d = d.groupby("t")[spec["num"]].mean().sort_index()
+        for c in spec["num"]:
+            v, z = next(cols), next(cols)
+            s = d[c].astype(float); zz = (s - s.rolling(win, min_periods=win // 3).mean()) / (s.rolling(win, min_periods=win // 3).std() + 1e-9)
+            for col, ser in ((v, s), (z, zz)):
+                ser = ser.copy(); ser.index = ser.index + lag
+                grid = np.sort(P.t.unique()); ser = ser.reindex(np.union1d(ser.index, grid)).ffill(limit=24 if daily else 2).reindex(grid)
+                out[col] = pd.Series(ser.values, index=grid).reindex(P.t.values).astype("float32").values
+    return out
+
+_first_t, _last_t = first_t, last_t
+def first_t(name):
+    if name in AUTO:
+        try: return int(pd.read_parquet(AUTO[name]["path"], columns=["t"]).t.min() // (1000 if pd.read_parquet(AUTO[name]["path"], columns=["t"]).t.max() > 1e11 else 1))
+        except Exception: return None
+    return _first_t(name)
+def last_t(name):
+    if name in AUTO:
+        try:
+            t = pd.read_parquet(AUTO[name]["path"], columns=["t"]).t; return int(t.max() // (1000 if t.max() > 1e11 else 1))
+        except Exception: return None
+    return _last_t(name)
+
+_features = features
+def features(P, log=print):
+    out = _features(P, log)
+    for n, spec in AUTO.items():
+        try: out.update(auto_features(P, n, spec))
+        except Exception as e: log(f"   auto-discovered {n} skipped: {e}")
+    return out
+
+# ── orphan check: every saved data file must belong to something that uses it ────────────────────────────────────────────
+RAW_PATTERNS = [r"^[0-9A-Z]+_(k|m|s|f|hl)\.parquet$", r"^book_[0-9A-Z]+\.parquet$", r"^(book_|spot_)?manifest\.json$", r"^version(_\w+)?\.txt$",
+                r"^cz_(liq_d|liq_h|oifr_d|markets)\.(parquet|json)$", r"^(macro|onchain)\.parquet$", r"^compass_\w+\.parquet$", r"^ext$"]
+COLLECT_KNOWN = KNOWN_COLLECT | {"digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "stamps.json", "news"}
+
+def orphans():
+    """files that nothing reads (a collector whose data is never used). Auto-discovered tables are not orphans."""
+    out = []
+    for f in (os.listdir(KEEP("")) if os.path.isdir(KEEP("")) else []):
+        if f in COLLECT_KNOWN or (f.endswith(".parquet") and "auto-" + _slug(f) in AUTO) or f.endswith(".tmp"): continue
+        out.append(f"state/collect/{f}")
+    rd = f"{C.DATA_DIR}/raw"
+    for f in (os.listdir(rd) if os.path.isdir(rd) else []):
+        if f.endswith(".tmp") or any(re.match(p, f) for p in RAW_PATTERNS): continue
+        out.append(f"data/raw/{f}")
+    return out

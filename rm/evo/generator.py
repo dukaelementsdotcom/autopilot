@@ -10,9 +10,17 @@ ZS = (1.0, 1.5, 2.0, 2.5)
 FZ = (-1.0, 0.0, 1.0)
 PREFER = ("p_r", "p_vol", "p_oi", "p_glob", "p_topPos", "p_timb", "p_basis", "p_fg", "p_btc", "x_", "w_", "p_u_", "p_tk", "p_sshare", "p_hl")
 
+FOCUS = []          # set by the nightly run: columns of fresh data and of witnesses that are winning live (searched more often)
+REGIME = []         # set by the nightly run in exploration mode: market-state columns used as regime filters
+EXPLORE = False     # exploration mode: no voter staged for 2 nights -> regime-specialised voters and cross-family combinations
+
 def _col(cols, rng):
+    if FOCUS and rng.random() < (0.5 if EXPLORE else 0.25): return rng.choice(FOCUS)
     pref = [c for c in cols if c.startswith(PREFER)]
     return rng.choice(pref if pref and rng.random() < 0.8 else cols)
+
+def _regime_filter(rng):
+    return {"node": ["col", rng.choice(REGIME)], "dir": rng.choice(("above", "below")), "z": rng.choice(FZ), "veto": False}
 
 def leaf(cols, rng):
     r = rng.random()
@@ -29,8 +37,10 @@ def tree(cols, rng, d=3):
     return [rng.choice(dsl.BINARY), tree(cols, rng, d - 1), tree(cols, rng, d - 1)]
 
 def genome(cols, rng):
-    return {"sig": tree(cols, rng, rng.choice((2, 3, 4))), "side": rng.choice((1, -1)), "tail": rng.choice(("hi", "lo")), "z": rng.choice(ZS),
-            "flt": None if rng.random() < 0.7 else {"node": tree(cols, rng, 2), "dir": rng.choice(("above", "below")), "z": rng.choice(FZ), "veto": False}}
+    g = {"sig": tree(cols, rng, rng.choice((2, 3, 4))), "side": rng.choice((1, -1)), "tail": rng.choice(("hi", "lo")), "z": rng.choice(ZS),
+         "flt": None if rng.random() < 0.7 else {"node": tree(cols, rng, 2), "dir": rng.choice(("above", "below")), "z": rng.choice(FZ), "veto": False}}
+    if EXPLORE and REGIME and rng.random() < 0.5: g["flt"] = _regime_filter(rng)          # a voter that only speaks in one market state
+    return g
 
 def _paths(node, p=()):
     yield p
@@ -141,7 +151,18 @@ def llm_children(elites, clusters, cols, ask, n=4):
                 kids.append(({"sig": node, "side": 1 if s.get("side") == "long" else -1, "tail": tail, "z": 1.5, "flt": None}, "llm-signal", s.get("why", "")))
     return kids
 
-def llm_voters(elites, misses, cols, ask, n=4):
+def lessons_text(L):
+    """what the live system learned (from the overseer): evidence that failed its exams or was parked, and what is winning"""
+    if not L: return ""
+    parts = []
+    if L.get("failed"): parts.append("Evidence that FAILED its exams (do not repeat these as they are; combine them with a market-state condition or another family instead): "
+                                     + json.dumps([{"evidence": x["witness"], "why": x["why"][:140]} for x in L["failed"][:6]]))
+    if L.get("parked"): parts.append("Ideas parked after losing live: " + json.dumps([{"idea": x["contestant"], "why": x["why"][:120]} for x in L["parked"][:6]]))
+    if L.get("damped"): parts.append("Vote families currently pointing the wrong way live: " + json.dumps([{"side": x["side"], "family": x["family"]} for x in L["damped"][:6]]))
+    if L.get("winners"): parts.append("Evidence that is WINNING live (build on these columns): " + json.dumps([{"evidence": x["witness"], "columns": x["cols"][:8]} for x in L["winners"][:4]]))
+    return "\nLessons from live trading:\n" + "\n".join(parts) + "\n" if parts else ""
+
+def llm_voters(elites, misses, cols, ask, n=4, lessons=None):
     """FunSearch-style: show the Arbiter's CONFIDENT LOSERS (odds above its trading bar, then lost) and its NEAR-MISS WINNERS (odds just
     below the bar, then +2% came first), each clustered by context, plus the best voters so far. Ask for vetoes (high where it is
     overconfident) and boosters (high where it under-rates real winners); the judge then scores them on odds error, ranking, profit
@@ -152,7 +173,7 @@ def llm_voters(elites, misses, cols, ask, n=4):
            {"role": "user", "content": f"{GRAMMAR}\nColumns: {colist}\n\nA trading judge estimates the chance that a coin moves +2% before its stop within 48h and trades when the odds clear a bar. "
             f"Clusters by context (sd = standard deviations from its usual calls):\nCONFIDENT LOSERS (odds above the bar, then lost): {json.dumps(misses.get('confidentLosers'))}\n"
             f"NEAR-MISS WINNERS (odds just below the bar, then +2% came first): {json.dumps(misses.get('nearMissWinners'))}\n"
-            f"Best extra voters so far (gain = how much they lowered the judge's odds error):\n{json.dumps(show)}\n\n"
+            f"Best extra voters so far (gain = how much they lowered the judge's odds error):\n{json.dumps(show)}\n{lessons_text(lessons)}\n"
             f"1) Write {n} VETO expressions: HIGH exactly in the confident-loser clusters.\n"
             f"2) Write {n} BOOSTER expressions: HIGH exactly in the near-miss-winner clusters (catalysts: forced liquidations, lagging coins catching up, rotations).\n"
             f"3) Write {n} expressions carrying information the judge probably lacks.\n"

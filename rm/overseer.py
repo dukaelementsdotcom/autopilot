@@ -60,11 +60,11 @@ def promises(mem, J):
         ok, txt = racing(w)
         if ok: wait.pop(w, None); out.append({"source": name, "user": f"witness-{w}", "status": "in use", "detail": txt}); continue
         since = wait.setdefault(w, int(time.time())); hrs = (time.time() - since) / H
-        if "back-filling" in s: out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": s})
+        if "back-filling" in s or "failed its exams" in s: out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": s})
         elif hrs < 48:          # new, or the brain just retrained: one witness trains per run, then its first live scores appear
             out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": f"{s or 'waiting to be trained'}: training and entering the race within the next runs ({hrs:.0f}h so far, allowed 48h)"})
         else: out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN", "detail": f"should be racing but is not after {hrs:.0f}h ({s or 'no status'})"})
-    for name, w in LIVE:
+    for name, w in LIVE + [(v["what"].split(":")[0], k) for k, v in LW.AUTO.items()]:
         s = st.get(w) or {}; left = LW.warm_left(w); lt = LW.last_t(w)
         stale = lt is None or time.time() - lt > (4 if w != "news" else 6) * H
         ok, txt = racing(w)
@@ -159,9 +159,65 @@ def parts(mem, now):
 def _utc(t): return time.strftime("%Y-%m-%d %H:%M", time.gmtime(t))
 
 # ── hourly: checks for the health report ───────────────────────────────────────────────────────────────────────────────────
+# ── the loop's memory: what happened (for the daily report) and what was learned (for the nightly evolution) ──────────────
+def _event(O, now, kind, what):
+    O.setdefault("events", []).append({"at": _utc(now), "kind": kind, "what": what}); del O["events"][:-300]
+
+def track(mem, now):
+    """compare with the last run: what was discovered, admitted, promoted, parked, damped, staged or retired since then"""
+    R = mem.get("referee") or {}; O = mem.setdefault("overseer", {}); prev = O.get("snap") or {}
+    from . import witnesses as W
+    st = R.get("witnesses") or {}
+    snap = {"wit": {n: ("racing" if "challenger" in (v.get("state") or "") else "failed" if v.get("failed") else "waiting") for n, v in st.items()},
+            "futile": sorted((R.get("chalFutile") or {}).keys()), "promos": len(((R.get("champ") or {}).get("history") or [])),
+            "damp": sorted(f"{s}:{f}" for s, d in (R.get("damp") or {}).items() if not s.startswith("_") for f in (d or {})),
+            "tables": sorted(O.get("tables") or []), "staged": [], "retired": []}
+    try:
+        sg = json.load(open(os.path.join(C.EVO_DIR, "staged.json"))); snap["staged"] = sorted(v["id"] for v in sg.get("active", [])); snap["retired"] = sorted(v["id"] for v in sg.get("retired", []))
+    except Exception: pass
+    if prev:
+        for n, s in snap["wit"].items():
+            p = (prev.get("wit") or {}).get(n)
+            if s != p and s == "racing": _event(O, now, "admitted", f"witness '{n}' passed its exams and entered the race")
+            if s != p and s == "failed": _event(O, now, "quarantined", f"witness '{n}' failed its exams ({(st.get(n) or {}).get('state', '')[:160]})")
+        for n in set(snap["futile"]) - set(prev.get("futile") or []): _event(O, now, "killed", f"contestant '{n}' parked for 30 days: {((R.get('chalFutile') or {}).get(n) or {}).get('why', '')}")
+        if snap["promos"] > prev.get("promos", 0):
+            h = ((R.get("champ") or {}).get("history") or [])[-1]; _event(O, now, "promoted", f"PROMOTED '{h.get('promoted')}' into the Arbiter: {h.get('what')}")
+        for x in set(snap["damp"]) - set(prev.get("damp") or []):
+            s, f = x.split(":"); v = R["damp"][s][f]; _event(O, now, "damped", f"{s}s: the '{f}' vote shrunk {v['d']:.0%} (it pointed the wrong way, t={v['t']} over {v['moves']} market moves)")
+        for x in set(prev.get("damp") or []) - set(snap["damp"]): _event(O, now, "released", f"{x.replace(':', 's: the ')} vote back to full weight")
+        for x in set(snap["tables"]) - set(prev.get("tables") or []): _event(O, now, "discovered", f"new data table '{x}' found and wired in (joins the race after its warm-up)")
+        for x in set(snap["staged"]) - set(prev.get("staged") or []): _event(O, now, "mutated", f"evolution staged voter {x} into the race")
+        for x in set(snap["retired"]) - set(prev.get("retired") or []): _event(O, now, "killed", f"evolved voter {x} retired")
+    O["snap"] = snap
+
+def lessons(mem):
+    """what the nightly evolution should learn from: which evidence failed and why, what was parked, what won (read by rm/evo/run.py)"""
+    R = mem.get("referee") or {}; O = mem.setdefault("overseer", {})
+    from . import witnesses as W
+    st = R.get("witnesses") or {}; sc = R.get("chalScores") or {}
+    failed = [{"witness": n, "why": (v.get("state") or "")[:200], "cols": W.WITNESSES.get(n, {}).get("cols", [])[:12]} for n, v in st.items() if v.get("failed") or "not admitted" in (v.get("state") or "")]
+    parked = [{"contestant": n, "why": (v.get("why") or "")[:200]} for n, v in (R.get("chalFutile") or {}).items()]
+    lead = sorted([(n, s.get("lead", 0)) for n, s in sc.items() if n.startswith("witness-") and s.get("lead", 0) > 1.0], key=lambda x: -x[1])
+    winners = [{"witness": n[8:], "lead": l, "cols": W.WITNESSES.get(n[8:], {}).get("cols", [])[:12]} for n, l in lead]
+    for h in ((R.get("champ") or {}).get("history") or [])[-5:]:
+        n = h.get("promoted", "");
+        if n.startswith("witness-"): winners.insert(0, {"witness": n[8:], "promoted": True, "cols": W.WITNESSES.get(n[8:], {}).get("cols", [])[:12]})
+    damped = [{"side": s, "family": f, **v} for s, d in (R.get("damp") or {}).items() if not s.startswith("_") for f, v in (d or {}).items()]
+    O["lessons"] = {"failed": failed, "parked": parked, "winners": winners, "damped": damped, "at": _utc(time.time())}
+    return O["lessons"]
+
 def checks(mem, J, now=None):
     """returns health-style checks; also stores the overseer's view in memory for the dashboard and the daily report"""
     now = now or time.time(); O = mem.setdefault("overseer", {})
+    from . import livew as LW
+    O["tables"] = sorted(LW.AUTO)
+    try: track(mem, now); lessons(mem)
+    except Exception as e: O["trackError"] = str(e)[:200]
+    orph = []
+    try: orph = LW.orphans()
+    except Exception as e: orph = [f"(could not check: {e})"]
+    O["orphans"] = orph
     pr = promises(mem, J); pa, rep = parts(mem, now)
     O.update(promises=pr, parts=pa, at=_utc(now))
     broken = [p for p in pr if p["status"] == "BROKEN"]
@@ -169,6 +225,8 @@ def checks(mem, J, now=None):
             "detail": ("; ".join(f"{p['source']}: {p['detail']}" for p in broken) if broken else
                        f"{sum(p['status'] == 'in use' for p in pr)} in use, {sum(p['status'] == 'on track' for p in pr)} on track, 0 broken")}]
     for c in pa: out.append({"check": c["check"], "status": "OK" if c["ok"] else ("WARN" if c["warn"] else "FAIL"), "detail": c["detail"]})
+    out.append({"check": "no orphan data (every saved table has a user)", "status": "OK" if not orph else "WARN",
+                "detail": ("unused: " + ", ".join(orph[:10])) if orph else f"every collected table is used ({len(LW.AUTO)} auto-discovered)"})
     if rep: out.append({"check": "overseer repairs this run", "status": "WARN", "detail": "; ".join(rep)})
     return out
 
@@ -191,63 +249,51 @@ def daily(mem, rep, log=print, force=False):
 
 def _money(x): return f"-${-x:,.2f}" if x < 0 else f"${x:,.2f}"
 
+API_CHECKS = ("live relay", "collector:", "AI (Groq)", "whale accounts", "Hyperliquid data", "spot data", "own-server recorder", "fast lane", "AI market brief")
+
 def compose(mem, rep, now):
+    """the daily report: what Volvox discovered, promoted, killed or mutated by itself; a human is asked for something only when
+    health is red or an outside service broke"""
     R = mem.get("referee") or {}; A = R.get("acct") or {}; O = mem.get("overseer") or {}
     eq = A.get("equity", A.get("cash", 0)); start = A.get("start", 500)
     curve = A.get("curve") or []; eq24 = next((v for t, v in reversed(curve) if t <= now - DAY), start)
-    closed24 = [x for x in A.get("closed", []) if x.get("exitT", 0) > now - DAY]
-    opened24 = [x for x in A.get("decisions", []) if x.get("t", 0) > now - DAY - 2 * H]
-    checks = rep.get("checks") or []; bad = [c for c in checks if c["status"] != "OK"]
-    pr = O.get("promises") or []; broken = [p for p in pr if p["status"] == "BROKEN"]
+    checks = rep.get("checks") or []
+    red = [c for c in checks if c["status"] == "FAIL"]
+    api = [c for c in checks if c["status"] != "OK" and c["check"].startswith(API_CHECKS)]
     needs = []
     if A.get("killed") or A.get("paused"): needs.append(f"**The kill switch stopped trading**: {A.get('paused')}. Only you can restart it (KILL_RESET in rm/config.py).")
-    if broken: needs.append("**Data promise broken**: " + "; ".join(f"{p['source']} ({p['detail']})" for p in broken))
-    fails = [c for c in bad if c["status"] == "FAIL" and not c["check"].startswith("data promises")]
-    if fails: needs.append("**Something is broken**: " + "; ".join(f"{c['check']} ({c['detail'][:120]})" for c in fails))
-    status = "needs you" if needs else "all fine"
-    title = f"Volvox daily {time.strftime('%b %d', time.gmtime(now))}: {_money(eq)} ({(eq / eq24 - 1) * 100:+.1f}% in 24h) · {status}"
+    if red: needs.append("**Health is red**: " + "; ".join(f"{c['check']} ({c['detail'][:140]})" for c in red))
+    if api: needs.append("**An outside service is failing**: " + "; ".join(f"{c['check']} ({c['detail'][:140]})" for c in api))
+    ev = [e for e in (O.get("events") or []) if e["at"] >= _utc(now - DAY)]
+    by = lambda *k: [e["what"] for e in ev if e["kind"] in k]
+    title = f"Volvox daily {time.strftime('%b %d', time.gmtime(now))}: {_money(eq)} ({(eq / eq24 - 1) * 100:+.1f}% in 24h) · " + ("NEEDS YOU" if needs else "ran by itself")
     L = [f"# {title}", ""]
-    L += ["## Needs you", *(f"- {n}" for n in needs)] if needs else ["## Needs you", "Nothing. Everything below happened by itself."]
-    L += ["", "## Money",
-          f"- Arbiter paper account: **{_money(eq)}** ({(eq / start - 1) * 100:+.1f}% since {_money(start)} start; {(eq / eq24 - 1) * 100:+.1f}% in 24h), "
-          f"{len(A.get('closed', []))} trades closed, {sum(1 for x in A.get('closed', []) if (x.get('usd') or 0) > 0)} won."]
-    for x in closed24: L.append(f"  - closed {x['side'].lower()} {x['coin']}: {('+' if x['usd'] >= 0 else '')}{_money(x['usd'])} ({x.get('how')})")
-    for x in A.get("open", []): L.append(f"  - open {x['side'].lower()} {x['coin']} since {_utc(x['t'])} UTC, {('+' if (x.get('unreal') or 0) >= 0 else '')}{_money(x.get('unreal') or 0)} so far")
-    if not closed24 and not A.get("open"):
-        lk = (R.get("look") or {}).get("rows") or []
-        if lk: L.append(f"  - no trade in the last 24h; best candidate now: {lk[0]['side'].lower()} {lk[0]['coin']} at {lk[0]['prob']:.0%} odds, the bar is {lk[0]['need']:.0%}")
-    D = R.get("demo") or {}
-    if D.get("acct"): L.append(f"- Binance demo (real orders, 1:1 copy): **{_money(D['acct'].get('equity', D['acct'].get('cash', 0)))}**, " + ("in sync" if (D.get("sync") or {}).get("ok", True) else f"OUT OF SYNC: {D.get('sync')}"))
-    W = (R.get("wide") or {}).get("vs") or {}
-    if W: L.append(f"- Wider-universe contestant: {W.get('wide', 0):+.1f}% vs the Arbiter's {W.get('arbiterSinceBirth', 0):+.1f}% over the same days")
-    L += ["", "## What it did by itself (last 24h)"]
-    did = []
-    if opened24: did.append(f"opened {len(opened24)} trade(s): " + ", ".join(f"{x['side'].lower()} {x['coin']} ({x['prob']:.0%})" for x in opened24))
-    ad = R.get("adapt") or {}
-    for s, v in ad.items(): did.append(f"{s}s: {v.get('why')}")
-    for h in ((R.get("champ") or {}).get("history") or []):
-        if h.get("at", "") >= _utc(now - DAY): did.append(f"PROMOTED {h['promoted']}: {h.get('what')}")
-    for t in (R.get("trainings") or []):
-        if t.get("at", "") >= _utc(now - DAY): did.append(f"retrained the Arbiter's brain ({t['at']} UTC)")
-    for r in (O.get("repairsToday") or []):
-        if r["at"] >= _utc(now - DAY): did.append(f"repair: {r['what']}")
+    if needs: L += ["## Needs you", *(f"- {n}" for n in needs), ""]
+    def sec(head, items, empty):
+        L.extend([f"## {head}", *(f"- {x}" for x in items)] if items else [f"## {head}", f"- {empty}"]); L.append("")
+    # DISCOVERED: new data / data reaching its warm-up / tables found
+    disc = by("discovered")
+    for p in O.get("promises") or []:
+        if p["status"] == "on track" and "recording" in p["detail"]: disc.append(f"{p['source']}: {p['detail']}")
+    sec("Discovered", disc, "no new data today")
+    sec("Promoted", by("promoted", "admitted"), "nothing promoted or admitted today")
+    sec("Killed / quarantined", by("killed", "quarantined"), "nothing killed or quarantined today")
+    mut = by("mutated")
     try:
-        ln = json.load(open(os.path.join(C.EVO_DIR, "summary.json"))).get("lastNight") or {}
-        did.append(f"evolution night: {ln.get('evals', 0):,} ideas tried, {ln.get('new', 0)} new best-in-class, staged {len(ln.get('staged') or [])}")
+        sm = json.load(open(os.path.join(C.EVO_DIR, "summary.json"))); ln = sm.get("lastNight") or {}
+        mut.insert(0, f"last night: {ln.get('evals', 0):,} new voters tried ({ln.get('mode', 'normal')} mode), {ln.get('new', 0)} new best-in-class, {len(ln.get('staged') or [])} staged into the race; all-time {sm.get('N', 0):,} tried, bar t>={sm.get('bar')}")
     except Exception: pass
-    L += [f"- {d}" for d in did] or ["- nothing unusual"]
-    L += ["", "## Data promises (is every source used when it is due?)", "| Source | Used by | Status |", "|---|---|---|"]
-    for p in pr: L.append(f"| {p['source']} | {p['user']} | {'✅' if p['status'] == 'in use' else '⏳' if p['status'] == 'on track' else '❌'} {p['detail']} |")
-    sc = R.get("chalScores") or {}
-    def prog(s):
-        if s.get("account"): return min(1.0, s.get("bets", 0) / 20) + (0.5 if s.get("better") else 0)
-        return min(1.0, s.get("bets", 0) / 40) + max(0, s.get("lead", 0)) / max(1, s.get("zNeeded", 4))
-    top = sorted([(n, s) for n, s in sc.items() if n != "champion"], key=lambda kv: -prog(kv[1]))[:5]
-    L += ["", "## The race (closest to replacing the Arbiter)"]
-    for n, s in top:
-        if s.get("account"): L.append(f"- **{n}**: {s['me']['growth']:+.1f}% vs Arbiter {s['champion']['growth']:+.1f}% over the same days, {s.get('bets', 0)} of 20 trades" + (" - ahead; promoted automatically at 20 trades if it stays ahead" if s.get("better") and not s.get("ready") else ""))
-        else: L.append(f"- **{n}**: lead {s.get('lead', 0):+.2f} (needs +{s.get('zNeeded', 4)}), {s.get('bets', 0)} of 40 separate market moves")
-    L += ["", f"## Health: {rep.get('overall')}"]
-    L += [f"- {c['status']}: {c['check']}: {c['detail'][:160]}" for c in bad] or ["- every check OK"]
-    L += ["", "_Written automatically by the overseer. Full detail: the dashboard and docs/health.json._"]
+    sec("Mutated (evolution)", mut, "no evolution summary")
+    adj = by("damped", "released")
+    for s, v in (R.get("adapt") or {}).items(): adj.append(f"{s}s: {v.get('why')}")
+    for r in (O.get("repairsToday") or []):
+        if r["at"] >= _utc(now - DAY): adj.append(f"repair: {r['what']}")
+    sec("Self-adjusted", adj, "no adjustments")
+    closed24 = [x for x in A.get("closed", []) if x.get("exitT", 0) > now - DAY]
+    L += ["## Money (one line)", f"- Arbiter {_money(eq)} ({(eq / start - 1) * 100:+.1f}% since start, {(eq / eq24 - 1) * 100:+.1f}% in 24h); "
+          f"{len(closed24)} trade(s) closed today ({_money(sum(x.get('usd', 0) for x in closed24))}), {len(A.get('open', []))} open"
+          + (f"; Binance demo {_money((R.get('demo') or {}).get('acct', {}).get('equity', 0))}" if (R.get('demo') or {}).get("acct") else ""), ""]
+    near = [(n, s) for n, s in (R.get("chalScores") or {}).items() if n != "champion" and (s.get("better") or s.get("lead", 0) >= 0.6 * s.get("zNeeded", 4))]
+    if near: L += ["## Closest to promotion", *(f"- {n}: " + (f"{s['me']['growth']:+.1f}% vs {s['champion']['growth']:+.1f}%, {s.get('bets', 0)} of 20 trades" if s.get("account") else f"lead {s.get('lead', 0):+.2f} of {s.get('zNeeded', 4)} needed, {s.get('bets', 0)} market moves") for n, s in near[:5]), ""]
+    L += [f"_Health {rep.get('overall')}; {sum(p['status'] == 'in use' for p in O.get('promises') or [])} data sources in use, {sum(p['status'] == 'on track' for p in O.get('promises') or [])} on track. Written automatically by the overseer._"]
     return "\n".join(L), title

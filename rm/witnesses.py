@@ -128,8 +128,21 @@ def _cached(name):
     if name not in _MC or _MC[name][0] != mt: _MC[name] = (mt, _load(name) if mt else None)
     return _MC[name][1]
 
+def admit(m):
+    """EXAM GATE: a witness enters the race only if, on at least one side, the Arbiter WITH it is not worse than without it on the
+    validation year AND on the unseen final months. (Models trained before the final exam existed carry no 'holdLL' and keep racing
+    until the next weekly retrain refits them.) Returns (admitted, reason)."""
+    good, why = [], []
+    for s, e in (m.get("exam") or {}).items():
+        v_ok = e.get("valLL", 9) <= e.get("champValLL", 0) + 1e-4
+        h_ok = ("holdLL" not in e) or e["holdLL"] <= e.get("champHoldLL", 0) + 1e-4
+        if v_ok and h_ok: good.append(s)
+        else: why.append(f"{s}: {'validation' if not v_ok else 'final months'} worse ({e.get('valLL') if not v_ok else e.get('holdLL')} vs {e.get('champValLL') if not v_ok else e.get('champHoldLL')})")
+    return (bool(good) or not m.get("exam"), "; ".join(why) if not good else f"helps {', '.join(good)}")
+
 def model(name, B):
     m = _cached(name)
+    if m and not m.get("live") and m.get("exam") and not admit(m)[0]: return None          # failed its exams: not in the race
     return m if m and not m.get("failed") and B is not None and m.get("bundle") == B["trainedAt"] and m.get("want", m.get("cols")) == WITNESSES[name]["cols"] else None
 
 def _tried(name, B):
@@ -148,6 +161,9 @@ def status(B, J=None):
     for n, w in WITNESSES.items():
         m = model(n, B)
         st[n] = {"what": w["what"], "state": "challenger (being scored live)" if m else "waiting to be trained", **({"exam": m.get("exam")} if m else {})}
+        c_ = _cached(n)
+        if not m and c_ and not w.get("live") and B is not None and c_.get("bundle") == B["trainedAt"] and c_.get("exam") and not admit(c_)[0]:
+            st[n].update(state=f"failed its exams ({admit(c_)[1]}); retried automatically at the next weekly retrain, and the reason is passed to evolution", exam=c_.get("exam"), failed=True)
         if w.get("live") and not m:
             left = LW.warm_left(n); d = LW.days(n)
             if left > 0:

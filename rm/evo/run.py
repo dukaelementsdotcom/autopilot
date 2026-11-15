@@ -83,6 +83,18 @@ def main(budget_min=100.0, seed=None, log=print):
     if len(kept) != len(S0["active"]):
         S0["active"] = kept; json.dump(S0, open(ST._path(), "w"), indent=1)
     rng = random.Random(seed if seed is not None else int(time.time())); cols = lab.cols
+    # ── what the live system learned (the overseer's lessons) and whether the search has stalled ──
+    lessons = {}
+    try: lessons = (json.load(open(os.path.join(C.STATE_DIR, "memory.json"))).get("overseer") or {}).get("lessons") or {}
+    except Exception: pass
+    fresh = [c for c in cols if c.startswith(("w_r_", "w_h_", "w_n_", "w_c_", "w_x_", "w_a_"))]           # the newest data families
+    win_cols = [c for w in (lessons.get("winners") or []) for c in w.get("cols", []) if c in cols]
+    GEN.FOCUS = sorted(set(fresh + win_cols))
+    nights = [x for x in A.log if "evals" in x][-2:]
+    GEN.EXPLORE = len(nights) >= 2 and not any(x.get("staged") for x in nights)
+    GEN.REGIME = [c for c in ("p_mtrend", "p_volr", "p_vol24", "p_btc_r24", "p_fg", "p_dvol", "w_shockN", "w_x_mfr", "w_c_mkt") if c in cols]
+    mode = "exploration (no voter staged for 2 nights: regime-specialised voters, fresh and winning data first, more cross-family crossover)" if GEN.EXPLORE else "normal"
+    log(f"   evo mode: {mode}; focus columns {len(GEN.FOCUS)}; lessons: {len(lessons.get('failed') or [])} failed, {len(lessons.get('parked') or [])} parked, {len(lessons.get('winners') or [])} winning")
     seen = set(); rej = {"error": 0, "too little data": 0, "no gain": 0, "shy (fails ranking / profit / volume)": 0, "correlated with the Arbiter": 0, "twin": 0, "worse than its niche": 0}; new = 0; evals = 0
     try: from ..ideas import _groq_call as ask
     except Exception: ask = None
@@ -120,10 +132,13 @@ def main(budget_min=100.0, seed=None, log=print):
         el = A.elites()
         if len(el) < 24 or rng.random() < 0.1: evaluate(GEN.genome(cols, rng), "random")
         else:
-            a, b = rng.choice(el), rng.choice(el); evaluate(GEN.mutate(a["genome"], cols, rng, b["genome"]), "mutation")
+            a, b = rng.choice(el), rng.choice(el)
+            if GEN.EXPLORE and len(el) > 3:                     # cross-family: pair elites from DIFFERENT niches
+                others = [e for e in el if e.get("cell") != a.get("cell")]; b = rng.choice(others) if others else b
+            evaluate(GEN.mutate(a["genome"], cols, rng, b["genome"]), "mutation")
         if ask and llm_calls < 8 and evals and evals % 200 == 0:
             llm_calls += 1
-            try: kids = GEN.llm_voters(sorted(el, key=lambda e: -e["fit"])[:4], misses, cols, ask)
+            try: kids = GEN.llm_voters(sorted(el, key=lambda e: -e["fit"])[:4], misses, cols, ask, lessons=lessons)
             except Exception as e: kids = []; log(f"   evo: AI answer unusable ({str(e)[:80]})")
             for g, origin, why in kids: evaluate(g, origin)
         if evals % 500 == 0 and evals: log(f"   evo: {evals} tried this night, {len(A.cells)} niches filled, {new} new elites, rejected {rej}")
@@ -142,7 +157,7 @@ def main(budget_min=100.0, seed=None, log=print):
             chk["causal"] = ok; chk["noLeak"] = lk; chk["leaky"] = bad or None; passed = ok and lk
         chk["passed"] = passed; e["checks"] = chk
         if passed and ST.stage_arbiter_upgrade(e, log): staged_now.append(e["key"])
-    A.log.append({"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), "evals": evals, "new": new, "filled": len(A.cells), "N": A.N, "bar": round(bar, 2),
+    A.log.append({"at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()), "evals": evals, "new": new, "filled": len(A.cells), "N": A.N, "bar": round(bar, 2), "mode": "explore" if GEN.EXPLORE else "normal", "focus": len(GEN.FOCUS),
                   "rejected": rej, "origins": origins, "llmCalls": llm_calls, "staged": staged_now, "mins": round((time.time() - t0) / 60, 1), "fitness": "Arbiter odds-error drop"})
     A.save()
     summ = {"at": A.log[-1]["at"], "N": A.N, "bar": round(bar, 2), "filled": len(A.cells), "cells": 2 * 4 * 4 * 4, "lastNight": A.log[-1], "fitness": "Arbiter odds-error drop (t per market move)",
