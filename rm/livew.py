@@ -286,8 +286,16 @@ RAW_PATTERNS = [r"^[0-9A-Z]+_(k|m|s|f|hl)\.parquet$", r"^book_[0-9A-Z]+\.parquet
                 r"^cz_(liq_d|liq_h|oifr_d|markets)\.(parquet|json)$", r"^(macro|onchain)\.parquet$", r"^compass_\w+\.parquet$", r"^ext$"]
 COLLECT_KNOWN = KNOWN_COLLECT | {"digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "stamps.json", "news"}
 
-def orphans():
-    """files that nothing reads (a collector whose data is never used). Auto-discovered tables are not orphans."""
+def orphans(recent_days=14):
+    """files that nothing reads, written in the last two weeks (a collector whose data is never used). Old leftovers are listed by
+    old_orphans() for the record but do not count. Auto-discovered tables are not orphans."""
+    cut = time.time() - recent_days * DAY
+    return [f for f in _all_orphans() if os.path.getmtime(f.replace("state/", f"{C.STATE_DIR}/", 1).replace("data/", f"{C.DATA_DIR}/", 1)) >= cut]
+
+def old_orphans(recent_days=14):
+    new = set(orphans(recent_days)); return [f for f in _all_orphans() if f not in new]
+
+def _all_orphans():
     out = []
     for f in (os.listdir(KEEP("")) if os.path.isdir(KEEP("")) else []):
         if f in COLLECT_KNOWN or (f.endswith(".parquet") and "auto-" + _slug(f) in AUTO) or f.endswith(".tmp"): continue

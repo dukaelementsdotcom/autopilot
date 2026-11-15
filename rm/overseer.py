@@ -215,7 +215,7 @@ def checks(mem, J, now=None):
     try: track(mem, now); lessons(mem)
     except Exception as e: O["trackError"] = str(e)[:200]
     orph = []
-    try: orph = LW.orphans()
+    try: orph = LW.orphans(); O["oldOrphans"] = LW.old_orphans()
     except Exception as e: orph = [f"(could not check: {e})"]
     O["orphans"] = orph
     pr = promises(mem, J); pa, rep = parts(mem, now)
