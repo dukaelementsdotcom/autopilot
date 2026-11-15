@@ -96,9 +96,11 @@ def main(budget_min=100.0, seed=None, log=print):
     mode = "exploration (no voter staged for 2 nights: regime-specialised voters, fresh and winning data first, more cross-family crossover)" if GEN.EXPLORE else "normal"
     log(f"   evo mode: {mode}; focus columns {len(GEN.FOCUS)}; lessons: {len(lessons.get('failed') or [])} failed, {len(lessons.get('parked') or [])} parked, {len(lessons.get('winners') or [])} winning")
     seen = set(); rej = {"error": 0, "too little data": 0, "no gain": 0, "shy (fails ranking / profit / volume)": 0, "correlated with the Arbiter": 0, "twin": 0, "worse than its niche": 0}; new = 0; evals = 0
-    try: from ..ideas import _groq_call as ask
+    try:
+        from ..ideas import _groq_call
+        ask = lambda msgs, max_tokens=2500: _groq_call(msgs, max_tokens, prefer="gemini-pro")    # deeper prompts: Gemini 2.5 Pro first, then Flash, then Groq
     except Exception: ask = None
-    if not os.environ.get("GROQ_API_KEY"): ask = None
+    if not (os.environ.get("GROQ_API_KEY") or os.environ.get("GEMINI_API_KEY")): ask = None
     llm_calls = 0; origins = {}
     feats_ctx = [f for f in CTX_FEATS if f in P.columns]
     misses = {"confidentLosers": {("long" if s > 0 else "short"): orc.confident_misses(s, feats_ctx) for s in (1, -1)},

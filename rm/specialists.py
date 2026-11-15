@@ -20,6 +20,7 @@ def trade(J, B, R, A, cfg, rows, S, REG, V, now_iso, newest, ctx):
     kind = cfg.get("spec")
     if kind == "pairs": return _pairs(J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
     if kind == "runner": return _runner(J, B, R, A, rows, S, pos_new, newest, ctx)
+    if kind == "flushlong": return _flushlong(J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
     if any(int(x["t"] // 86400) == newest // 86400 for x in A["open"] + A["closed"][-10:]) or len(A["open"]) >= 2: return
     reg = REG.get(newest) or ""
     if kind == "news":
@@ -145,3 +146,41 @@ def manage_runs(J, A, newest):
             A["closed"].append({**{k: v for k, v in r.items() if k != "units"}, "exitT": t + H, "how": how, "usd": round(pnl, 2), "after": A["cash"], "steps": r["lvl"],
                                 "pct": round((px / e - 1) * 100, 2), "hitTarget": r["lvl"] >= 1, "roe": round(pnl / max(1e-9, r["margin"]) * 100, 1)})
             A["curve"].append([t + H, A["cash"]])
+
+
+def bull_score(J, newest):
+    """the causal bull score from the Nov 15 lab test (rm/labtest_bull.py), at the newest hour: BTC above its 50-day and 200-day
+    averages, 50-day above 200-day, 30-day trend up, market-wide spot CVD (7 days) positive, options fear calm (p_dvol < 0.7).
+    Every input uses hours before `newest` only. Returns (score 0-5, details)."""
+    P = J.P; b = P[(P.coin.values == "BTC") & (P.t.values < newest)].sort_values("t")
+    cl = b["_cl"].astype(float).values
+    if len(cl) < 4800: return 0, {"why": "not enough BTC history"}
+    prev = cl[-1]; s50, s200 = cl[-1200:].mean(), cl[-4800:].mean(); r30 = np.log(prev / cl[-721])
+    w = P.loc[(P.t.values > newest - 168 * H) & (P.t.values <= newest), ["t", "w_c_div24"]] if "w_c_div24" in P else None
+    cvd = float(w.groupby("t").w_c_div24.mean().mean()) if w is not None and len(w) else np.nan
+    dv = P.loc[(P.coin.values == "BTC") & (P.t.values == newest), "p_dvol"] if "p_dvol" in P else []
+    dv = float(dv.iloc[0]) if len(dv) else np.nan
+    parts = {"aboveSMA50": prev > s50, "SMA50aboveSMA200": s50 > s200, "trend30dUp": r30 > 0, "spotCVDpositive": cvd > 0, "optionsFearCalm": dv < 0.7}
+    return int(sum(bool(v) for v in parts.values())), {k: bool(v) for k, v in parts.items()}
+
+def _flushlong(J, B, R, A, rows, S, pos_new, now_iso, newest, ctx):
+    """FLUSH-ABSORB LONG, bull-score gated (lab test Nov 15: settings chosen on 2020-22, unseen 2023-26 +2.2%/month, 72% won).
+    Only while the bull score is >= 4 of 5: buy the coin whose longs were flushed hardest yesterday (long liquidations >= 1 sd above
+    normal), that is down at least one normal daily move over 24h, while spot buyers absorb it (spot-vs-perp CVD over 24h > 0).
+    One new trade a day, the volatility stop, a FULL exit at +2% (no runner), 48 hours at most."""
+    from . import referee as RF
+    if "long" not in B["sides"]: return
+    sc, why = bull_score(J, newest); R.setdefault("flushlong", {}).update(score=sc, parts=why, at=now_iso)
+    if sc < 4 or any(int(x["t"] // 86400) == newest // 86400 for x in A["open"] + A["closed"][-10:]) or len(A["open"]) >= 2: return
+    P = J.P; best = None
+    for pos in pos_new:
+        i = int(rows[pos]); lq = P["w_l_long1"].values[i] if "w_l_long1" in P else np.nan; dv = P["w_c_div24"].values[i] if "w_c_div24" in P else np.nan
+        r24 = P["r24"].values[i] if "r24" in P else np.nan
+        if not (lq >= 1.0 and dv > 0 and r24 <= -J.dvol[i]): continue
+        if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
+        if best is None or lq > best[0]: best = (float(lq), pos, i)
+    if not best: return
+    _, pos, i = best; stp = float(RF.stop_pct(J.dvol[i])); pr = float(S["long"]["prob"][pos])
+    RF._open(J, B, A, i, ("long", "A", pr, 0.0), stp, float(RF.breakeven(stp)), S, pos, [], now_iso, R, {"spec": "flushlong"}, T=RF.TARGET, Hz=48, ctx=ctx)
+    if A["open"] and A["open"][-1]["coin"] == str(J.coin[i]):
+        A["open"][-1].update(fullExit=True, maxHold=48, why=f"flush-absorb long: long liquidations {best[0]:+.1f} sd, spot absorbing, bull score {sc}/5")

@@ -194,7 +194,44 @@ def _groq(messages, max_tokens=2500):
     out = _groq_call(messages, max_tokens)
     AI_LOG.append({"ok": out[0] is not None, "model" if out[0] is not None else "error": str(out[1])[:160]}); return out
 
-def _groq_call(messages, max_tokens=2500):
+GEMINI = ("gemini-2.5-flash", "gemini-2.5-pro")
+
+def _gemini(messages, max_tokens=2500, models=GEMINI):
+    """Google AI Studio (free tier, GEMINI_API_KEY). Same messages, same JSON-only answers (callers parse the text exactly as before)."""
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key: return None, "no GEMINI_API_KEY"
+    sys_ = "\n".join(m["content"] for m in messages if m.get("role") == "system")
+    contents = [{"role": "model" if m.get("role") == "assistant" else "user", "parts": [{"text": m["content"]}]} for m in messages if m.get("role") != "system"]
+    last = ""
+    for model in models:
+        body = {"contents": contents, "generationConfig": {"temperature": 0.7, "maxOutputTokens": int(max_tokens) + 4096, "responseMimeType": "application/json",
+                                                            "thinkingConfig": {"thinkingBudget": 2048 if "pro" in model else 512}}}
+        if sys_: body["systemInstruction"] = {"parts": [{"text": sys_}]}
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", headers={"x-goog-api-key": key}, json=body, timeout=120)
+            if r.ok:
+                parts = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+                txt = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+                if txt.strip(): print(f"   ai: gemini {model} answered"); return txt, f"gemini/{model}"
+                last += f" | {model}: empty answer ({str(r.json().get('candidates', [{}])[0].get('finishReason'))})"
+            else: last += f" | {model}: HTTP {r.status_code} {r.text[:90]}"
+        except Exception as e: last += f" | {model}: {str(e)[:90]}"
+    return None, last[3:]
+
+def _groq_call(messages, max_tokens=2500, prefer=None):
+    """Groq first (fast); if every Groq model fails (rate limit 429, timeout, error, or no key), Google AI Studio takes over.
+    prefer='gemini-pro': the deeper nightly-evolution prompts go to Gemini 2.5 Pro first, with Gemini Flash and Groq behind it."""
+    if prefer == "gemini-pro":
+        txt, m = _gemini(messages, max_tokens, ("gemini-2.5-pro", "gemini-2.5-flash"))
+        if txt: return txt, m
+        g = _groq_only(messages, max_tokens)
+        return g if g[0] else (None, f"gemini: {m} || groq: {g[1]}")
+    g = _groq_only(messages, max_tokens)
+    if g[0]: return g
+    txt, m = _gemini(messages, max_tokens)
+    return (txt, m) if txt else (None, f"groq: {g[1]} || gemini: {m}")
+
+def _groq_only(messages, max_tokens=2500):
     key = os.environ.get("GROQ_API_KEY")
     if not key: return None, "no GROQ_API_KEY"
     last = ""
