@@ -194,7 +194,7 @@ def _groq(messages, max_tokens=2500):
     out = _groq_call(messages, max_tokens)
     AI_LOG.append({"ok": out[0] is not None, "model" if out[0] is not None else "error": str(out[1])[:160]}); return out
 
-_GM = {}; _GDEAD = set()
+_GM = {}; _GDEAD = set(); _GSLOW = set()
 def _gemini_models(key, kind="flash"):
     """ask Google which Gemini models exist today (names change), newest stable first; 'flash' = fast, 'pro' = deep"""
     if kind not in _GM:
@@ -205,7 +205,8 @@ def _gemini_models(key, kind="flash"):
                      and not any(x in m["name"] for x in ("tts", "image", "audio", "live", "embedding", "lite", "8b", "exp", "computer"))]
             ver = lambda n: tuple(float(x) if x.replace(".", "").isdigit() else 0 for x in re.findall(r"\d+(?:\.\d+)?", n)[:1])
             stable = lambda n: 0 if ("preview" not in n and "latest" not in n) else 1
-            _GM[kind] = sorted(names, key=lambda n: (stable(n), tuple(-v for v in ver(n)), len(n)))[:3]
+            top = sorted(names, key=lambda n: (stable(n), tuple(-v for v in ver(n)), len(n)))[:3]
+            _GM[kind] = sorted(top, key=lambda n: (stable(n), ver(n), len(n)))           # of the 3 newest, the most settled (fastest to answer) first
         except Exception: _GM[kind] = []
         _GM[kind] = _GM[kind] or [f"gemini-2.5-{kind}"]
     return _GM[kind]
@@ -217,7 +218,8 @@ def _gemini(messages, max_tokens=2500, models=None, kind="flash"):
     sys_ = "\n".join(m["content"] for m in messages if m.get("role") == "system")
     contents = [{"role": "model" if m.get("role") == "assistant" else "user", "parts": [{"text": m["content"]}]} for m in messages if m.get("role") != "system"]
     last = ""; t0 = time.time()
-    for model in [m for m in (models or _gemini_models(key, kind)) if m not in _GDEAD]:
+    cand = [m for m in (models or _gemini_models(key, kind)) if m not in _GDEAD]
+    for model in [m for m in cand if m not in _GSLOW] + [m for m in cand if m in _GSLOW]:      # a model that timed out goes last
         if time.time() - t0 > 100: last += " | time cap reached"; break               # never hold an hourly run up for long
         body = {"contents": contents, "generationConfig": {"temperature": 0.7, "maxOutputTokens": int(max_tokens) + 4096, "responseMimeType": "application/json"}}
         if sys_: body["systemInstruction"] = {"parts": [{"text": sys_}]}
@@ -230,7 +232,9 @@ def _gemini(messages, max_tokens=2500, models=None, kind="flash"):
                 if txt.strip(): print(f"   ai: gemini {model} answered"); return txt, f"gemini/{model}"
                 last += f" | {model}: empty answer ({str(r.json().get('candidates', [{}])[0].get('finishReason'))})"
             else: last += f" | {model}: HTTP {r.status_code} {r.text[:90]}"
-        except Exception as e: last += f" | {model}: {str(e)[:90]}"
+        except Exception as e:
+            if "timed out" in str(e).lower(): _GSLOW.add(model)
+            last += f" | {model}: {str(e)[:90]}"
     return None, last[3:]
 
 def _groq_call(messages, max_tokens=2500, prefer=None):
