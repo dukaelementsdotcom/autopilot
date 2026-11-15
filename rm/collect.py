@@ -99,15 +99,16 @@ def onchain(log=print):
 # ── Hyperliquid whales (hourly snapshot) ──────────────────────────────────────────────────────────
 def whales(log=print, top=50):
     os.makedirs(KEEP(""), exist_ok=True); lb = KEEP("hl_top.json")
-    if not os.path.exists(lb) or time.time() - os.path.getmtime(lb) > 24 * H:      # the leaderboard file is ~40 MB: once a day
+    from .compass import _age, _stamp                     # (a file's own clock is reset by the memory restore: keep the refresh time in stamps.json)
+    if not os.path.exists(lb) or _age("whale_leaderboard") > 24 * H:                # the leaderboard file is ~40 MB: once a day
         r = S.get("https://stats-data.hyperliquid.xyz/Mainnet/leaderboard", timeout=120); r.raise_for_status()
         rows = r.json().get("leaderboardRows", [])
         rows.sort(key=lambda x: -float(x.get("accountValue") or 0))
-        json.dump([x["ethAddress"] for x in rows[:top]], open(lb, "w"))
-    addrs = json.load(open(lb)); t = int(time.time()) // H * H; agg = {}
+        json.dump([x["ethAddress"] for x in rows[:top]], open(lb, "w")); _stamp("whale_leaderboard")
+    addrs = json.load(open(lb)); t = int(time.time()) // H * H; agg = {}; ok = 0
     for a in addrs:
         try:
-            st = S.post("https://api.hyperliquid.xyz/info", json={"type": "clearinghouseState", "user": a}, timeout=20).json()
+            st = S.post("https://api.hyperliquid.xyz/info", json={"type": "clearinghouseState", "user": a}, timeout=20).json(); ok += 1
         except Exception: continue
         for p in st.get("assetPositions", []):
             pos = p.get("position", {}); c = pos.get("coin", ""); sz = float(pos.get("szi") or 0); val = float(pos.get("positionValue") or 0)
@@ -119,7 +120,7 @@ def whales(log=print, top=50):
     df = pd.DataFrame([{"coin": c, "t": t, **v} for c, v in agg.items()])
     if df.empty: return {"error": "no positions"}
     os.makedirs(KEEP(""), exist_ok=True); path = KEEP("hl_whales.parquet"); _save(_merge(path, df, ["coin", "t"]), path)
-    log(f"whales: {len(addrs)} accounts, {len(df)} coins"); return {"accounts": len(addrs), "coins": int(len(df))}
+    log(f"whales: {ok} of {len(addrs)} accounts answered, {len(df)} coins"); return {"accounts": len(addrs), "ok": ok, "coins": int(len(df))}
 
 # ── news (hourly) ─────────────────────────────────────────────────────────────────────────────────
 # public RSS feeds (GDELT refuses GitHub's machines). Google News searches cover the outside world (Fed, wars, deals, tariffs).

@@ -34,9 +34,9 @@ WITNESSES = {
                 "what": "Liquidation witness: how many longs and shorts were forcibly closed yesterday and over the last week, per coin and market-wide (Binance, Bybit and OKX, history since 2020)"},
     "shock":   {"cols": ["w_shock1", "w_shock4", "w_shockN"], "what": "Shock witness: how unusual the market's last moves were (what usually follows a shock like this)"},
 }
-WAITING = {"recorder": "Recorder witness: liquidations, order-book and order-flow imbalance, live funding (own server)",
-           "whales": "Whale witness: the largest Hyperliquid accounts' positions",
-           "news": "News witness: headlines tagged by the AI"}
+WAITING = {}            # (was: recorder / whales / news as a status line only; they are now real witnesses, see livew.py)
+from . import livew as LW
+WITNESSES.update({k: {"cols": v["cols"], "what": v["what"], "live": True} for k, v in LW.LIVE.items()})
 CH.WITNESSES.update({k: v for k, v in WITNESSES.items()})
 MODEL = lambda name: f"{C.DATA_DIR}/models/w_{name}.joblib"
 
@@ -97,6 +97,8 @@ def panel_extras(P, log=print):
     try:
         from . import book; out.update(book.features(P, log))
     except Exception as e: log(f"   order-book features skipped: {e}")
+    try: out.update(LW.features(P, log))                       # recorder / whales / news, from our own recordings
+    except Exception as e: log(f"   live witness features skipped: {e}")
     try:
         from . import compass; out["p_mtrend"] = compass.trend_panel(P, out)      # the market's trend as a measurement (research rules can condition on it)
     except Exception as e: log(f"   trend column skipped: {e}")
@@ -119,7 +121,11 @@ def model(name, B):
     return m if m and not m.get("failed") and B is not None and m.get("bundle") == B["trainedAt"] and m.get("want", m.get("cols")) == WITNESSES[name]["cols"] else None
 
 def _tried(name, B):
-    m = _cached(name); return bool(m) and B is not None and m.get("bundle") == B["trainedAt"] and (m.get("want", m.get("cols")) == WITNESSES[name]["cols"] or (m.get("failed") and "want" not in m and name not in ("mood", "flows")))
+    m = _cached(name)
+    if m and m.get("live") and m.get("failed") and B is not None and m.get("bundle") == B["trainedAt"]:
+        try: return time.time() - time.mktime(time.strptime(m["fitAt"], "%Y-%m-%d %H:%M")) < LW.RETRY_DAYS * DAY   # a failed exam is retried with more data
+        except Exception: return False
+    return bool(m) and B is not None and m.get("bundle") == B["trainedAt"] and (m.get("want", m.get("cols")) == WITNESSES[name]["cols"] or (m.get("failed") and "want" not in m and name not in ("mood", "flows")))
 
 def ready(B):
     return [n for n in WITNESSES if model(n, B) is not None]
@@ -130,6 +136,15 @@ def status(B, J=None):
     for n, w in WITNESSES.items():
         m = model(n, B)
         st[n] = {"what": w["what"], "state": "challenger (being scored live)" if m else "waiting to be trained", **({"exam": m.get("exam")} if m else {})}
+        if w.get("live") and not m:
+            left = LW.warm_left(n); d = LW.days(n)
+            if left > 0:
+                st[n]["state"] = f"recording (day {d:.0f} of {LW.LIVE[n]['warm']}); trains and joins the race by itself around {time.strftime('%b %d', time.gmtime(time.time() + left * DAY))}"
+            else:
+                c = _cached(n)
+                st[n]["state"] = (f"not admitted yet: {c.get('why')}; retries automatically every {LW.RETRY_DAYS} days with more data" if c and c.get("failed")
+                                  else "warm-up done: training in the next run")
+            st[n]["days"] = round(d, 1); st[n]["warm"] = LW.LIVE[n]["warm"]
         if n == "book" and not m:
             try:
                 from . import book; bm = book._man(); nd = sum(len(v) for v in bm["done"].values())
@@ -188,6 +203,14 @@ def maybe_fit(J, mem, log=print, time_left=1e9):
     if B is None or Hd is None or "V" not in next(iter(Hd["sides"].values())): return False
     for n in WITNESSES:
         if _tried(n, B): continue
+        if WITNESSES[n].get("live"):
+            if LW.warm_left(n) > 0: continue                                             # still recording its warm-up
+            if time_left < 3 * 60: log("witnesses: postponed (not enough time this run)"); return False
+            import joblib
+            m = LW.fit(n, J, B, mem.get("referee") or {}, log); m["want"] = list(WITNESSES[n]["cols"])
+            os.makedirs(os.path.dirname(MODEL(n)), exist_ok=True)
+            joblib.dump(m, MODEL(n) + ".tmp", compress=3); os.replace(MODEL(n) + ".tmp", MODEL(n)); _MC.pop(n, None)
+            return True
         if not any(c in J.P.columns for c in WITNESSES[n]["cols"]): continue        # its measurements are not in the panel yet (history still arriving)
         if time_left < 8 * 60: log("witnesses: postponed (not enough time this run)"); return False
         m = fit(n, J, B, Hd, log)
@@ -198,10 +221,11 @@ def maybe_fit(J, mem, log=print, time_left=1e9):
         return True
     return False
 
-def prob_rows(name, side, J, rows, fams, B):
+def prob_rows(name, side, J, rows, fams, B, base=None):
     """the referee's odds WITH this witness, for candidate rows"""
     m = model(name, B)
     if not m or side not in m.get("sides", {}): return None
+    if m.get("live"): return None if base is None else LW.prob_rows(m, side, J, rows, base)
     s = m["sides"][side]; from . import referee as RF
     wv = s["model"].predict_proba(RF._X(J.P, rows, m["cols"]))[:, 1]
     Xc = np.column_stack([CH._lg(np.asarray(fams[f])) for f in s["order"][:-1]] + [CH._lg(wv)])

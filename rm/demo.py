@@ -143,10 +143,10 @@ def mirror(R, log=print):
         # the same stop (moved when the Arbiter moves it) and the same half-target, waiting on the exchange
         stp = float(_fmt(p["stop"], I["tick"]))
         if st.get("stop") != stp:
-            uncond(sym, st.get("stopId")); st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "at": stp})
+            uncond(sym, st.get("stopId")); st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "px": stp})
         if not p.get("half") and not st.get("tpId"):
             hq = _fl(st["qty"] / 2, I["step"])
-            if hq >= I["minQty"]: st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); st["tp"] = p["target"]; done.append({"target": sym, "at": p["target"], "qty": hq})
+            if hq >= I["minQty"]: st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); st["tp"] = p["target"]; done.append({"target": sym, "px": p["target"], "qty": hq})
         st.update(side=("LONG" if side == "BUY" else "SHORT"), size=abs(held.get(sym, 0)), tgt=p["target"], grade=p.get("grade"), coin=p["coin"])
     # 3) the demo account in the SAME shape as the Arbiter's (the dashboard draws both with the same panel), from Binance's own numbers
     if done:

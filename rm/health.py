@@ -131,6 +131,9 @@ def write(mem, J, timings, problems, live, t0, log=print):
     ai = mem.get("aiStatus") or {}
     last_ok = bool(ai.get("last")) and ai["last"][-1].get("ok")          # one model failing is fine when the fallback model answered
     chk("AI (Groq) answers", not ai or ai.get("ok", True) or last_ok, warn=True, detail=json.dumps(ai)[:200] if ai else "no AI calls recorded this run")
+    try:                                                   # the overseer: data promises, automatic parts, safe repairs
+        from . import overseer; checks.extend(overseer.checks(mem, J, now))
+    except Exception as e: chk("overseer", False, warn=True, detail=f"overseer failed: {str(e)[:150]}")
     worst = "FAIL" if any(c["status"] == "FAIL" for c in checks) else "WARN" if any(c["status"] == "WARN" for c in checks) else "OK"
     rep = {"what": "Research Machine health report. Download and send it to Claude to diagnose problems.", "generated": snap["at"] + " UTC", "overall": worst,
            "checks": checks, "thisRun": {**snap, "timings": timings, "problems": problems, "panelRows": int(len(J.P)) if J is not None else None,
@@ -166,6 +169,9 @@ def write(mem, J, timings, problems, live, t0, log=print):
             mem["alertedFor"] = why + snap["at"][:10]
             open("alert.txt", "w").write(f"Volvox needs a look: {why}.\n" + "\n".join(f"{c['check']}: {c['status']} - {c['detail']}" for c in checks if c["status"] != "OK"))
     except Exception as e: log(f"alert check failed: {e}")
+    try:
+        from . import overseer; overseer.daily(mem, rep, log)
+    except Exception as e: log(f"overseer daily report failed: {e}")
     mem["healthSummary"] = {"overall": worst, "checks": [[c["check"], c["status"], c["detail"]] for c in checks], "at": snap["at"]}
     log(f"health: {worst} ({sum(c['status']=='OK' for c in checks)}/{len(checks)} OK)")
     return rep

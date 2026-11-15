@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pages: write
   id-token: write
   actions: write
@@ -73,6 +74,8 @@ jobs:
           fi
 
       - name: research day
+        env:
+          GH_TOKEN: ${{ github.token }}          # the overseer: checks the fast lane, re-runs a missed evolution night, posts the daily report
         run: python -m rm.run
 
       - name: start the nightly evolution (once a day, 01 UTC)

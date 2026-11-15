@@ -340,7 +340,7 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
         prob = np.array(S[name]["prob"], float)
         if cfg.get("odds", "weekly").startswith("witness:"):
             from . import witnesses
-            pw = witnesses.prob_rows(cfg["odds"][8:], name, J, rows, fams, B)
+            pw = witnesses.prob_rows(cfg["odds"][8:], name, J, rows, fams, B, base=prob)
             if pw is not None: prob = np.asarray(pw, float)
         elif cfg.get("odds", "weekly") != "weekly":
             prob = np.array([CH.odds(R, B, None if not Hd else Hd, cfg, name, {f: float(v[k]) for f, v in fams.items()}, REG.get(int(J.t[rows[k]])), prob[k]) for k in range(n)])

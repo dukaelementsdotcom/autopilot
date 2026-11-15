@@ -94,6 +94,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <div id="obs"></div>
 <div class="card story" id="story" style="margin-top:12px"></div>
 <div id="hcheck"></div>
+<div id="oversee"></div>
 <h2>Signals now</h2><div id="signals"></div>
 <div class="grid" style="margin-top:12px" id="kpi"></div>
 <h2>The paper accounts</h2>
@@ -461,7 +462,7 @@ setInterval(()=>{fetch("summary.json?"+Date.now()).then(r=>r.json()).then(x=>{if
   const score=c.kind==="policy"&&me.growth!=null?`account ${me.growth>=0?"+":""}${me.growth}% vs champion ${cp.growth>=0?"+":""}${cp.growth}% · ${me.trades} trades`
    :me.ll!=null?`odds error ${me.ll} vs ${cp.ll} · Grade A/day ${me.aPerDay} vs ${cp.aPerDay} · profit/day ${me.profitPerDay}% vs ${cp.profitPerDay}%`:"collecting its first scored candidates";
   const age=c.born?Math.max(0,Math.round((Date.now()-Date.parse(c.born.replace(" ","T")+"Z"))/864e5)):null;
-  const stt=(s.better?"<b style='color:var(--good)'>promotion due</b>":esc(s.state||(!s.bets?"just started":"collecting")))+`<div class="mute" style="font-size:12px">${s.account?`${s.bets||0} of 20 trades`:`${s.bets||0} separate bets${s.lead!=null?` · lead ${s.lead>=0?"+":""}${s.lead} (needs +${s.zNeeded||3})`:""}`}${age!=null?` · ${age} day${age==1?"":"s"} old`:""}</div>`;
+  const stt=(s.better&&s.ready?"<b style='color:var(--good)'>promotion due</b>":s.better?"<b style='color:var(--good)'>ahead</b> (promoted automatically once it has enough evidence)":esc(s.state||(!s.bets?"just started":"collecting")))+`<div class="mute" style="font-size:12px">${s.account?`${s.bets||0} of 20 trades`:`${s.bets||0} separate bets${s.lead!=null?` · lead ${s.lead>=0?"+":""}${s.lead} (needs +${s.zNeeded||3})`:""}`}${age!=null?` · ${age} day${age==1?"":"s"} old`:""}</div>`;
   return `<tr><td><b>${esc(n)}</b><div class="mute" style="font-size:12.5px">${esc(c.what)}</div></td><td style="font-size:13px">${score}</td><td style="font-size:13px">${stt}</td></tr>`}).join("");
  const hist=(ch.history||[]).slice(-5).reverse().map(h=>`<div class="mute" style="font-size:13px">${esc(h.at)} UTC: <b>${esc(h.promoted)}</b> promoted (${esc(h.what)})</div>`).join("");
  const rj=Object.entries(rej).map(([n,w])=>`<div class="mute" style="font-size:13px"><b>${esc(n)}</b>: ${esc(w)}</div>`).join("");
@@ -528,6 +529,12 @@ try{$("roadmap").innerHTML=D.roadmap||'<p class="mute">Not available.</p>'}catch
   <a href="health.json" download="health-${esc(H.at.replace(/[ :]/g,"-"))}.json" style="float:right" onclick="event.stopPropagation()">⬇ Download health report</a></summary>
   <table style="margin-top:8px">${H.checks.map(c=>`<tr><td style="color:var(--${col[c[1]]});font-weight:650;width:60px">${c[1]}</td><td><b>${esc(c[0])}</b><div class="mute" style="font-size:12.5px">${esc(c[2])}</div></td></tr>`).join("")}</table>
   <p class="mute" style="font-size:12.5px">The health report holds the last ~4 days of runs (timing, memory, data freshness per coin, relay and AI answers, problems, accounts). After a night away, download it and send it to Claude to check.</p></details>`})();
+// overseer: data promises and the automatic parts
+(()=>{const O=D.overseer;if(!O||!O.promises)return;const ic={"in use":"✅","on track":"⏳","BROKEN":"❌"},br=O.promises.filter(p=>p.status=="BROKEN").length,pb=(O.parts||[]).filter(p=>!p.ok).length;
+ $("oversee").innerHTML=`<details class="card" style="margin-top:10px" ${br||pb?"open":""}><summary><b style="color:var(--${br?"bad":pb?"warn":"good"})">● Overseer: ${br?br+" data promise(s) broken":pb?pb+" automatic part(s) need a look":"every data source is used when due; every automatic part ran"}</b> <span class="mute">${esc(O.at||"")} UTC${O.lastReport?` · daily report: ${esc(O.lastReport.at)}`:""}</span></summary>
+  <p class="mute" style="font-size:12.5px">Every source of evidence says who uses it and from when; the overseer checks every hour that it really happens, repairs what it safely can, and e-mails a daily report (a GitHub issue in the repository).</p>
+  <table>${O.promises.map(p=>`<tr><td style="width:24px">${ic[p.status]||""}</td><td><b>${esc(p.source)}</b><div class="mute" style="font-size:12.5px">${esc(p.user)}: ${esc(p.detail)}</div></td></tr>`).join("")}</table>
+  <table style="margin-top:8px">${(O.parts||[]).map(p=>`<tr><td style="width:24px">${p.ok?"✅":p.warn?"⚠️":"❌"}</td><td><b>${esc(p.check)}</b><div class="mute" style="font-size:12.5px">${esc(p.detail)}</div></td></tr>`).join("")}</table></details>`})();
 // analyst
 (()=>{const A=D.analyst;if(!A){$("analyst").innerHTML='<p class="mute">The analyst starts once there are at least 2 winning rules.</p>';return}
  $("analyst").innerHTML=`<div class="card"><div class="mute">Written ${esc(A.at)} UTC by ${esc(A.model)}</div>
@@ -647,6 +654,7 @@ def write(mem, J=None, log=print):
                          "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses"), "journal": (R.get("journal") or [])[-60:], "trend2Now": R.get("trend2Now"), "brief": R.get("brief"), "obs": R.get("obs"), "demoAcct": (R.get("demo") or {}).get("acct"), "demoSync": (R.get("demo") or {}).get("sync"), "wide": {k: (R.get("wide") or {}).get(k) for k in ("vs", "coins", "look")} | {"acct": {k: ((R.get("wide") or {}).get("acct") or {}).get(k) for k in ("equity", "cash", "start", "born", "open", "closed")}} if R.get("wide") else None, "evo": _evo_summary(), "demo": {k: (R.get("demo") or {}).get(k) for k in ("wallet", "holding", "at", "log", "error", "pos", "start", "startedAt", "arbiterCash", "gap")}, "drift": R.get("drift"), "stateBar": R.get("stateBar"), "trendAcc": R.get("trendAcc"), "upcoming": R.get("upcoming"), "crash": R.get("crash"), "attrib": R.get("attrib"), "coinTrust": R.get("coinTrust"),
                          "ruleTrust": {no: {rg: v for rg, v in regs.items() if v["state"] != "learning"} for no, regs in (R.get("ruleTrust") or {}).items() if any(v["state"] != "learning" for v in regs.values())}}
     d["healthSummary"] = mem.get("healthSummary")
+    d["overseer"] = {k: (mem.get("overseer") or {}).get(k) for k in ("promises", "parts", "at", "lastReport")}
     d["roadmap"] = _roadmap()
     d["analyst"] = mem.get("analyst")
     d["live"] = mem.get("live"); d["newest"] = int(J.t.max()) if J is not None else None
