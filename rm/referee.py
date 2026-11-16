@@ -508,7 +508,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
          "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": lev, "units": [[e, notional]],
          "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
-         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop")), **({"steps": [0.03, 0.045], "sl3": float(cfg.get("sl3") or 0.01)} if cfg.get("steps") else {}), "riskPct": round(notional * stp / max(1e-9, eq) * 100, 2), **({"tier": tier} if tier else {})}
+         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop")), **({"steps": _steps_of(cfg, float(J.dvol[i])), "sl3": float(cfg.get("sl3") or 0.01)} if cfg.get("steps") else {}), "riskPct": round(notional * stp / max(1e-9, eq) * 100, 2), **({"tier": tier} if tier else {})}
     if R is not None:
         from . import integrity as IG
         IG.audit(R, "risk_tier", f"{p['coin']}, {p['side']}, edge {prob - be:+.3f}, tier {tier or ('bold' if cfg.get('size') == 'bold' else 'grade ' + str(g))}, risk_pct {p['riskPct']}, "
@@ -863,6 +863,12 @@ def regimes(J, ts):
         if not np.isfinite(tr): continue
         out[int(t)] = ("up" if tr > 0 else "down") + "-" + ("wild" if (np.isfinite(pv) and pv >= 0.7) else "calm")
     return out
+
+def _steps_of(cfg, dv):
+    """TP2 / TP3 as moves from the entry: fixed +3% / +4.5%, or scaled to the coin's own typical move ('coin': TP1 + k2 x and TP1 + k3 x it)"""
+    k = cfg.get("stepsK")
+    if not k or not np.isfinite(dv): return [0.03, 0.045]
+    return [round(TARGET + k[0] * dv, 4), round(TARGET + k[1] * dv, 4)]
 
 def margin_of(R, name, sd):
     return max(0.0, sd["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0)))   # never below break-even itself
