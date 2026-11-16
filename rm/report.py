@@ -232,19 +232,20 @@ const pnlOf=(q,px)=>Math.max(-q.margin,q.notional*(q.sd*(px/q.avg-1))-q.notional
 const railPos=(q,px)=>{const lo=q.lo||q.sl,hi=q.hi||q.tp;if(!hi||!lo)return null;const f=q.sd>0?(px-lo)/(hi-lo):(lo-px)/(lo-hi);return Math.max(0,Math.min(1,f))};
 // the exit plan as a ladder: original stop, entry, then each take-profit step with what the stop does after it (only the plan the trade really uses)
 const ladderOf=q=>{if(!q.stopPct||!q.entry)return null;const e=q.entry,s=q.sd,L=[{lab:"SL1",sub:fx(e*(1-s*q.stopPct)),px:e*(1-s*q.stopPct),k:"sl"},{lab:"entry",sub:fx(e),px:e,k:"en"}];
- const t1=q.tgtPct||0.02;
- if(q.fullExit){L.push({lab:`TP +${(t1*100).toFixed(0)}%`,sub:"full exit",px:e*(1+s*t1),k:"tp",done:false});return L}
- L.push({lab:`TP1 +${(t1*100).toFixed(0)}% · 50%`,sub:"SL→BE",px:e*(1+s*t1),k:"tp",done:!!q.half});
- if(q.steps){L.push({lab:`TP2 +${(q.steps[0]*100).toFixed(0)}% · 25%`,sub:"SL→+1%",px:e*(1+s*q.steps[0]),k:"tp",done:(q.stepK||0)>=1});
-  L.push({lab:`TP3 +${(q.steps[1]*100).toFixed(1)}%`,sub:"full exit",px:e*(1+s*q.steps[1]),k:"tp",done:false})}
- else L.push({lab:"rest",sub:"trail / evidence",px:e*(1+s*(t1+0.015)),k:"end",done:false});
+ const t1=q.tgtPct||0.02,pc=v=>(v*100).toFixed(v*100%1?1:0);
+ if(q.fullExit){L.push({lab:`TP1 +${pc(t1)}%`,sub:"close all",px:e*(1+s*t1),k:"tp",done:false});return L}
+ L.push({lab:`TP1 +${pc(t1)}% · 50%`,sub:"then SL2 = break-even",px:e*(1+s*t1),k:"tp",done:!!q.half});
+ if(q.steps){const sl3=q.sl3??0.01;L.push({lab:`TP2 +${pc(q.steps[0])}% · 25%`,sub:`then SL3 = +${pc(sl3)}%`,px:e*(1+s*q.steps[0]),k:"tp",done:(q.stepK||0)>=1});
+  L.push({lab:`TP3 +${pc(q.steps[1])}%`,sub:"close all",px:e*(1+s*q.steps[1]),k:"tp",done:false})}
+ else L.push({lab:"no TP2",sub:"trailing stop / 72h",px:e*(1+s*(t1+0.015)),k:"end",done:false});
  return L};
+const slName=q=>!q.half?"SL1 (original stop)":q.steps&&(q.stepK||0)>=1?"SL3 (locked profit)":"SL2 (break-even + fees)";
 const ladderHTML=(q,L,m)=>{const lo=L[0].px,hi=L[L.length-1].px,f=px=>Math.max(0,Math.min(1,q.sd>0?(px-lo)/(hi-lo):(lo-px)/(lo-hi)));
  const sl=q.sl&&L[0].px!==q.sl?`<span class="tk slnow" style="left:${(f(q.sl)*100).toFixed(1)}%" title="stop now ${fx(q.sl)}"></span>`:"";
  const one=(x,i)=>{const p=(f(x.px)*100).toFixed(1),al=i==0?"left:0;transform:none;text-align:left":i==L.length-1?"left:100%;transform:translateX(-100%);text-align:right":`left:${p}%`;
   return `<span style="${al}" class="${x.done?"dn":""}${x.k=="sl"?" s":""}" title="${fx(x.px)}"><b>${x.done?"✓ ":""}${esc(x.lab)}</b><br>${esc(x.sub)}${x.k=="tp"?`<i class="pp"> · ${fx(x.px)}</i>`:""}</span>`};
  const R=L.filter(y=>y.k=="tp"||y.k=="end"),isUp=x=>R.indexOf(x)%2==1,up=L.map((x,i)=>isUp(x)?one(x,i):"").join(""),dn=L.map((x,i)=>isUp(x)?"":one(x,i)).join("");
- return `<div class="track">${up?`<div class="lad up">${up}</div>`:""}<div class="rail">${L.map(x=>`<span class="tk ${x.k}${x.done?" done":""}" style="left:${(f(x.px)*100).toFixed(1)}%"></span>`).join("")}${sl}<span class="mk" style="left:${(f(q.mark)*100).toFixed(1)}%"></span></div><div class="lad">${dn}</div>${q.sl&&q.half?`<div class="mute" style="font-size:11.5px;margin-top:2px">stop now ${fx(q.sl)} (red tick)</div>`:""}</div>`};
+ return `<div class="track">${up?`<div class="lad up">${up}</div>`:""}<div class="rail">${L.map(x=>`<span class="tk ${x.k}${x.done?" done":""}" style="left:${(f(x.px)*100).toFixed(1)}%"></span>`).join("")}${sl}<span class="mk" style="left:${(f(q.mark)*100).toFixed(1)}%"></span></div><div class="lad">${dn}</div>${q.sl?`<div class="mute" style="font-size:11.5px;margin-top:2px">stop now: <b style="color:var(--bad)">${slName(q)} ${fx(q.sl)}</b> (red tick)</div>`:""}</div>`};
 const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.margin*100,c=pn>=0?"good":"bad",LD=ladderOf(q);if(LD){q.lo=LD[0].px;q.hi=LD[LD.length-1].px}const m=railPos(q,q.mark),en=railPos(q,q.avg);
  const tpTxt=q.tp?fx(q.tp)+(q.half?" ✓ half taken":""):(q.trail?`trailing ${(q.trail*100).toFixed(1)}%`:"–");
  return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}" data-half="${q.half?1:0}" data-lo="${q.lo||""}" data-hi="${q.hi||""}">
