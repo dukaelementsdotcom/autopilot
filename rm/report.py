@@ -78,6 +78,9 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 .liq b{color:var(--warn)}
 .track{margin-top:12px}.rail{position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--bad) 35%,transparent),var(--soft) 50%,color-mix(in srgb,var(--good) 35%,transparent))}
 .rail .ent{position:absolute;top:-3px;width:2px;height:14px;background:var(--mute)}.rail .mk{position:absolute;top:-4px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--card);border:3px solid var(--ink);transition:left .6s}
+.rail .tk{position:absolute;top:-4px;width:2px;height:16px;margin-left:-1px;background:var(--mute)}.rail .tk.tp{background:color-mix(in srgb,var(--good) 60%,var(--mute))}.rail .tk.done{background:var(--good);width:3px}.rail .tk.sl{background:var(--bad)}.rail .tk.slnow{background:var(--bad);height:20px;top:-6px;width:3px}.rail .tk.end{background:transparent;border-left:2px dashed var(--mute)}
+.lad.up{margin:0 0 6px}.lad{position:relative;height:30px;margin-top:6px;font-size:11px;color:var(--mute);line-height:1.25}.lad span{position:absolute;transform:translateX(-50%);text-align:center;white-space:nowrap;max-width:34%;overflow:hidden;text-overflow:ellipsis}.lad span.dn b{color:var(--good)}.lad span.s b{color:var(--bad)}
+.lad .pp{font-style:normal}@media(max-width:560px){.lad{font-size:9.5px;height:30px}.lad .pp{display:none}}
 .tl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mute);margin-top:5px;font-variant-numeric:tabular-nums}
 .ev{font-size:12.5px;color:var(--mute);margin-top:8px}.ev b{color:var(--ink);font-weight:600}
 .hist td,.hist th{white-space:nowrap}.hist th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mute);font-weight:600}
@@ -106,7 +109,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <h2>Arbiter: one judge, every kind of evidence</h2>
 <p class="help">One brain instead of many rules. For each of the ~40 most liquid coins it asks "will this reach +2% before its stop?", long and short. Seven independent kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +2% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
 <div id="rbox"></div>
-<h2>Upgrades under test</h2><p class="help">Every new ability is a clone of the referee that differs by exactly one thing. It is scored on the same live candidates and takes over only when it is more accurate, finds at least as many Grade A trades, keeps honest odds and earns at least as much, over at least 40 independent bets (calls made in the same market move count as one).</p><div id="chalbox"></div>
+<h2>Upgrades under test</h2><p class="help">Every new ability is a clone of the referee that differs by exactly one thing. It is scored on the same live candidates and takes over only when it is more accurate, finds at least as many Grade A trades, keeps honest odds and earns at least as much, over at least 40 independent bets (calls made in the same market move count as one).</p><div id="chalbox"></div><div id="chalpos"></div>
 <h2>Honest odds: what it predicted vs what happened</h2><div id="calbox"></div>
 <h2>Monthly report</h2><div id="monthly"></div>
 <h2>Binance demo account: real orders, a 1:1 copy of the Arbiter</h2>
@@ -226,17 +229,32 @@ const age=t=>{const h=(Date.now()/1000-t)/3600;return h<1?Math.max(1,Math.round(
 const posOf=(p,lev)=>{const L=p.lev||lev,sd=p.side=="LONG"?1:-1,avg=p.avgEntry||p.entry,notional=p.notional||(p.margin*L);
  return {...p,L,sd,avg,notional,tp:p.target??p.tp,sl:p.stop??p.sl,mark:p.mark||p.livePx||avg,liq:L>1?avg*(1-sd*(1/L-0.005)):null}};
 const pnlOf=(q,px)=>Math.max(-q.margin,q.notional*(q.sd*(px/q.avg-1))-q.notional*0.001);
-const railPos=(q,px)=>{if(!q.tp||!q.sl)return null;const f=q.sd>0?(px-q.sl)/(q.tp-q.sl):(q.sl-px)/(q.sl-q.tp);return Math.max(0,Math.min(1,f))};
-const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.margin*100,c=pn>=0?"good":"bad",m=railPos(q,q.mark),en=railPos(q,q.avg);
+const railPos=(q,px)=>{const lo=q.lo||q.sl,hi=q.hi||q.tp;if(!hi||!lo)return null;const f=q.sd>0?(px-lo)/(hi-lo):(lo-px)/(lo-hi);return Math.max(0,Math.min(1,f))};
+// the exit plan as a ladder: original stop, entry, then each take-profit step with what the stop does after it (only the plan the trade really uses)
+const ladderOf=q=>{if(!q.stopPct||!q.entry)return null;const e=q.entry,s=q.sd,L=[{lab:"SL1",sub:fx(e*(1-s*q.stopPct)),px:e*(1-s*q.stopPct),k:"sl"},{lab:"entry",sub:fx(e),px:e,k:"en"}];
+ const t1=q.tgtPct||0.02;
+ if(q.fullExit){L.push({lab:`TP +${(t1*100).toFixed(0)}%`,sub:"full exit",px:e*(1+s*t1),k:"tp",done:false});return L}
+ L.push({lab:`TP1 +${(t1*100).toFixed(0)}% · 50%`,sub:"SL→BE",px:e*(1+s*t1),k:"tp",done:!!q.half});
+ if(q.steps){L.push({lab:`TP2 +${(q.steps[0]*100).toFixed(0)}% · 25%`,sub:"SL→+1%",px:e*(1+s*q.steps[0]),k:"tp",done:(q.stepK||0)>=1});
+  L.push({lab:`TP3 +${(q.steps[1]*100).toFixed(1)}%`,sub:"full exit",px:e*(1+s*q.steps[1]),k:"tp",done:false})}
+ else L.push({lab:"rest",sub:"trail / evidence",px:e*(1+s*(t1+0.015)),k:"end",done:false});
+ return L};
+const ladderHTML=(q,L,m)=>{const lo=L[0].px,hi=L[L.length-1].px,f=px=>Math.max(0,Math.min(1,q.sd>0?(px-lo)/(hi-lo):(lo-px)/(lo-hi)));
+ const sl=q.sl&&L[0].px!==q.sl?`<span class="tk slnow" style="left:${(f(q.sl)*100).toFixed(1)}%" title="stop now ${fx(q.sl)}"></span>`:"";
+ const one=(x,i)=>{const p=(f(x.px)*100).toFixed(1),al=i==0?"left:0;transform:none;text-align:left":i==L.length-1?"left:100%;transform:translateX(-100%);text-align:right":`left:${p}%`;
+  return `<span style="${al}" class="${x.done?"dn":""}${x.k=="sl"?" s":""}" title="${fx(x.px)}"><b>${x.done?"✓ ":""}${esc(x.lab)}</b><br>${esc(x.sub)}${x.k=="tp"?`<i class="pp"> · ${fx(x.px)}</i>`:""}</span>`};
+ const R=L.filter(y=>y.k=="tp"||y.k=="end"),isUp=x=>R.indexOf(x)%2==1,up=L.map((x,i)=>isUp(x)?one(x,i):"").join(""),dn=L.map((x,i)=>isUp(x)?"":one(x,i)).join("");
+ return `<div class="track">${up?`<div class="lad up">${up}</div>`:""}<div class="rail">${L.map(x=>`<span class="tk ${x.k}${x.done?" done":""}" style="left:${(f(x.px)*100).toFixed(1)}%"></span>`).join("")}${sl}<span class="mk" style="left:${(f(q.mark)*100).toFixed(1)}%"></span></div><div class="lad">${dn}</div>${q.sl&&q.half?`<div class="mute" style="font-size:11.5px;margin-top:2px">stop now ${fx(q.sl)} (red tick)</div>`:""}</div>`};
+const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.margin*100,c=pn>=0?"good":"bad",LD=ladderOf(q);if(LD){q.lo=LD[0].px;q.hi=LD[LD.length-1].px}const m=railPos(q,q.mark),en=railPos(q,q.avg);
  const tpTxt=q.tp?fx(q.tp)+(q.half?" ✓ half taken":""):(q.trail?`trailing ${(q.trail*100).toFixed(1)}%`:"–");
- return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}" data-half="${q.half?1:0}">
+ return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}" data-half="${q.half?1:0}" data-lo="${q.lo||""}" data-hi="${q.hi||""}">
  <div class="ph"><span class="sym">${esc(q.coin)}USDT<small>Perp</small></span><span class="bdg ${q.sd>0?"L":"S"}">${q.sd>0?"Long":"Short"} ${q.L}x</span><span class="bdg">${q.L>1?"Isolated":"Spot-like"}</span>${q.grade?`<span class="bdg A" title="model probability of reaching +2% before the stop">Grade ${q.grade} · ${Math.round(q.prob*100)}%</span>`:""}${q.rule?`<span class="bdg" title="the rule that opened this trade; the account may have moved to another rule since">opened by Rule #${esc(q.rule)}</span>`:""}${q.added?'<span class="bdg A">+ added</span>':""}
  <span class="pnlbox"><span class="v upnl" style="color:var(--${c})">${pn>=0?"+":""}${usd(pn)}</span><span class="r roe" style="color:var(--${c})">ROE ${roe>=0?"+":""}${roe.toFixed(2)}%</span></span></div>
  <div class="pg"><div><span>Size</span><b>${fx(q.notional/q.avg)} ${esc(q.coin)}</b><div class="mute" style="font-size:12px">${usd(q.notional)}</div></div>
  <div><span>Entry price</span><b>${fx(q.avg)}</b></div><div><span>Mark price</span><b class="mark">${fx(q.mark)}</b></div>
  <div class="liq"><span>Liq. price</span><b>${q.liq?fx(q.liq):"none"}</b></div><div><span>Margin</span><b>${usd(q.margin)}</b></div>
  <div><span>TP / SL</span><b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b></div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
- ${m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
+ ${LD?ladderHTML(q,LD,m):m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
  ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +2% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
 const exPanel=(A,lev,acct,extra)=>{const unr=A.open.reduce((x,p)=>{const q=posOf(p,lev);return x+pnlOf(q,q.mark)},0),mu=A.open.reduce((x,p)=>x+(p.margin||0),0),eq=A.cash+unr;
  const C=A.closed.slice().sort((a,b)=>(b.exitT||0)-(a.exitT||0)),pm=C.filter(r=>r.pm);
@@ -361,7 +379,7 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  async function kl(){for(const c of [...new Set(cards.map(el=>el.dataset.coin))]){try{const r=await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${c}USDT&interval=1m&limit=240`,{cache:"no-store"});if(!r.ok)continue;const j=(await r.json()).filter(k=>k[0]>=T0);if(j.length)ext[c]={hi:Math.max(...j.map(k=>+k[2])),lo:Math.min(...j.map(k=>+k[3]))}}catch(e){}}}
  kl();setInterval(kl,60000);
  async function tick(){const [m,src]=await prices();if(!m){note.textContent="Live prices unavailable right now (values below are from the last hourly run).";return}
-  const tot={};cards.forEach(el=>{const px=pick(m,el.dataset.coin);if(!px)return;const q={sd:+el.dataset.sd,avg:+el.dataset.avg,notional:+el.dataset.notional,margin:+el.dataset.margin,tp:+el.dataset.tp||null,sl:+el.dataset.sl||null};
+  const tot={};cards.forEach(el=>{const px=pick(m,el.dataset.coin);if(!px)return;const q={sd:+el.dataset.sd,avg:+el.dataset.avg,notional:+el.dataset.notional,margin:+el.dataset.margin,tp:+el.dataset.tp||null,sl:+el.dataset.sl||null,lo:+el.dataset.lo||null,hi:+el.dataset.hi||null};
    const pn=pnlOf(q,px),roe=pn/q.margin*100,c=`var(--${pn>=0?"good":"bad"})`;tot[el.dataset.acct]=(tot[el.dataset.acct]||0)+pn;
    const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
    u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
@@ -457,6 +475,8 @@ function demoLive(){const box=document.getElementById("demolive");if(!box)return
 setInterval(()=>{fetch("summary.json?"+Date.now()).then(r=>r.json()).then(x=>{if(x.built&&x.built!==D.built)location.reload()}).catch(()=>{})},300000);
 
 // ── upgrades under test + honest odds ───────────────────────────────
+(()=>{const O=(D.referee||{}).chalOpen||{},ks=Object.keys(O);if(!ks.length||!$("chalpos"))return;          // contestants' open positions (shadow accounts), with each one's real exit plan
+ $("chalpos").innerHTML=`<details class="card" style="margin-top:10px"><summary><b>Contestants' open positions</b> <span class="mute">(${ks.reduce((a,k)=>a+O[k].length,0)} in ${ks.length} shadow accounts; paper only)</span></summary>${ks.map(k=>`<div style="margin-top:10px"><div class="mute" style="font-size:12.5px"><b>${esc(k)}</b></div>${O[k].map(p=>posCard(p,10,"chal-"+k)).join("")}</div>`).join("")}</details>`})();
 (()=>{const R=D.referee||{},C=R.chal||{},S=R.chalScores||{},rej=R.chalRejected||{},W=R.witnesses||{},ch=R.champ||{},f2=x=>x==null?"–":x;
  const rows=Object.entries(C).map(([n,c])=>{const s=S[n]||{},me=s.me||{},cp=s.champion||{};
   const score=c.kind==="policy"&&me.growth!=null?`account ${me.growth>=0?"+":""}${me.growth}% vs champion ${cp.growth>=0?"+":""}${cp.growth}% · ${me.trades} trades`
@@ -650,6 +670,8 @@ def write(mem, J=None, log=print):
                                  "closed": A["closed"][-300:], "decisions": A.get("decisions", [])[-30:]}, "model": R.get("model"), "look": R.get("look"), "trainNote": R.get("trainNote"),
                          "shadow": R.get("shadowStats"), "override": R.get("override"), "adapt": R.get("adapt"), "regimeOverride": R.get("regimeOverride"), "regimeNow": R.get("regimeNow"), "callRate": R.get("callRate"), "callRateBySide": R.get("callRateBySide"), "shadowRecent": [x for x in (R.get("shadow") or []) if x.get("y") is not None][-15:][::-1],
                          "chal": {n: {"what": c.get("what"), "kind": c.get("kind"), "born": c.get("born"), **({"acct": {k: c["acct"].get(k) for k in ("cash", "equity", "start")}} if c.get("acct") else {})} for n, c in (R.get("chal") or {}).items()},
+                         "chalOpen": {n: [{k: v for k, v in p.items() if k not in ("units", "fams", "row", "sd")} for p in (c.get("acct") or {}).get("open", [])]
+                                      for n, c in (R.get("chal") or {}).items() if (c.get("acct") or {}).get("open")},
                          "chalScores": R.get("chalScores"), "chalStats": R.get("chalStats"), "chalRejected": R.get("chalRejected"), "champ": {k: (R.get("champ") or {}).get(k) for k in ("cfg", "since", "history")},
                          "calibration": R.get("calibration"), "review": R.get("review"), "shapeExam": R.get("shapeExam"), "witnesses": R.get("witnesses"), "journal": (R.get("journal") or [])[-60:], "trend2Now": R.get("trend2Now"), "brief": R.get("brief"), "obs": R.get("obs"), "demoAcct": (R.get("demo") or {}).get("acct"), "demoSync": (R.get("demo") or {}).get("sync"), "wide": {k: (R.get("wide") or {}).get(k) for k in ("vs", "coins", "look")} | {"acct": {k: ((R.get("wide") or {}).get("acct") or {}).get(k) for k in ("equity", "cash", "start", "born", "open", "closed")}} if R.get("wide") else None, "evo": _evo_summary(), "demo": {k: (R.get("demo") or {}).get(k) for k in ("wallet", "holding", "at", "log", "error", "pos", "start", "startedAt", "arbiterCash", "gap")}, "drift": R.get("drift"), "stateBar": R.get("stateBar"), "trendAcc": R.get("trendAcc"), "upcoming": R.get("upcoming"), "crash": R.get("crash"), "attrib": R.get("attrib"), "coinTrust": R.get("coinTrust"),
                          "ruleTrust": {no: {rg: v for rg, v in regs.items() if v["state"] != "learning"} for no, regs in (R.get("ruleTrust") or {}).items() if any(v["state"] != "learning" for v in regs.values())}}
