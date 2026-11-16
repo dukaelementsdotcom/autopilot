@@ -504,7 +504,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     p = {"coin": str(J.coin[i]), "side": "LONG" if sd > 0 else "SHORT", "sd": sd, "t": int(J.t[i]), "entry": e, "grade": g, "prob": round(prob, 3), "be": round(be, 3),
          "stop": e * (1 - sd * stp), "target": e * (1 + sd * T), "tgtPct": T, "maxHold": int(Hz) + 24, "stopPct": round(stp, 4), "lev": lev, "units": [[e, notional]],
          "margin": round(margin, 2), "realized": 0.0, "best": e, "half": False, "added": False, "notional": round(notional, 2), "avgEntry": e, "mark": e, "card": card,
-         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop")), "riskPct": round(notional * stp / max(1e-9, eq) * 100, 2), **({"tier": tier} if tier else {})}
+         "fams": fams, "row": int(i), "lastBar": int(J.t[i]), "fill": via, "cfg": {k: v for k, v in cfg.items() if v != CHAMP_DEFAULT.get(k)}, "lock": bool(cfg.get("lock")), "timestop": bool(cfg.get("timestop")), **({"steps": [0.03, 0.045]} if cfg.get("steps") else {}), "riskPct": round(notional * stp / max(1e-9, eq) * 100, 2), **({"tier": tier} if tier else {})}
     if R is not None:
         from . import integrity as IG
         IG.audit(R, "risk_tier", f"{p['coin']}, {p['side']}, edge {prob - be:+.3f}, tier {tier or ('bold' if cfg.get('size') == 'bold' else 'grade ' + str(g))}, risk_pct {p['riskPct']}, "
@@ -512,7 +512,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
@@ -630,6 +630,13 @@ def _manage(J, B, p, A, newest):
             if p.get("fullExit"): _close(A, p, p["target"], f"target +{p.get('tgtPct', TARGET)*100:.0f}% (full exit)", t + H); return
             _close(A, p, p["target"], f"half at +{p.get('tgtPct', TARGET)*100:.0f}%", t + H, part=0.5); p["half"] = True
             p["stop"] = p["entry"] * (1 + sd * C.FEE * 2)                          # rest is now risk-free (break-even)
+        if p.get("steps") and p["half"]:          # three-step exit (lab test Nov 16): 25% more at +3% (stop to +1%), the last 25% at +4.5%
+            fav = (hi / p["entry"] - 1) if sd > 0 else (1 - lo / p["entry"]); k = p.get("stepK", 0); lv = p["steps"]
+            if k == 0 and fav >= lv[0]:
+                _close(A, p, p["entry"] * (1 + sd * lv[0]), f"second target +{lv[0]*100:.0f}% (25%)", t + H, part=0.5); p["stepK"] = k = 1
+                s1 = p["entry"] * (1 + sd * 0.01); p["stop"] = max(p["stop"], s1) if sd > 0 else min(p["stop"], s1)
+            if k == 1 and fav >= lv[1]:
+                _close(A, p, p["entry"] * (1 + sd * lv[1]), f"third target +{lv[1]*100:.1f}% (last 25%)", t + H); return
         p["best"] = max(p["best"], hi) if sd > 0 else min(p["best"], lo); p["lastBar"] = t
         if p.get("timestop") and not p["half"] and (t + H - p["t"]) / H >= 24 and p["sd"] * (float(Cc[j]) / p["entry"] - 1) < 0.005:
             _close(A, p, float(Cc[j]), "time stop (no progress in 24h)", t + H); return
