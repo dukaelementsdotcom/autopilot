@@ -63,7 +63,7 @@ def registry(B=None):
         from . import witnesses
         for w in witnesses.ready(B):
             reg[f"witness-{w}"] = ({"odds": f"witness:{w}"}, witnesses.WITNESSES[w]["what"], "odds")
-    return {k: v for k, v in reg.items() if k in KEEP or k.startswith("witness-evo")}     # evolved voters still race (they pass a gate first)
+    return reg                                             # all contestants race again (owner, Nov 17); the real policy test still guards promotion
 
 # Audit Nov 16: every racer raises the bar for the rest, and most had no evidence behind them. Parked (not deleted; the code stays):
 # alloc, bold, kelly, tiers, weekpace, pace, lowbar, bestofday, curious(-side), runner, pairs, range, news, flushlong, bocpd-gate, online-*,
