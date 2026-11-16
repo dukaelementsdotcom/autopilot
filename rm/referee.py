@@ -466,7 +466,10 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
             if cfg.get("tide"):                                   # the tide contestant: a side trades only when the market-type reader says so (longs too)
                 try:
                     from . import tide as TD
-                    if TD.at(J, int(J.t[i]))["tide"] != (1 if name == "long" else -1): continue
+                    x_ = TD.at(J, int(J.t[i]))
+                    if cfg.get("tide") == "mix":                  # tide-mix: shorts while the weekly view is not rising; longs only when weekly AND daily say rising
+                        if (name == "short" and x_["macro"] == 1) or (name == "long" and x_["tide"] != 1): continue
+                    elif x_["tide"] != (1 if name == "long" else -1): continue
                 except Exception: continue                     # a reader failure only stops the contestant, never the Arbiter
             elif not (cfg.get("statebar") or fast or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
