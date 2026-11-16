@@ -239,6 +239,7 @@ const ladderOf=q=>{if(!q.stopPct||!q.entry)return null;const e=q.entry,s=q.sd,L=
   L.push({lab:`TP3 +${pc(q.steps[1])}%`,sub:"close all",px:e*(1+s*q.steps[1]),k:"tp",done:false})}
  else L.push({lab:"no TP2",sub:"trailing stop / 72h",px:e*(1+s*(t1+0.015)),k:"end",done:false});
  return L};
+const nextTP=q=>{const e=q.entry,s=q.sd;if(!q.half)return `TP1 ${fx(q.tp||e*(1+s*(q.tgtPct||0.02)))}`;if(q.fullExit)return "TP1 ✓";if(!q.steps)return "TP1 ✓ · no TP2";return (q.stepK||0)>=1?`TP3 ${fx(e*(1+s*q.steps[1]))}`:`TP2 ${fx(e*(1+s*q.steps[0]))}`};
 const slName=q=>!q.half?"SL1 (original stop)":q.steps&&(q.stepK||0)>=1?"SL3 (locked profit)":"SL2 (break-even + fees)";
 const ladderHTML=(q,L,m)=>{const lo=L[0].px,hi=L[L.length-1].px,f=px=>Math.max(0,Math.min(1,q.sd>0?(px-lo)/(hi-lo):(lo-px)/(lo-hi)));
  const sl=q.sl&&L[0].px!==q.sl?`<span class="tk slnow" style="left:${(f(q.sl)*100).toFixed(1)}%" title="stop now ${fx(q.sl)}"></span>`:"";
@@ -254,7 +255,7 @@ const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.ma
  <div class="pg"><div><span>Size</span><b>${fx(q.notional/q.avg)} ${esc(q.coin)}</b><div class="mute" style="font-size:12px">${usd(q.notional)}</div></div>
  <div><span>Entry price</span><b>${fx(q.avg)}</b></div><div><span>Mark price</span><b class="mark">${fx(q.mark)}</b></div>
  <div class="liq"><span>Liq. price</span><b>${q.liq?fx(q.liq):"none"}</b></div><div><span>Margin</span><b>${usd(q.margin)}</b></div>
- <div><span>TP / SL</span><b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b></div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
+ <div><span>TP / SL</span>${LD?`<b style="color:var(--good)">${nextTP(q)}</b><br><b style="color:var(--bad)">${slName(q).split(" ")[0]} ${q.sl?fx(q.sl):"–"}</b>`:`<b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b>`}</div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
  ${LD?ladderHTML(q,LD,m):m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
  ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +2% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
 const exPanel=(A,lev,acct,extra)=>{const unr=A.open.reduce((x,p)=>{const q=posOf(p,lev);return x+pnlOf(q,q.mark)},0),mu=A.open.reduce((x,p)=>x+(p.margin||0),0),eq=A.cash+unr;
