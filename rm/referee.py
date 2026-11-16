@@ -353,6 +353,10 @@ def _cands(J, B, R, Hd, cfg, rows, S, REG):
             UT = R.get("unfTrust") or {}
             ok = np.array([(UT.get(unf_key(name, {f: float(v[k]) for f, v in fams.items()}, sd["base"], REG.get(int(J.t[rows[k]])))) or {}).get("state") == "proven" for k in range(len(rows))])
             unf = unf & ~ok
+        if cfg.get("curiousSide"):                                 # coarse: an unfamiliar call is allowed once its side in this market state has a proven live record
+            US = R.get("unfSide") or {}
+            ok = np.array([(US.get(f"{name}|{REG.get(int(J.t[rows[k]]))}") or {}).get("state") == "proven" for k in range(len(rows))])
+            unf = unf & ~ok
         if cfg.get("cointrust"):                                   # demand more where its own live record on this group of coins is weak
             from .witnesses import SECTOR_OF
             ct = R.get("coinTrust") or {}; mg = mg + np.array([ct.get(SECTOR_OF.get(str(c), "other"), 0.0) for c in J.coin[rows]])
@@ -512,7 +516,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
@@ -564,6 +568,15 @@ def unf_tables(R, L):
         out[k] = {"n": n, "hit": round(hit, 3), "be": round(be, 3), "avg": round(avg * 100, 2),
                   "state": "proven" if n >= 15 and hit >= be + 0.05 and avg > 0 else "failing" if n >= 15 and hit < be else "learning"}
     R["unfTrust"] = out
+    side = {}                                                       # the coarse version: side and market state only (evidence builds in weeks)
+    for x in L:
+        if x.get("unf"): side.setdefault(f'{x["side"]}|{x.get("reg")}', []).append(x)
+    o2 = {}
+    for k, xs in side.items():
+        mv = len({int(x["t"]) // 21600 for x in xs}); hit = float(np.mean([x["y"] for x in xs])); be = float(np.mean([x["be"] for x in xs])); avg = float(np.mean([x["ret"] for x in xs]))
+        o2[k] = {"n": len(xs), "moves": mv, "hit": round(hit, 3), "be": round(be, 3), "avg": round(avg * 100, 2),
+                 "state": "proven" if mv >= 20 and hit >= be + 0.05 and avg > 0 else "failing" if mv >= 20 and hit < be else "learning"}
+    R["unfSide"] = o2
 
 def ctx_votes(R, J, rows, side):
     """logit adjustment from the rules firing on these rows: +0.3 per rule live-trusted in this market state, -0.3 per rule that keeps failing there"""
@@ -934,7 +947,7 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
     if not len(pos_new): return
     sub = rows[pos_new]; Ssub = {n: {"prob": np.asarray(v["prob"])[pos_new], "fams": {f: np.asarray(x)[pos_new] for f, x in v["fams"].items()},
                                      "unfamiliar": np.asarray(v["unfamiliar"])[pos_new]} for n, v in S.items()}
-    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "statebar", "gate", "bestofday"))})
+    cfgs = {"champion": CH.cfg_of(R, "champion")}; cfgs.update({n: CH.cfg_of(R, n) for n, c in (R.get("chal") or {}).items() if c.get("kind") == "odds" or any(k in c.get("change", {}) for k in ("odds", "shape", "doubt", "cointrust", "rules", "lowbar", "curious", "curiousSide", "statebar", "gate", "bestofday"))})
     K = {n: _cands(J, B, R, Hd, c, sub, Ssub, REG or {}) for n, c in cfgs.items()}
     for k in range(len(sub)):
         i = int(sub[k]); stp = float(stop_pct(J.dvol[i])); be = breakeven(stp)
