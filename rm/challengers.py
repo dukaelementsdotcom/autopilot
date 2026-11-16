@@ -404,9 +404,21 @@ def _maxdd(curve):
     if len(v) < 2: return 0.0
     v = np.array(v, float); return round(float(((np.maximum.accumulate(v) - v) / np.maximum.accumulate(v)).max() * 100), 2)
 
+OWNER_PROMOTIONS = [("steps-coin", "owner's decision Nov 16 on lab test 3: an exit-only change (same entries) that beat today's exit in both unseen windows and stayed profitable without its 3 best trades; promoted before the December exam so the exam measures one plan; reversed by the usual rule if 'previous' proves better live")]
+
 def promote(R, log=print):
     """the rule, applied every hour: a challenger with enough independent bets that beats the champion on every count takes over.
     The old champion stays on as the 'previous' challenger, so a promotion that turns out worse is reversed by the same rule."""
+    for n, why in OWNER_PROMOTIONS:                                    # the owner's decisions, applied once (same mechanics: 'previous' stays in the race)
+        champ = R.setdefault("champ", {"cfg": dict(CHAMP)})
+        if any(h.get("promoted") == n and h.get("owner") for h in champ.get("history", [])) or n not in (R.get("chal") or {}): continue
+        prev = dict(champ["cfg"]); new = cfg_of(R, n)
+        if new == prev: continue
+        champ.update(cfg=new, prev=prev, since=time.strftime("%Y-%m-%d %H:%M", time.gmtime()))
+        champ.setdefault("history", []).append({"at": champ["since"], "promoted": n, "what": R["chal"][n].get("what", n), "owner": True, "evidence": why})
+        log(f"challengers: PROMOTED {n} by the owner's decision ({why})")
+        for k in list((R.get("chal") or {})): R["chal"][k].pop("acct", None)
+        return n
     sc = R.get("chalScores") or {}
     for n, s in sorted(sc.items(), key=lambda kv: -kv[1]["bets"]):
         if n == "champion" or not (s["ready"] and s["better"]): continue
