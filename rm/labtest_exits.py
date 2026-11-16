@@ -126,4 +126,4 @@ def main():
     print("VERDICT (clearly better in both unseen windows):", out["verdict"] or "none", flush=True)
     json.dump(out, open("labtest.json", "w"), indent=1, default=str)
 
-main()
+if __name__ == "__main__": main()
