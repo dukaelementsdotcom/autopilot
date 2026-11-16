@@ -177,11 +177,12 @@ def mirror(R, log=print):
         for r in req("GET", "/fapi/v2/positionRisk"):
             amt = float(r.get("positionAmt") or 0)
             if not amt: continue
-            sym = r["symbol"]; st = D["pos"].get(sym) or {}; e_ = float(r["entryPrice"]); lev = int(float(r.get("leverage") or st.get("lev") or 10)); n = abs(amt) * e_
+            sym = r["symbol"]; st = D["pos"].get(sym) or {}; pp = want.get(sym) or {}; e_ = float(r["entryPrice"]); lev = int(float(r.get("leverage") or st.get("lev") or 10)); n = abs(amt) * e_
             opn.append({"coin": sym.replace("USDT", ""), "side": "LONG" if amt > 0 else "SHORT", "entry": e_, "lev": lev, "notional": round(n, 2),
                         "margin": round(float(r.get("isolatedMargin") or 0) or n / lev, 2), "stop": st.get("stop"), "target": st.get("next") if "next" in st else (None if st.get("tpId") == "done" else st.get("tp")),
                         "half": st.get("tpId") == "done", "t": st.get("t0") or int(time.time()), "mark": float(r.get("markPrice") or e_), "unreal": round(float(r.get("unRealizedProfit") or 0), 2),
-                        "grade": st.get("grade"), "prob": st.get("prob"), "card": st.get("card"), "liqBinance": float(r.get("liquidationPrice") or 0) or None})
+                        "grade": st.get("grade"), "prob": st.get("prob"), "card": st.get("card"), "liqBinance": float(r.get("liquidationPrice") or 0) or None,
+                        **{k: pp[k] for k in ("stopPct", "tgtPct", "steps", "stepK", "sl3", "fullExit") if k in pp}})
     except IOError: pass
     D["acct"] = {"born": D.get("startedAt"), "start": D.get("start"), "cash": round(wallet, 2), "equity": round(wallet + sum(o["unreal"] for o in opn), 2), "open": opn,
                  "closed": D.get("closedTrades", [])[-300:], "curve": D.get("curve") or [[D.get("since", int(time.time())), D.get("start")]], "decisions": []}
