@@ -1,0 +1,122 @@
+{
+ "pace": {
+  "growth": 1.73,
+  "trades": 5,
+  "maxDD": 5.41,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 06:52"
+ },
+ "guard": {
+  "growth": -0.79,
+  "trades": 4,
+  "maxDD": 5.41,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 06:52"
+ },
+ "kelly": {
+  "growth": 0.74,
+  "trades": 5,
+  "maxDD": 6.61,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 06:52"
+ },
+ "alloc": {
+  "growth": 20.74,
+  "trades": 9,
+  "maxDD": 6.23,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 08:45"
+ },
+ "lock": {
+  "growth": 1.73,
+  "trades": 5,
+  "maxDD": 5.41,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 09:14"
+ },
+ "pairs": {
+  "growth": 1.19,
+  "trades": 5,
+  "maxDD": 7.21,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 09:26"
+ },
+ "news": {
+  "growth": -2.09,
+  "trades": 2,
+  "maxDD": 4.06,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 09:26"
+ },
+ "range": {
+  "growth": -4.31,
+  "trades": 1,
+  "maxDD": 4.31,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 09:26"
+ },
+ "trend2": {
+  "growth": 1.73,
+  "trades": 5,
+  "maxDD": 5.41,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 12:18"
+ },
+ "runner": {
+  "growth": -12.2,
+  "trades": 3,
+  "maxDD": 12.2,
+  "champGrowth": 1.73,
+  "champDD": 5.41,
+  "born": "2026-11-11 22:53"
+ },
+ "timestop": {
+  "growth": 0.12,
+  "trades": 4,
+  "maxDD": 5.41,
+  "champGrowth": 1.71,
+  "champDD": 5.41,
+  "born": "2026-11-12 06:58"
+ },
+ "weekpace": {
+  "growth": 6.49,
+  "trades": 7,
+  "maxDD": 5.41,
+  "champGrowth": 1.71,
+  "champDD": 5.41,
+  "born": "2026-11-12 06:58"
+ },
+ "tiers": {
+  "growth": -2.63,
+  "trades": 4,
+  "maxDD": 4.13,
+  "champGrowth": 1.46,
+  "champDD": 5.41,
+  "born": "2026-11-12 12:16"
+ },
+ "bold": {
+  "growth": -0.68,
+  "trades": 4,
+  "maxDD": 9.8,
+  "champGrowth": 1.46,
+  "champDD": 5.41,
+  "born": "2026-11-12 12:16"
+ },
+ "bocpd-gate": {
+  "growth": 1.85,
+  "trades": 2,
+  "maxDD": 5.41,
+  "champGrowth": 1.85,
+  "champDD": 5.41,
+  "born": "2026-11-13 15:18"
+ }
+}

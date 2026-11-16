@@ -191,6 +191,16 @@ def votes(mem, J, rows):
     return out
 
 # ── the account ─────────────────────────────────────────────────────────────────────────────────
+def _restore_of(R, n):
+    """one-time restore of shadow accounts wiped on Nov 16 (rm/restore_1328.json), applied once per contestant"""
+    import os
+    done = R.setdefault("restored1328", [])
+    if n in done: return None
+    try: rs = json.load(open(os.path.join(os.path.dirname(__file__), "restore_1328.json"))).get(n)
+    except Exception: return None
+    if rs: done.append(n)
+    return rs
+
 def new_acct(J, now_iso, start=START):
     return {"born": now_iso, "start": start, "cash": start, "lastT": int(J.t.max()) - H, "open": [], "closed": [], "curve": [[int(J.t.max()), start]],
             "decisions": [], "paused": None}
@@ -206,6 +216,15 @@ def step(mem, J, now_iso, log=print, problems=None):
     for n, c in chal.items():
         if c["kind"] == "policy" and "acct" not in c:
             c["acct"] = new_acct(J, now_iso); c["acct"].update(champAtBirth=A.get("equity", A["cash"]), bornT=newest)
+    for n, c in chal.items():                                          # owner, Nov 17: give back the progress wiped on Nov 16 (13:28 UTC dashboard)
+        rs = _restore_of(R, n) if c.get("acct") else None
+        if rs:
+            a = c["acct"]; f = 1 + rs["growth"] / 100
+            a["cash"] *= f; a["equity"] = a.get("equity", a["cash"] / f) * f; a["curve"] = [[t, v * f] for t, v in a.get("curve", [])]
+            a["champAtBirth"] = a.get("champAtBirth", A.get("equity", A["cash"])) / (1 + rs["champGrowth"] / 100)
+            a["carried"] = {k: rs[k] for k in ("trades", "maxDD", "champDD", "growth", "champGrowth")}; a["carried"]["from"] = "2026-11-16 13:28 UTC dashboard"
+            if rs.get("born"): c["born"] = rs["born"]
+            log(f"referee: {n} restored to its Nov 16 progress ({rs['growth']:+.2f}%, {rs['trades']} trades)")
     accts = [("champion", A, champ_cfg)] + [(n, c["acct"], CH.cfg_of(R, n)) for n, c in chal.items() if c.get("acct")]
     try:
         from . import guard; R["guardApply"] = guard.apply(R, log)

@@ -382,7 +382,8 @@ def evaluate(R, log=print):
         if c.get("kind") != "policy" or not a or n in out: continue
         g_me = a.get("equity", a["cash"]) / a["start"]; g_ch = ch.get("equity", ch.get("cash", 1)) / max(1e-9, a.get("champAtBirth") or ch.get("start", 1))
         dd_me, dd_ch = _maxdd(a.get("curve")), _maxdd([x for x in ch.get("curve", []) if x[0] >= a.get("bornT", 0)])
-        n_tr = len(a.get("closed", []))
+        cr = a.get("carried") or {}                                       # progress carried over from before the Nov 16 reset (totals only)
+        n_tr = len(a.get("closed", [])) + int(cr.get("trades", 0)); dd_me = max(dd_me, float(cr.get("maxDD", 0))); dd_ch = max(dd_ch, float(cr.get("champDD", 0)))
         out[n] = {"bets": n_tr, "me": {"growth": round((g_me - 1) * 100, 2), "maxDD": dd_me, "trades": n_tr},
                   "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": n_tr >= 20,
                   "better": _pol_better(g_me, g_ch, dd_me, dd_ch),
@@ -417,8 +418,7 @@ def promote(R, log=print):
             champ["cfg"] = dict(champ["prev"]); champ.pop("prev", None); champ["since"] = time.strftime("%Y-%m-%d %H:%M", time.gmtime())
             champ["history"].append({"at": champ["since"], "undone": n, "owner": True, "evidence": "owner, Nov 17: judge it on live results; it races as a contestant"})
             log(f"challengers: owner's promotion of {n} UNDONE; it races as a contestant again")
-            for k in list((R.get("chal") or {})): R["chal"][k].pop("acct", None)
-            return None
+            return None                                                    # accounts are NOT reset: they are restored to before the promotion (referee.step)
     for n, why in OWNER_PROMOTIONS:                                    # the owner's decisions, applied once (same mechanics: 'previous' stays in the race)
         champ = R.setdefault("champ", {"cfg": dict(CHAMP)})
         if any(h.get("promoted") == n and h.get("owner") for h in champ.get("history", [])) or n not in (R.get("chal") or {}): continue
