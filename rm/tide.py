@@ -17,15 +17,21 @@ import numpy as np, pandas as pd
 H = 3600
 
 def daily_state(J):
+    """per BTC hour: +1 up / -1 down / 0 neutral, with a 12-hour hold. Built from real price changes (closes), and from the
+    percentile columns centred on 0.5 (the p_ columns are ranks in [0, 1] against each coin's own recent history, NOT signed moves)"""
     P = J.P; b = P.coin.values == "BTC"; T = P.t.values[b]; o = np.argsort(T); T = T[o]
-    g = lambda c: np.asarray(P[c].values[b][o], float) if c in P.columns else np.zeros(len(T))
+    g = lambda c: np.asarray(P[c].values[b][o], float) if c in P.columns else np.full(len(T), np.nan)
     sg = lambda x: np.sign(np.nan_to_num(x))
-    d1v = (sg(g("p_r24")) + sg(g("p_pos24") - 0.5) + sg(g("emax"))) / 3; d1 = np.where(d1v >= 0.34, 1, np.where(d1v <= -0.34, -1, 0))
-    ok = np.isfinite(P["p_r24"].values)
-    br = pd.Series((P["p_r24"].values[ok] > 0).astype(float)).groupby(P.t.values[ok]).mean().reindex(T).values
+    cl = pd.Series(g("_cl"), index=T); r24 = (cl / cl.reindex(T - 24 * H).values - 1).values      # BTC's real 24h move
+    d1v = (sg(r24) + sg(g("p_pos24") - 0.5) + sg(g("emax"))) / 3; d1 = np.where(d1v >= 0.34, 1, np.where(d1v <= -0.34, -1, 0))
+    Q = P[["coin", "t", "_cl"]].copy(); Q = Q.sort_values(["coin", "t"])
+    prev = Q.set_index(["coin", "t"])["_cl"]; key = pd.MultiIndex.from_arrays([Q.coin.values, Q.t.values - 24 * H])
+    Q["r24"] = Q["_cl"].values / prev.reindex(key).values - 1
+    ok = np.isfinite(Q["r24"].values)
+    br = pd.Series((Q["r24"].values[ok] > 0).astype(float)).groupby(Q.t.values[ok]).mean().reindex(T).values
     d2 = np.where(br >= 0.6, 1, np.where(br <= 0.4, -1, 0))
-    tb = pd.Series(P["p_timb24"].values).groupby(P.t.values).mean().reindex(T).values if "p_timb24" in P.columns else np.zeros(len(T))
-    d3v = (sg(tb) + sg(g("p_cbp24"))) / 2; d3 = np.where(d3v > 0, 1, np.where(d3v < 0, -1, 0))
+    tb = (pd.Series(P["p_timb24"].values).groupby(P.t.values).mean().reindex(T).values - 0.5) if "p_timb24" in P.columns else np.zeros(len(T))
+    d3v = (sg(tb) + sg(g("p_cbp24") - 0.5)) / 2; d3 = np.where(d3v > 0, 1, np.where(d3v < 0, -1, 0))
     raw = np.where((d1 == 1) & ((d2 == 1) | (d3 == 1)), 1, np.where((d1 == -1) & ((d2 == -1) | (d3 == -1)), -1, 0))
     st = np.zeros(len(T), int); cur = 0; cand = 0; run = 0
     for i, v in enumerate(raw):
