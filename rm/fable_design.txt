@@ -1,0 +1,29 @@
+Judgment: build the trend reading as a handful of grouped votes with fixed rules (not learned weights), and use "sniper" mainly to get a better price and a better-placed stop - the repo's evidence does not support entries that predict the next move.
+
+PART 1 - TREND: two readings, four grouped witnesses each (each says up / down / neutral; no learned weights: ~15-20 market phases in six years, and the learned phase judge scored 52%)
+Macro trend (weeks; updated once a day):
+ M1 Price structure: BTC and ETH vs their 50- and 200-day averages; slope of the 50-day
+ M2 Breadth: share of coins above their own 50-day average; 20-day new highs minus new lows
+ M3 Money and leverage: stablecoin supply 30-day change; spot share of volume and 7-day spot-vs-perp CVD; cross-exchange open interest and funding
+ M4 Outside world: Nasdaq and the dollar vs their 50-day averages; VIX level (one vote, known next day)
+ Macro = up if at least 3 of 4 say up and M1 is not down; down likewise; otherwise mixed. Price has the veto.
+Daily trend (today; updated hourly):
+ D1 Price today: BTC 24h move, position in its 24h range, EMA12/26 gap, above/below yesterday's high/low
+ D2 Breadth today: share of coins up over 24h; median 24h move
+ D3 Flow today: market-wide taker imbalance, 24h spot-vs-perp CVD, Coinbase premium
+ D4 Forced flow: long vs short liquidations, 24h open-interest change together with price (falling price + rising OI = new shorts; + falling OI = longs flushed), funding
+ Same rule: 3 of 4, D1 must agree, a reading must hold 12 hours.
+Combine: macro down + daily down = ride (shorts allowed); up + up = ride (longs allowed); macro down + daily up = a bounce: no new trades, wait to sell when daily turns down; macro up + daily down = a pullback: no shorts, stand aside; macro mixed = stand aside, or daily direction only with a stricter bar (test both).
+Stop riding: D1 flips for 12 hours and one of D2-D4 flips with it = no new entries that side. Exhaustion: a liquidation spike on the with-trend side plus extreme funding or Fear & Greed = no new entries for 24h. Open trades keep their ladder and stops; if daily flips against a position past TP1, the remainder closes at the next hourly close.
+Left out: news, whales, option chain, minute recorder (1-8 days of history); on-chain flows, sector rotation, hour/weekday (zero measured gain); Fear & Greed and DVOL as direction (zero gain; used only for exhaustion); economic calendar only as "no entries in the hour before a major release".
+Evidence: the simple trend gate passed (+3.4% vs +2.0%/month); up days -> higher a week later 60%, down days 45%; extremes reverted. Untested: this exact eight-witness reading, the bounce/pullback rows, the exhaustion rule. Longs restricted to rising markets still lost 0.5%/month.
+
+PART 2 - SNIPER ENTRIES
+Which coin (hourly; side comes from Part 1): C0 current brain score at real cost; C1 relative strength (24h and 7-day move ranked; short the weak, long the strong); C2 crowding (crowd long/short vs top traders, OI build, funding); C3 real money (basis, spot share, spot-vs-perp CVD); C4 location (distance to key levels); C5 room (coin's daily move vs the +2% target and its stop).
+Key levels (built hourly from price history, past data only): yesterday's and last week's high/low/close; 20-day high/low; swing points (an hourly high/low not exceeded for 12 bars either side, counted only after those 12 bars); volume shelves (most traded price bands in 30 days); round numbers; later liquidation clusters and order-book walls. Levels closer than half an hourly range merge into a zone scored by touches and recency.
+Exact entry (minute server): each hour the brain arms up to three setups (coin, side, entry zone, stop, valid until the next hourly run). The server places a limit order per setup: trend continuation = at the retest of the zone just broken; if price is already moving away = at the current price, post-only, for three minutes. First fill is the day's trade, others cancelled; no fill = no trade. Stop just beyond the zone, within 1.5-4%. Clear road: no opposing zone between entry and +2%.
+Realistic gains: price (market orders cost ~0.29%; saving most of it is worth 3-5 points of required win rate - the main gain); stop placement behind a level (untested); probably not the win rate (pullback entries failed); no tape reading (no trade-level data).
+
+THE ARBITER - a checklist in order: 1 safety (kill switch, shock freeze, exposure cap); 2 trend permission (which side, if any); 3 coin: brain clears its bar at real cost, at least three of C1-C5 agree, none strongly disagrees; 4 setup: valid zone, clear road to +2%, stop fits; 5 rank by number of agreeing witnesses then margin; arm the top three; 6 nothing qualifies = no trade.
+
+TESTING: all walk-forward first (8 windows, real costs, graded against the same-hour average), then a shadow contestant. Trend must beat "always short" and the current gate in 6 of 8 windows; C1-C5 added one at a time must beat the same-hour average by 2 points; limit entries on demo: slippage under 0.10% and fill rate over 70% in 20 orders. Build order: trend reading and limit entries first; key levels second; C1-C3 last.
