@@ -38,6 +38,14 @@ def registry(B=None):
     reg["timestop"] = ({"timestop": True}, "Time stop: a trade that has made no progress (under +0.5%) after 24 hours is closed instead of waiting for its stop", "policy")
     reg["weekpace"] = ({"weekpace": True}, "Weekly pace with carry-over: a quiet day's unused trade can be used later in the same week (up to 3 in one day)", "policy")
     reg["bocpd-gate"] = ({"gate2": "bocpd"}, "Changepoint fast-track: Bayesian online changepoint detection on Bitcoin's return and market breadth; when a change is detected and the long side's graded calls since then beat their break-even over 15+ calls, longs unlock at once instead of waiting for the slow exam window", "policy")
+    from . import longs as LG
+    for k_ in LG.KINDS:                                            # the long contestants (owner, Nov 17): see rm/longs.py for each rule
+        reg[k_] = ({"spec": k_}, {"confluence-long": "Owner's pre-trade checklist (long): daily uptrend, at support or a reclaimed sweep, stop under it with at least 2:1 reward, plus 3 of 4: long flush, OI/funding, buying flip, volume pick-up",
+                                "plumbing-long": "Owner's 'plumbing' checklist (long, BTC/ETH): net liquidity, supply leaving exchanges, dealer gamma, skew, vol premium, support map, buying trigger; size grows with the green lights",
+                                "pullback": "Long pullback: an uptrend coin dips 3%+ back to its 20-day average and turns up",
+                                "leader": "Long leader: in a market not falling, the coin making a new 20-day high that is strongest against Bitcoin",
+                                "squeeze": "Long squeeze: shorts crowded and paying (negative funding) while open interest rises and the price holds up",
+                                "spotled": "Long breakout bought with real money: new 20-day high with spot buying leading futures"}[k_], "policy")
     reg["tide"] = ({"tide": True}, "Market-type reader 'tide': shorts only while the market is falling and longs only while it is rising, read from a weekly view (Bitcoin's averages, breadth, stocks, the dollar) AND a daily view (Bitcoin today, how many coins are up, buying vs selling, the Coinbase premium) that must agree for 12 hours; otherwise it stands aside", "policy")
     reg["gate"] = ({"gate": True}, "Trend gate: no shorts while the Compass trend reader says the market is rising. Over 7 past periods: +3.4% a month on average vs +2.0% without it, and the worst period improved from -11.9% to -2.0% a month", "policy")
     reg["trend2"] = ({"trend": "v2"}, "Compass trend reader: market direction from many views that must agree (Bitcoin's 20/50/200-day trends, breadth across coins, stocks, the dollar), five states incl. sideways, smoothed so noise cannot flip it", "policy")

@@ -61,7 +61,8 @@ def rec(log=print):
     log(f"recorder: {out}"); return out
 
 # ── outside world (daily) ─────────────────────────────────────────────────────────────────────────
-FRED = {"ndx": "NASDAQ100", "spx": "SP500", "vix": "VIXCLS", "us10y": "DGS10", "dxy": "DTWEXBGS"}
+FRED = {"ndx": "NASDAQ100", "spx": "SP500", "vix": "VIXCLS", "us10y": "DGS10", "dxy": "DTWEXBGS",
+        "walcl": "WALCL", "rrp": "RRPONTSYD", "tga": "WTREGEN"}      # US net liquidity = Fed balance sheet - reverse repo - Treasury account (owner, Nov 17)
 def macro(log=print):
     path = RAW("macro.parquet")
     if os.path.exists(path) and time.time() - os.path.getmtime(path) < 6 * H: return {"fresh": True}
