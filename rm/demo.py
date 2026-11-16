@@ -2,6 +2,7 @@
 The paper books stay the record; this is the rehearsal of real-money trading (Build C) and a check of fills, fees and slippage.
 Keys: BINANCE_DEMO_KEY / BINANCE_DEMO_SECRET (GitHub secrets). Only the demo address is ever used here."""
 import os, time, hmac, hashlib, json, math, urllib.parse, requests
+from .config import FEE
 
 BASE = "https://demo-fapi.binance.com"; REAL = "https://fapi.binance.com"
 S = requests.Session()
@@ -135,19 +136,37 @@ def mirror(R, log=print):
                          "slipPct": round((fill / p["entry"] - 1) * 100 * (1 if side == "BUY" else -1), 3) if fill else None, "late": st["late"]})
             held[sym] = qty if side == "BUY" else -qty
         # the Arbiter took (part of) the profit -> the same size here (only ever reduced to match, never added back)
+        k2 = p.get("stepK", 0) if p.get("steps") else 0
+        if p.get("half") and st.get("tpId") not in (None, "done"): uncond(sym, st["tpId"]); st["tpId"] = "done"      # TP1 done (filled here or by the Arbiter)
+        if k2 >= 1 and st.get("tp2Id") not in (None, "done"): uncond(sym, st["tp2Id"]); st["tp2Id"] = "done"
         if sym in held and abs(held[sym]) > size * 1.02 + I["step"]:
             cut = _fl(abs(held[sym]) - size, I["step"])
             if cut >= I["minQty"]:
-                if st.get("tpId") and st["tpId"] != "done": uncond(sym, st["tpId"])
+                if st.get("tpId") not in (None, "done"): uncond(sym, st["tpId"])
+                if k2 >= 1 and st.get("tp2Id") not in (None, "done"): uncond(sym, st["tp2Id"]); st["tp2Id"] = "done"
                 done.append({"half": sym, "px": _mkt(sym, opp, cut, True)}); st["tpId"] = "done"; held[sym] = held[sym] - (cut if side == "BUY" else -cut)
-        # the same stop (moved when the Arbiter moves it) and the same half-target, waiting on the exchange
-        stp = float(_fmt(p["stop"], I["tick"]))
+        # the same stop (moved when the Arbiter moves it), waiting on the exchange. SL2 (break-even) is set from THIS account's own fill:
+        # break-even on the paper entry can be a small loss on a real fill that came in worse
+        sp = float(p["stop"]); f_ = float(st.get("fill") or 0)
+        if p.get("half") and f_:
+            be2 = f_ * (1 - 2 * FEE) if side == "SELL" else f_ * (1 + 2 * FEE)
+            sp = min(sp, be2) if side == "SELL" else max(sp, be2)
+        stp = float(_fmt(_fl(sp, I["tick"]) if side == "SELL" else math.ceil(sp / I["tick"] - 1e-9) * I["tick"], I["tick"]))   # rounded to the safe side
         if st.get("stop") != stp:
             uncond(sym, st.get("stopId")); st["stopId"] = cond(sym, opp, "STOP_MARKET", stp, I["tick"]); st["stop"] = stp; done.append({"stop": sym, "px": stp})
+        # the take-profits of the Arbiter's plan, waiting on the exchange: TP1 (half); with the three-step plan also TP2 (a quarter) and TP3 (the rest)
         if not p.get("half") and not st.get("tpId"):
             hq = _fl(st["qty"] / 2, I["step"])
             if hq >= I["minQty"]: st["tpId"] = cond(sym, opp, "TAKE_PROFIT_MARKET", p["target"], I["tick"], hq, I["step"]); st["tp"] = p["target"]; done.append({"target": sym, "px": p["target"], "qty": hq})
-        st.update(side=("LONG" if side == "BUY" else "SHORT"), size=abs(held.get(sym, 0)), tgt=p["target"], grade=p.get("grade"), coin=p["coin"])
+        if p.get("steps") and p.get("half"):
+            e0, sdn = float(p["entry"]), (1 if side == "BUY" else -1)
+            if k2 < 1 and not st.get("tp2Id"):
+                q2 = _fl(st["qty"] / 4, I["step"]); px2 = e0 * (1 + sdn * p["steps"][0])
+                if q2 >= I["minQty"]: st["tp2Id"] = cond(sym, opp, "TAKE_PROFIT_MARKET", px2, I["tick"], q2, I["step"]); st["tp2"] = px2; done.append({"tp2": sym, "px": px2, "qty": q2})
+            if not st.get("tp3Id"):
+                px3 = e0 * (1 + sdn * p["steps"][1]); st["tp3Id"] = cond(sym, opp, "TAKE_PROFIT_MARKET", px3, I["tick"]); st["tp3"] = px3; done.append({"tp3": sym, "px": px3})
+        nxt = st.get("tp") if not p.get("half") else (st.get("tp2") if k2 < 1 else st.get("tp3")) if p.get("steps") else None
+        st.update(side=("LONG" if side == "BUY" else "SHORT"), size=abs(held.get(sym, 0)), tgt=p["target"], next=nxt, grade=p.get("grade"), coin=p["coin"])
     # 3) the demo account in the SAME shape as the Arbiter's (the dashboard draws both with the same panel), from Binance's own numbers
     if done:
         acc = req("GET", "/fapi/v2/account"); real = float(acc["totalWalletBalance"]); wallet = real - D["base"]
@@ -160,7 +179,7 @@ def mirror(R, log=print):
             if not amt: continue
             sym = r["symbol"]; st = D["pos"].get(sym) or {}; e_ = float(r["entryPrice"]); lev = int(float(r.get("leverage") or st.get("lev") or 10)); n = abs(amt) * e_
             opn.append({"coin": sym.replace("USDT", ""), "side": "LONG" if amt > 0 else "SHORT", "entry": e_, "lev": lev, "notional": round(n, 2),
-                        "margin": round(float(r.get("isolatedMargin") or 0) or n / lev, 2), "stop": st.get("stop"), "target": None if st.get("tpId") == "done" else st.get("tp"),
+                        "margin": round(float(r.get("isolatedMargin") or 0) or n / lev, 2), "stop": st.get("stop"), "target": st.get("next") if "next" in st else (None if st.get("tpId") == "done" else st.get("tp")),
                         "half": st.get("tpId") == "done", "t": st.get("t0") or int(time.time()), "mark": float(r.get("markPrice") or e_), "unreal": round(float(r.get("unRealizedProfit") or 0), 2),
                         "grade": st.get("grade"), "prob": st.get("prob"), "card": st.get("card"), "liqBinance": float(r.get("liquidationPrice") or 0) or None})
     except IOError: pass
