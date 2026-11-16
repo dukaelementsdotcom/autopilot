@@ -59,7 +59,12 @@ def main():
              "STEPS data, stop to +1% after TP2": lambda x: walk_steps(J, x, [0.02, x["tp2"], x["tp3"]], [0.5, 0.25, 0.25], [2 * FEE, 0.01, x["tp2"]]),
              "STEPS data, stop to +2% after TP2": lambda x: walk_steps(J, x, [0.02, x["tp2"], x["tp3"]], [0.5, 0.25, 0.25], [2 * FEE, 0.02, x["tp2"]]),
              "STEPS fixed 3% / 4.5%, stop to +1%": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.01, 0.03]),
-             "RATCHET (keep half of best, = lock)": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE], ratchet=True)}
+             "RATCHET (keep half of best, = lock)": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE], ratchet=True),
+             "OWNER fixed 3% / 4.5%, SL3 = TP1 (+2%)": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03]),
+             "OWNER fixed, SL3 = TP1, 24h max": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], hz=24),
+             "OWNER fixed, SL3 = TP1, 48h max": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], hz=48),
+             "STEPS fixed, SL3 = +1%, 24h max": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.01, 0.03], hz=24),
+             "TODAY, 24h max": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE], hz=24)}
         out[wname] = {k: stats(run(J, P_, f), days) for k, f in V.items()}
         for k, v in out[wname].items(): print(f"  {wname} | {k}: {v}", flush=True)
         t2 = [x["tp2"] for x in P_]; t3 = [x["tp3"] for x in P_]
