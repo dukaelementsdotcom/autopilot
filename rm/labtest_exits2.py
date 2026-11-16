@@ -9,7 +9,18 @@ import json, math, time, numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor as HGBR
 from . import config as C, features, referee as RF
 from .judge import Judge
-from .labtest_exits import picks, mfe, stats
+from .labtest_exits import picks, mfe, stats as _stats
+
+def stats(res, days):
+    s = _stats(res, days)
+    if not res: return s
+    top = sorted(range(len(res)), key=lambda k: -res[k][1])[:3]
+    s["noTop3"] = _stats([(t, (0.0 if k in top else r_), st, h) for k, (t, r_, st, h) in enumerate(res)], days)["monthly"]
+    from .referee import RISK, MAX_MARGIN
+    mo = {}
+    for t, r_, st, h in res: mo[t // (30 * 86400)] = mo.get(t // (30 * 86400), 0.0) + max(RISK["A"] * r_ / st, -MAX_MARGIN)
+    s["monthsUp"] = f"{sum(1 for v in mo.values() if v > 0)}/{len(mo)}"; s["worstMonth"] = round(min(mo.values()) * 100, 1)
+    return s
 H = 3600; DAY = 86400; FEE = C.FEE
 
 def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False, after1=None, trend=None):
@@ -71,15 +82,11 @@ def main():
         TR = RF.regimes(J, np.unique(J.t[(J.t >= a) & (J.t < b + 80 * H)]))
         V = {"TODAY (50% at +2%, rest break-even/72h)": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE]),
              "OWNER fixed 3% / 4.5%, SL3 = TP1": lambda x: fx3(x),
+             "STEPS fixed 3% / 4.5%, SL3 = +1%": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.01, 0.03]),
              "OWNER fixed, 12h max after TP1": lambda x: fx3(x, 12),
-             "OWNER fixed, 24h max after TP1": lambda x: fx3(x, 24),
-             "COIN-SCALED TP2 = TP1 + 0.25 x daily range, TP3 + 0.75x": lambda x: vol(x, 0.25, 0.75),
-             "COIN-SCALED TP2 + 0.5x, TP3 + 1.0x": lambda x: vol(x, 0.5, 1.0),
-             "COIN-SCALED 0.25/0.75, 24h max after TP1": lambda x: vol(x, 0.25, 0.75, 24),
-             "COIN-SCALED 0.25/0.75, 12h max after TP1": lambda x: vol(x, 0.25, 0.75, 12),
-             "TREND-AWARE fixed: after TP1 hold while the market trend agrees, else exit": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], trend=TR),
-             "TREND-AWARE fixed: trend agrees -> up to 72h, turns against -> exit 12h later": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], trend=TR, after1=12),
-             "TREND-AWARE coin-scaled 0.25/0.75: turns against -> exit 12h later": lambda x: walk_steps(J, x, [0.02, 0.02 + 0.25 * x["dv"], 0.02 + 0.75 * x["dv"]], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.02 + 0.25 * x["dv"]], trend=TR, after1=12)}
+             "COIN-SCALED 0.25/0.75": lambda x: vol(x, 0.25, 0.75),
+             "COIN-SCALED 0.5/1.0": lambda x: vol(x, 0.5, 1.0),
+             "TREND-AWARE fixed, turns against -> exit 12h later": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], trend=TR, after1=12)}
         out[wname] = {k: stats(run(J, P_, f), days) for k, f in V.items()}
         for k, v in out[wname].items(): print(f"  {wname} | {k}: {v}", flush=True)
         dv = np.array([x["dv"] for x in P_]); print(f"  daily range median {np.median(dv)*100:.2f}% (10-90%: {np.percentile(dv,10)*100:.2f}-{np.percentile(dv,90)*100:.2f}) -> coin-scaled TP2 ~ +{2+25*np.median(dv):.2f}%, TP3 ~ +{2+75*np.median(dv):.2f}%", flush=True)
