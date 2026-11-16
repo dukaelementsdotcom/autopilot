@@ -272,7 +272,6 @@ def run(budget=None, log=print):
     safe("wider-universe contestant", wide.step, mem, J, now_iso(), blocks, log=log)
     from . import demo
     safe("binance demo account", demo.mirror, mem.get("referee") or {}, log=log)
-    from . import costs; safe("cost table", costs.table, mem.get("referee") or {})
     dropped = safe("memory clean-up", compact, mem) or 0
 
     run_rec = {"at": now_iso(), "tested": sum(counts.values()), "counts": counts, "validated": new_valid, "events": [[e, mem["tests"][k]["text"]] for e, k in events if k in mem["tests"]],

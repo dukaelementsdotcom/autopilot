@@ -57,13 +57,3 @@ EVO_DIR = os.environ.get("RM_EVO", "evo_state")   # the evolution engine's archi
 # the "wider universe" contestant (rm/wide.py): extra liquid perpetuals, kept OUT of the core panel so nothing existing changes
 WIDE = ("EOS 1000BONK GALA DYDX APE SAND AXS CHZ MANA CFX GRT THETA ENS MASK 1000FLOKI TRB SNX COMP NEO AR JASMY XTZ").split()
 WIDE_MIN_USD = 3e6           # it trades only those whose median 24h volume over the last 30 days is at least this ($3M/day: ample for a small account's orders)
-
-# ── THE DECEMBER EXAM (audit Nov 16): the ONLY clean test left. The historical final-exam months have been looked at too often to count.
-# Written before it starts; nothing is tuned on it. Pass criteria are the owner's to confirm before Dec 1.
-DECEMBER_EXAM = {
-    "start": "2026-12-01 00:00", "end": "2026-12-31 23:59",
-    "frozen": "no promotions and no hand changes to the Arbiter during the exam (owner decisions excepted, recorded)",
-    "measure": "graded calls' excess over the same-side, same-hour average (referee._excess), per non-overlapping 48h window, net of measured costs",
-    "pass": "TO BE CONFIRMED BY THE OWNER before Dec 1 (Fable's suggestion: positive average excess, t >= 2, at the measured cost)",
-}
-COST_DEFAULT = 0.0035           # assumed round-trip cost (fees + slippage) per coin until the demo has measured 10 fills of it (audit Nov 16)
