@@ -12,7 +12,7 @@ from .judge import Judge
 from .labtest_exits import picks, mfe, stats
 H = 3600; DAY = 86400; FEE = C.FEE
 
-def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False, after1=None):
+def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False, after1=None, trend=None):
     """tps: ascending take-profit levels; fracs: share closed at each; step_stops[k]: where the stop goes after TP k (as a move)"""
     i, sd, stp = x["i"], x["sd"], x["stp"]; e = J.O[i]; stop = e * (1 - sd * stp); k = 0; got = 0.0; left = 1.0; best = 0.0; px = e
     lvl = lambda mv: e * (1 + sd * mv)
@@ -22,7 +22,13 @@ def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False, after1=None):
         fav = (h / e - 1) if sd > 0 else (1 - l / e); best = max(best, fav)
         while k < len(tps) and fav >= tps[k]:
             got += fracs[k] * tps[k]; left -= fracs[k]; ns = lvl(step_stops[k]); stop = max(stop, ns) if sd > 0 else min(stop, ns); k += 1
-        if k >= 1 and after1 is not None:
+        if k >= 1 and trend is not None and k < len(tps):        # after TP1: keep holding only while the market's trend agrees with the trade
+            rg = trend.get(int(J.t[j]))
+            if rg and (rg.startswith("up") != (sd > 0)):
+                if after1 is None: px = c; break
+                t1 = x.setdefault("_t1", j)
+                if j - t1 >= after1: px = c; break
+        elif k >= 1 and after1 is not None:
             t1 = x.setdefault("_t1", j)
             if j - t1 >= after1: px = c; break
         if ratchet and k >= 1:
@@ -62,6 +68,7 @@ def main():
         for x in P_: x["dv"] = float(J.dvol[x["i"]])
         fx3 = lambda x, a1=None: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], after1=a1)
         vol = lambda x, a, b, a1=None: walk_steps(J, x, [0.02, 0.02 + a * x["dv"], 0.02 + b * x["dv"]], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.02 + a * x["dv"]], after1=a1)
+        TR = RF.regimes(J, np.unique(J.t[(J.t >= a) & (J.t < b + 80 * H)]))
         V = {"TODAY (50% at +2%, rest break-even/72h)": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE]),
              "OWNER fixed 3% / 4.5%, SL3 = TP1": lambda x: fx3(x),
              "OWNER fixed, 12h max after TP1": lambda x: fx3(x, 12),
@@ -69,7 +76,10 @@ def main():
              "COIN-SCALED TP2 = TP1 + 0.25 x daily range, TP3 + 0.75x": lambda x: vol(x, 0.25, 0.75),
              "COIN-SCALED TP2 + 0.5x, TP3 + 1.0x": lambda x: vol(x, 0.5, 1.0),
              "COIN-SCALED 0.25/0.75, 24h max after TP1": lambda x: vol(x, 0.25, 0.75, 24),
-             "COIN-SCALED 0.25/0.75, 12h max after TP1": lambda x: vol(x, 0.25, 0.75, 12)}
+             "COIN-SCALED 0.25/0.75, 12h max after TP1": lambda x: vol(x, 0.25, 0.75, 12),
+             "TREND-AWARE fixed: after TP1 hold while the market trend agrees, else exit": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], trend=TR),
+             "TREND-AWARE fixed: trend agrees -> up to 72h, turns against -> exit 12h later": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], trend=TR, after1=12),
+             "TREND-AWARE coin-scaled 0.25/0.75: turns against -> exit 12h later": lambda x: walk_steps(J, x, [0.02, 0.02 + 0.25 * x["dv"], 0.02 + 0.75 * x["dv"]], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.02 + 0.25 * x["dv"]], trend=TR, after1=12)}
         out[wname] = {k: stats(run(J, P_, f), days) for k, f in V.items()}
         for k, v in out[wname].items(): print(f"  {wname} | {k}: {v}", flush=True)
         dv = np.array([x["dv"] for x in P_]); print(f"  daily range median {np.median(dv)*100:.2f}% (10-90%: {np.percentile(dv,10)*100:.2f}-{np.percentile(dv,90)*100:.2f}) -> coin-scaled TP2 ~ +{2+25*np.median(dv):.2f}%, TP3 ~ +{2+75*np.median(dv):.2f}%", flush=True)
