@@ -404,11 +404,21 @@ def _maxdd(curve):
     if len(v) < 2: return 0.0
     v = np.array(v, float); return round(float(((np.maximum.accumulate(v) - v) / np.maximum.accumulate(v)).max() * 100), 2)
 
-OWNER_PROMOTIONS = [("steps-coin", "owner's decision Nov 16 on lab test 3: an exit-only change (same entries) that beat today's exit in both unseen windows and stayed profitable without its 3 best trades; promoted before the December exam so the exam measures one plan; reversed by the usual rule if 'previous' proves better live")]
+OWNER_PROMOTIONS = []      # owner, Nov 17: no hand promotions - everything earns its place on live results ('steps-coin' races as a contestant)
+OWNER_UNDO = ["steps-coin"]
 
 def promote(R, log=print):
     """the rule, applied every hour: a challenger with enough independent bets that beats the champion on every count takes over.
     The old champion stays on as the 'previous' challenger, so a promotion that turns out worse is reversed by the same rule."""
+    champ = R.get("champ") or {}                                       # undo an owner promotion once: the Arbiter goes back to its exit before it
+    for n in OWNER_UNDO:
+        h = [x for x in champ.get("history", []) if x.get("promoted") == n and x.get("owner")]
+        if h and not any(x.get("undone") == n for x in champ.get("history", [])) and champ.get("prev"):
+            champ["cfg"] = dict(champ["prev"]); champ.pop("prev", None); champ["since"] = time.strftime("%Y-%m-%d %H:%M", time.gmtime())
+            champ["history"].append({"at": champ["since"], "undone": n, "owner": True, "evidence": "owner, Nov 17: judge it on live results; it races as a contestant"})
+            log(f"challengers: owner's promotion of {n} UNDONE; it races as a contestant again")
+            for k in list((R.get("chal") or {})): R["chal"][k].pop("acct", None)
+            return None
     for n, why in OWNER_PROMOTIONS:                                    # the owner's decisions, applied once (same mechanics: 'previous' stays in the race)
         champ = R.setdefault("champ", {"cfg": dict(CHAMP)})
         if any(h.get("promoted") == n and h.get("owner") for h in champ.get("history", [])) or n not in (R.get("chal") or {}): continue
