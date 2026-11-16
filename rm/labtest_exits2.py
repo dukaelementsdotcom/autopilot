@@ -12,7 +12,7 @@ from .judge import Judge
 from .labtest_exits import picks, mfe, stats
 H = 3600; DAY = 86400; FEE = C.FEE
 
-def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False):
+def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False, after1=None):
     """tps: ascending take-profit levels; fracs: share closed at each; step_stops[k]: where the stop goes after TP k (as a move)"""
     i, sd, stp = x["i"], x["sd"], x["stp"]; e = J.O[i]; stop = e * (1 - sd * stp); k = 0; got = 0.0; left = 1.0; best = 0.0; px = e
     lvl = lambda mv: e * (1 + sd * mv)
@@ -22,10 +22,14 @@ def walk_steps(J, x, tps, fracs, step_stops, hz=72, ratchet=False):
         fav = (h / e - 1) if sd > 0 else (1 - l / e); best = max(best, fav)
         while k < len(tps) and fav >= tps[k]:
             got += fracs[k] * tps[k]; left -= fracs[k]; ns = lvl(step_stops[k]); stop = max(stop, ns) if sd > 0 else min(stop, ns); k += 1
+        if k >= 1 and after1 is not None:
+            t1 = x.setdefault("_t1", j)
+            if j - t1 >= after1: px = c; break
         if ratchet and k >= 1:
             ns = lvl(0.5 * best); stop = max(stop, ns) if sd > 0 else min(stop, ns)
         px = c
         if left <= 1e-9: break
+    x.pop("_t1", None)
     return got + left * sd * (px / e - 1) - FEE
 
 def run(J, P_, fn):
@@ -55,20 +59,20 @@ def main():
         for x in P_:
             Xi = RF._X(P, np.array([x["i"]]), cols); q50 = float(M[x["sd"]][0.5].predict(Xi)[0]); q75 = float(M[x["sd"]][0.75].predict(Xi)[0])
             x["tp2"] = float(np.clip(q50, 0.025, 0.06)); x["tp3"] = float(np.clip(max(q75, x["tp2"] + 0.005), x["tp2"] + 0.005, 0.10))
+        for x in P_: x["dv"] = float(J.dvol[x["i"]])
+        fx3 = lambda x, a1=None: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], after1=a1)
+        vol = lambda x, a, b, a1=None: walk_steps(J, x, [0.02, 0.02 + a * x["dv"], 0.02 + b * x["dv"]], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.02 + a * x["dv"]], after1=a1)
         V = {"TODAY (50% at +2%, rest break-even/72h)": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE]),
-             "STEPS data, stop to +1% after TP2": lambda x: walk_steps(J, x, [0.02, x["tp2"], x["tp3"]], [0.5, 0.25, 0.25], [2 * FEE, 0.01, x["tp2"]]),
-             "STEPS data, stop to +2% after TP2": lambda x: walk_steps(J, x, [0.02, x["tp2"], x["tp3"]], [0.5, 0.25, 0.25], [2 * FEE, 0.02, x["tp2"]]),
-             "STEPS fixed 3% / 4.5%, stop to +1%": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.01, 0.03]),
-             "RATCHET (keep half of best, = lock)": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE], ratchet=True),
-             "OWNER fixed 3% / 4.5%, SL3 = TP1 (+2%)": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03]),
-             "OWNER fixed, SL3 = TP1, 24h max": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], hz=24),
-             "OWNER fixed, SL3 = TP1, 48h max": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.02, 0.03], hz=48),
-             "STEPS fixed, SL3 = +1%, 24h max": lambda x: walk_steps(J, x, [0.02, 0.03, 0.045], [0.5, 0.25, 0.25], [2 * FEE, 0.01, 0.03], hz=24),
-             "TODAY, 24h max": lambda x: walk_steps(J, x, [0.02], [0.5], [2 * FEE], hz=24)}
+             "OWNER fixed 3% / 4.5%, SL3 = TP1": lambda x: fx3(x),
+             "OWNER fixed, 12h max after TP1": lambda x: fx3(x, 12),
+             "OWNER fixed, 24h max after TP1": lambda x: fx3(x, 24),
+             "COIN-SCALED TP2 = TP1 + 0.25 x daily range, TP3 + 0.75x": lambda x: vol(x, 0.25, 0.75),
+             "COIN-SCALED TP2 + 0.5x, TP3 + 1.0x": lambda x: vol(x, 0.5, 1.0),
+             "COIN-SCALED 0.25/0.75, 24h max after TP1": lambda x: vol(x, 0.25, 0.75, 24),
+             "COIN-SCALED 0.25/0.75, 12h max after TP1": lambda x: vol(x, 0.25, 0.75, 12)}
         out[wname] = {k: stats(run(J, P_, f), days) for k, f in V.items()}
         for k, v in out[wname].items(): print(f"  {wname} | {k}: {v}", flush=True)
-        t2 = [x["tp2"] for x in P_]; t3 = [x["tp3"] for x in P_]
-        print(f"  learned TP2 median {np.median(t2) * 100:.2f}% (10-90%: {np.percentile(t2, 10) * 100:.2f}-{np.percentile(t2, 90) * 100:.2f}), TP3 median {np.median(t3) * 100:.2f}% ({np.percentile(t3, 10) * 100:.2f}-{np.percentile(t3, 90) * 100:.2f})", flush=True)
+        dv = np.array([x["dv"] for x in P_]); print(f"  daily range median {np.median(dv)*100:.2f}% (10-90%: {np.percentile(dv,10)*100:.2f}-{np.percentile(dv,90)*100:.2f}) -> coin-scaled TP2 ~ +{2+25*np.median(dv):.2f}%, TP3 ~ +{2+75*np.median(dv):.2f}%", flush=True)
     base = {w: out[w]["TODAY (50% at +2%, rest break-even/72h)"] for w in W}; win = []
     for k in out["validation year"]:
         if k.startswith("TODAY"): continue
