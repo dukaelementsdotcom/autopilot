@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "tide": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -38,6 +38,7 @@ def registry(B=None):
     reg["timestop"] = ({"timestop": True}, "Time stop: a trade that has made no progress (under +0.5%) after 24 hours is closed instead of waiting for its stop", "policy")
     reg["weekpace"] = ({"weekpace": True}, "Weekly pace with carry-over: a quiet day's unused trade can be used later in the same week (up to 3 in one day)", "policy")
     reg["bocpd-gate"] = ({"gate2": "bocpd"}, "Changepoint fast-track: Bayesian online changepoint detection on Bitcoin's return and market breadth; when a change is detected and the long side's graded calls since then beat their break-even over 15+ calls, longs unlock at once instead of waiting for the slow exam window", "policy")
+    reg["tide"] = ({"tide": True}, "Market-type reader 'tide': shorts only while the market is falling and longs only while it is rising, read from a weekly view (Bitcoin's averages, breadth, stocks, the dollar) AND a daily view (Bitcoin today, how many coins are up, buying vs selling, the Coinbase premium) that must agree for 12 hours; otherwise it stands aside", "policy")
     reg["gate"] = ({"gate": True}, "Trend gate: no shorts while the Compass trend reader says the market is rising. Over 7 past periods: +3.4% a month on average vs +2.0% without it, and the worst period improved from -11.9% to -2.0% a month", "policy")
     reg["trend2"] = ({"trend": "v2"}, "Compass trend reader: market direction from many views that must agree (Bitcoin's 20/50/200-day trends, breadth across coins, stocks, the dollar), five states incl. sideways, smoothed so noise cannot flip it", "policy")
     reg["pairs"] = ({"spec": "pairs"}, "Pair trades: long the coin it likes most, short the one it dislikes most, among coins that move together (the market's swings cancel; tight stop even in wild markets)", "policy")

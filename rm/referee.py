@@ -274,6 +274,10 @@ def step(mem, J, now_iso, log=print, problems=None):
                 from . import compass
                 REG2 = compass.regimes2(J, np.unique(J.t[rows])); R["trend2Now"] = REG2.get(int(J.t[rows].max()))
             except Exception as e: R["trend2Now"] = f"unavailable: {e}"
+            try:                                                           # market-type readers race on what the market actually does next (records only)
+                from . import tide as TD; TD.contest(J, R, REG, REG2, int(J.t[rows].max())); R["tideNow"] = TD.at(J, int(J.t[rows].max()))
+            except Exception as e:
+                if problems is not None: problems.append(f"tide reader: {str(e)[:100]}")
             for n, AA, cfg in accts:
                 if AA.get("paused"): continue
                 RG = REG2 if (cfg.get("trend") == "v2" and REG2) else REG             # the trend-reader challenger sees the market through the new reader
@@ -459,7 +463,12 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
         best = None
         for name, sd in B["sides"].items():
             fast = cfg.get("gate2") == "bocpd" and name == "long" and (R.get("bocpd") or {}).get("unlocked")      # changepoint fast-track (contestant only)
-            if not (cfg.get("statebar") or fast or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
+            if cfg.get("tide"):                                   # the tide contestant: a side trades only when the market-type reader says so (longs too)
+                try:
+                    from . import tide as TD
+                    if TD.at(J, int(J.t[i]))["tide"] != (1 if name == "long" else -1): continue
+                except Exception: continue                     # a reader failure only stops the contestant, never the Arbiter
+            elif not (cfg.get("statebar") or fast or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
             if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
             if not g: continue
@@ -535,7 +544,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
