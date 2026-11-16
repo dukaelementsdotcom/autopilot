@@ -63,7 +63,12 @@ def registry(B=None):
         from . import witnesses
         for w in witnesses.ready(B):
             reg[f"witness-{w}"] = ({"odds": f"witness:{w}"}, witnesses.WITNESSES[w]["what"], "odds")
-    return reg
+    return {k: v for k, v in reg.items() if k in KEEP or k.startswith("witness-evo")}     # evolved voters still race (they pass a gate first)
+
+# Audit Nov 16: every racer raises the bar for the rest, and most had no evidence behind them. Parked (not deleted; the code stays):
+# alloc, bold, kelly, tiers, weekpace, pace, lowbar, bestofday, curious(-side), runner, pairs, range, news, flushlong, bocpd-gate, online-*,
+# recal, shape, doubt, cointrust, rules, shock, without-*, most witnesses. Kept: the ones below ('previous' is added separately).
+KEEP = {"guard", "timestop", "lock", "gate", "statebar", "trend2", "witness-liq", "witness-xoi", "witness-book", "steps-coin"}
 
 WITNESSES = {}          # filled by witnesses.py (new evidence trained as an extra family)
 
@@ -313,7 +318,8 @@ def odds(R, B, Hd, cfg, name, fp, reg, base_prob):
 def icc(rows):
     """how strongly outcomes of calls made at the same moment move together (0 = independent, 1 = one bet)"""
     g = {}
-    for x in rows: g.setdefault((x["side"], x["t"] // (6 * H)), []).append(x["y"])
+    from .integrity import WIN
+    for x in rows: g.setdefault((x["side"], x["t"] // WIN), []).append(x["y"])
     gs = [v for v in g.values() if len(v) >= 2]
     if len(gs) < 5: return 0.3
     k = np.mean([len(v) for v in gs]); allv = np.concatenate(gs); m = allv.mean()
@@ -327,7 +333,8 @@ def evaluate(R, log=print):
     if not L: R["chalStats"] = {"icc": 0.3, "rows": 0}; return
     rho = icc(L); R.setdefault("chalStats", {}).update(icc=round(rho, 3), rows=len(L))
     cl = {}
-    for x in L: cl.setdefault((x["side"], x["t"] // (6 * H)), []).append(x)
+    from .integrity import WIN
+    for x in L: cl.setdefault((x["side"], x["t"] // WIN), []).append(x)
     wt = {id(x): 1.0 / (1 + (len(v) - 1) * rho) for v in cl.values() for x in v}
     names = sorted({k for x in L for k in x["cp"]})
     racing = len([n for n in (R.get("chal") or {}) if n not in (R.get("chalRejected") or {})])     # family-wise line (integrity.z_needed)
@@ -358,7 +365,7 @@ def evaluate(R, log=print):
             else:
                 y_ = x["y"]; pm, pc = np.clip(m_["p"], 1e-3, 1 - 1e-3), np.clip(c_["p"], 1e-3, 1 - 1e-3)
                 d = (y_ * np.log(pm) + (1 - y_) * np.log(1 - pm)) - (y_ * np.log(pc) + (1 - y_) * np.log(1 - pc))
-            blocks.setdefault(x["t"] // (6 * H), []).append(d)
+            blocks.setdefault(x["t"] // WIN, []).append(d)
         bm = np.array([np.mean(v) for v in blocks.values()]); nb = len(bm)
         tstat = float(bm.mean() / (bm.std(ddof=1) / np.sqrt(nb))) if nb >= 5 and bm.std(ddof=1) > 0 else 0.0
         # SEQUENTIAL TEST (integrity.PROMO, frozen): looked at every hour, so the boundary is pre-set and stricter than a one-off test;
@@ -375,18 +382,32 @@ def evaluate(R, log=print):
         if decision == "futility" and n != "previous":
             R.setdefault("chalFutile", {})[n] = {"until": time.time() + 30 * 86400, "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()),
                                                  "why": f"the sequential test gave up on it after {nb} separate market moves (lead {tstat:+.2f} standard errors); it may start again from zero in 30 days"}
-    # policy challengers that only differ in HOW they trade (pace, guard, sizing, shock exits): judged by their shadow accounts
+    # policy challengers that only differ in HOW they trade (pace, guard, sizing, exits): judged by their shadow accounts with a REAL test
+    # (audit Nov 16): per non-overlapping 48-hour window, the contestant's risk-normalised result (sum of R-multiples: profit / risk at entry)
+    # minus the Arbiter's in the same window; promoted only by the same family-wise z line as the odds contestants, over 20+ windows,
+    # and with a drawdown no worse than the Arbiter's + 5 points. Size alone cannot win (R-multiples ignore it).
+    from . import integrity as IG
     ch = R.get("acct") or {}
+    def _rwin(closed, t0):
+        o = {}
+        for x in closed or []:
+            if x.get("t", 0) < t0: continue
+            risk = float(x.get("notional") or 0) * float(x.get("stopPct") or 0)
+            if risk > 0: o[x["t"] // IG.WIN] = o.get(x["t"] // IG.WIN, 0.0) + float(x.get("usd") or 0) / risk
+        return o
     for n, c in (R.get("chal") or {}).items():
         a = c.get("acct")
         if c.get("kind") != "policy" or not a or n in out: continue
+        t0 = a.get("bornT", 0); me_w, ch_w = _rwin(a.get("closed"), t0), _rwin(ch.get("closed"), t0)
+        ks = sorted(set(me_w) | set(ch_w)); dv = np.array([me_w.get(k, 0.0) - ch_w.get(k, 0.0) for k in ks]); nb = len(dv)
+        tstat = float(dv.mean() / (dv.std(ddof=1) / np.sqrt(nb))) if nb >= 5 and dv.std(ddof=1) > 0 else 0.0
         g_me = a.get("equity", a["cash"]) / a["start"]; g_ch = ch.get("equity", ch.get("cash", 1)) / max(1e-9, a.get("champAtBirth") or ch.get("start", 1))
-        dd_me, dd_ch = _maxdd(a.get("curve")), _maxdd([x for x in ch.get("curve", []) if x[0] >= a.get("bornT", 0)])
-        n_tr = len(a.get("closed", []))
-        out[n] = {"bets": n_tr, "me": {"growth": round((g_me - 1) * 100, 2), "maxDD": dd_me, "trades": n_tr},
-                  "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": n_tr >= 20,
-                  "better": _pol_better(g_me, g_ch, dd_me, dd_ch),
-                  "state": "collecting" if n_tr < 20 else ("ahead: promotion due" if _pol_better(g_me, g_ch, dd_me, dd_ch) else "ahead, not yet clearly" if g_me > g_ch else "behind"), "account": True}
+        dd_me, dd_ch = _maxdd(a.get("curve")), _maxdd([x for x in ch.get("curve", []) if x[0] >= t0])
+        zn = IG.z_needed(racing); ready = nb >= IG.PROMO["minBets"]
+        better = bool(ready and tstat >= zn and dd_me <= dd_ch + 5.0)
+        out[n] = {"bets": nb, "me": {"growth": round((g_me - 1) * 100, 2), "maxDD": dd_me, "trades": len(a.get("closed", []))},
+                  "champion": {"growth": round((g_ch - 1) * 100, 2), "maxDD": dd_ch}, "ready": ready, "better": better, "lead": round(tstat, 2), "zNeeded": zn,
+                  "state": ("promotion due" if better else f"collecting ({nb} of {IG.PROMO['minBets']} 48h windows)" if not ready else "ahead, not proven" if tstat > 0 else "behind"), "account": True}
     R["chalScores"] = out
     return out
 

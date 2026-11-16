@@ -778,11 +778,12 @@ def maybe_fit_heads(J, mem, log=print, time_left=1e9):
 def side_live(R, name, sd, reg=None):
     """a side trades if its exams passed, unless its own live shadow record has since proven otherwise (either way).
     The most specific evidence wins: its live record in THIS market regime, then its overall live record, then its exams."""
+    base = (not sd.get("off")) and sd.get("live", True)
     rv = ((R.get("regimeOverride") or {}).get(name) or {}).get(reg) if reg else None
-    if rv is not None: return rv["live"]
-    ov = (R.get("override") or {}).get(name)
-    if ov is not None: return ov["live"]
-    return (not sd.get("off")) and sd.get("live", True)
+    if rv is not None and not rv["live"]: return False          # ONE-WAY (audit Nov 16): live records may switch a side off, never on -
+    ov = (R.get("override") or {}).get(name)                     # a falling week must not unlock a side its exams failed
+    if ov is not None and not ov["live"]: return False
+    return base
 
 def _shadow_add(J, B, R, rows, S, REG=None):
     sh = R.setdefault("shadow", []); recent = {(x["coin"], x["side"]): x["t"] for x in sh[-400:]}
@@ -830,9 +831,9 @@ def _shadow_resolve(J, R, newest):
     # promotion / demotion on live evidence (at least 25 resolved calls)
     ov = R.setdefault("override", {})
     for name in list(ov):                                                # evidence that no longer meets the standard is withdrawn
-        if stats.get(name, {}).get("moves", 0) < 10: ov.pop(name)
+        if stats.get(name, {}).get("moves", 0) < 5: ov.pop(name)
     for name, st in stats.items():
-        if st["moves"] < 10: continue                                    # 10 independent market moves, not 25 calls from one move
+        if st["moves"] < 5: continue                                     # 5 independent 48-hour windows (switch-off only, see side_live)
         if st["avg"] > 0.15 and st["hit"] >= st["be"] + 0.03: ov[name] = {"live": True, "why": f"live shadow record: {st['recentN']} calls, hit {st['hit']:.0%} vs break-even {st['be']:.0%}, avg {st['avg']:+.2f}%"}
         elif st["avg"] < 0 and st["hit"] < st["be"]: ov[name] = {"live": False, "why": f"live shadow record below break-even: {st['recentN']} calls, hit {st['hit']:.0%} vs {st['be']:.0%}, avg {st['avg']:+.2f}%"}
 
@@ -874,9 +875,11 @@ def margin_of(R, name, sd):
     return max(0.0, sd["margin"] + ((R.get("adapt") or {}).get(name, {}).get("marginAdj", 0.0)))   # never below break-even itself
 
 def _moves(d):
-    """calls made in the same 6-hour window are one market move: returns one averaged record per move"""
+    """calls whose outcomes overlap are ONE piece of evidence: one averaged record per non-overlapping 48-hour window
+    (was 6-hour blocks, but outcomes run 48h, so neighbouring blocks shared most of their price path; audit Nov 16)"""
+    from .integrity import WIN
     g = {}
-    for x in d: g.setdefault(x["t"] // (6 * H), []).append(x)
+    for x in d: g.setdefault(x["t"] // WIN, []).append(x)
     return [{k: float(np.mean([x[k] for x in v])) for k in ("y", "prob", "ret", "be")} for v in g.values()]
 
 def drift_damp(R, B=None):
@@ -884,6 +887,7 @@ def drift_damp(R, B=None):
     across at least 10 separate market moves since the brain was trained (t >= 2.5 on per-move averages), has its vote shrunk toward
     'no opinion': 30% at t >= 2.5, 50% at t >= 3. Released below t = 1.5. Everything resets when the brain retrains. Its own
     opinion keeps being recorded, so recovery is measured too."""
+    from .integrity import WIN as WIN_
     L = [x for x in (R.get("ledger") or [])[-4000:] if x.get("y") is not None and x.get("fams")]
     since = 0
     try: since = time.mktime(time.strptime((B or {}).get("trainedAt") or (R.get("model") or {}).get("trainedAt"), "%Y-%m-%d %H:%M"))
@@ -894,7 +898,7 @@ def drift_damp(R, B=None):
         d = [x for x in L if x["side"] == side and x["t"] >= since]; blocks = {}
         for x in d:
             for f, p in x["fams"].items():
-                blocks.setdefault(f, {}).setdefault(x["t"] // (6 * H), []).append((p - x.get("base", 0.5)) * (1 if x["y"] == 0 else -1))
+                blocks.setdefault(f, {}).setdefault(x["t"] // WIN_, []).append((p - x.get("base", 0.5)) * (1 if x["y"] == 0 else -1))
         res = {}
         for f, bl in blocks.items():
             v = np.array([np.mean(a) for a in bl.values()])
@@ -926,9 +930,11 @@ def adapt(R):
     sh.sort(key=lambda x: x["t"])
     for name in ("long", "short"):
         d = _moves([x for x in sh if x["side"] == name][-200:])
-        if len(d) >= 10:                                               # at least 10 independent market moves, not 20 calls from one move
+        if len(d) >= 5:                                                # at least 5 independent 48-hour windows
             hit = np.mean([x["y"] for x in d]); pred = np.mean([x["prob"] for x in d]); avg = np.mean([x["ret"] for x in d])
-            adj = float(np.clip(pred - hit, -0.10, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.5))    # +1% avg -> 1.25x, +2% -> 1.5x, -2% -> 0.5x (the 8% ceiling still caps every trade)
+            # ONE-WAY CLAMP (audit Nov 16): live records may only make it MORE careful (bar up, size down), never looser or bigger.
+            # A good week in a trending market is not proof of skill; loosening on it bets on the trend without anyone deciding to.
+            adj = float(np.clip(pred - hit, 0.0, 0.10)); mult = float(np.clip(1.0 + avg * 25, 0.5, 1.0))
             ad[name] = {"marginAdj": round(adj, 3), "riskMult": round(mult, 2), "n": len(d), "hit": round(float(hit), 3), "pred": round(float(pred), 3), "avg": round(float(avg) * 100, 3),
                         "why": (f"live calls hit {hit:.0%} vs predicted {pred:.0%}: " + ("bar raised" if adj > 0.005 else "bar relaxed" if adj < -0.005 else "well calibrated")
                                 + f" ({adj*100:+.1f} pts); size x{mult:.2f}")}
@@ -937,7 +943,7 @@ def adapt(R):
             if x["side"] == name and x.get("reg"): byreg.setdefault(x["reg"], []).append(x)
         for reg, d in byreg.items():
             d = _moves(d[-150:])
-            if len(d) < 8: continue
+            if len(d) < 4: continue
             hit = np.mean([x["y"] for x in d]); be = np.mean([x["be"] for x in d]); avg = np.mean([x["ret"] for x in d])
             rov.setdefault(name, {})[reg] = {"live": bool(avg > 0 and hit >= be), "n": len(d), "hit": round(float(hit), 3), "be": round(float(be), 3), "avg": round(float(avg) * 100, 3)}
     R["adapt"] = ad; R["regimeOverride"] = rov
@@ -975,6 +981,33 @@ def _ledger_add(J, B, R, rows, S, REG=None, Hd=None, V=None):
             seen.add(key)
     from . import archive; archive.trim(L, 4000, "ledger")
 
+def _excess(R, L):
+    """EXCESS GRADING (audit Nov 16): a call is judged against every same-side candidate scanned in the SAME hour, so a falling or rising
+    market earns nothing. xs = hit minus the hour's average hit; xret = return minus the hour's average return. Graded calls (the shadow
+    book) get the same numbers. R["excess"] = graded calls' excess per side, one record per non-overlapping 48h window, with its t-value."""
+    from .integrity import WIN
+    grp = {}
+    for x in L:
+        if x.get("y") is not None and x.get("ret") is not None: grp.setdefault((x["side"], x["t"] // (6 * H)), []).append(x)    # the ledger holds each coin once per 6h block
+    mean = {k: (float(np.mean([z["y"] for z in v])), float(np.mean([z["ret"] for z in v])), len(v)) for k, v in grp.items() if len(v) >= 5}
+    for x in L + (R.get("shadow") or []):
+        if "xs" in x or x.get("y") is None or x.get("ret") is None: continue
+        m = mean.get((x["side"], x["t"] // (6 * H)))
+        if m: x["xs"] = round(x["y"] - m[0], 3); x["xret"] = round(x["ret"] - m[1], 4); x["peers"] = m[2]
+    out = {}
+    for side in ("long", "short"):
+        for nm, rows in (("graded", [x for x in (R.get("shadow") or []) if x["side"] == side and "xs" in x]),
+                         ("aboveBar", [x for x in L if x["side"] == side and "xs" in x and x.get("grade")])):
+            w = {}
+            for x in rows: w.setdefault(x["t"] // WIN, []).append((x["xs"], x["xret"]))
+            if not w: continue
+            a = np.array([np.mean([s for s, _ in v]) for v in w.values()]); b = np.array([np.mean([q for _, q in v]) for v in w.values()])
+            t = float(a.mean() / (a.std(ddof=1) / np.sqrt(len(a)))) if len(a) >= 3 and a.std(ddof=1) > 0 else None
+            out.setdefault(side, {})[nm] = {"calls": len(rows), "windows": len(a), "excessHit": round(float(a.mean()) * 100, 1), "excessRet": round(float(b.mean()) * 100, 3),
+                                            "t": round(t, 2) if t is not None else None}
+    out["note"] = "points above the average same-side candidate in the same hour; 0 = no selection skill (the market did the work)"
+    R["excess"] = out
+
 def _ledger_resolve(J, R, newest, Hd=None):
     """score candidates whose 48h (or their own shape's horizon) has passed; returns the newly scored ones (for online learning)"""
     L = R.get("ledger") or []; newly = []
@@ -1002,6 +1035,7 @@ def _ledger_resolve(J, R, newest, Hd=None):
                     yy, rr = barrier(J, r[:1], 1 if x["side"] == "long" else -1, e["T"], np.array([x["stop"]]), e["Hz"]); e["y"] = int(yy[0]); e["r"] = round(float(rr[0]), 4)
             elif "T" in e and "y" not in e: e["y"] = None if x["t"] + e["Hz"] * H <= newest + H and x.get("y") is None else e.get("y")
             if "T" not in e and "r" not in e and x.get("ret") is not None: e["r"] = x["ret"]
+    _excess(R, L)
     done = [x for x in L if x.get("y") is not None]; bands = []
     for lo, hi in ((0, .5), (.5, .55), (.55, .6), (.6, .65), (.65, .7), (.7, .75), (.75, 1.01)):
         d = [x for x in done if lo <= x["prob"] < hi]

@@ -150,8 +150,8 @@ def main(budget_min=100.0, seed=None, log=print):
     for c, e in sorted(A.cells.items(), key=lambda kv: -kv[1]["fit"]):
         if e.get("checks") or e["fit"] < bar: continue
         g = e["genome"]; vc = orc.voter_cols(lab.ctx, g); chk = {"bar": round(bar, 2), "N": A.N, "pLuck": round(GD.p_luck(e["fit"], A.N), 4)}
-        v = orc.delta(vc, "val"); x = orc.delta(vc, "exam"); chk["valGain"], chk["examGain"] = v, x
-        passed = bool(v and v["t"] >= 1.5 and v["milli"] > 0 and v["passesGates"] and x and x["milli"] >= 0 and x["grades"]["profitAfter"] >= x["grades"]["profitBefore"])   # validation-year odds-error gate + anti-shyness
+        v = orc.delta(vc, "val"); chk["valGain"] = v           # exam hygiene (audit Nov 16): the final-exam months are no longer looked at here
+        passed = bool(v and v["t"] >= 1.5 and v["milli"] > 0 and v["passesGates"] and v["grades"]["profitAfter"] >= v["grades"]["profitBefore"])   # validation-year gate + anti-shyness
         if passed:
             ok = dsl.probe(g["sig"], P)[0] and (not g.get("flt") or dsl.probe(g["flt"]["node"], P)[0])
             lk, bad = dsl.leak_check(g["sig"], P)
