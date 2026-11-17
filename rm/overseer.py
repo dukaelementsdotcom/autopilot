@@ -11,7 +11,7 @@ Every hourly run it checks three things and writes them into the health report (
 Once a day (first run after 04:00 UTC) it writes a plain-English daily report and posts it as a GitHub issue in the repository,
 which GitHub e-mails to the owner: what happened to the money, what the system did by itself, every data promise, the race,
 and what (if anything) needs a human."""
-import os, json, time, datetime as dt
+import html, os, json, time, datetime as dt
 import numpy as np
 from . import config as C
 
@@ -188,7 +188,9 @@ def track(mem, now):
             if s != p and s == "failed": _event(O, now, "quarantined", f"witness '{n}' failed its exams ({(st.get(n) or {}).get('state', '')[:160]})")
         for n in set(snap["futile"]) - set(prev.get("futile") or []): _event(O, now, "killed", f"contestant '{n}' parked for 30 days: {((R.get('chalFutile') or {}).get(n) or {}).get('why', '')}")
         if snap["promos"] > prev.get("promos", 0):
-            h = ((R.get("champ") or {}).get("history") or [])[-1]; _event(O, now, "promoted", f"PROMOTED '{h.get('promoted')}' into the Arbiter: {h.get('what')}")
+            h = ((R.get("champ") or {}).get("history") or [])[-1]
+            if h.get("undone"): _event(O, now, "promoted", f"UNDONE: the owner's promotion of '{h['undone']}' was reversed ({h.get('evidence', '')}); the Arbiter is back on its previous plan")
+            else: _event(O, now, "promoted", f"PROMOTED '{h.get('promoted')}' into the Arbiter: {h.get('what')}")
         for x in set(snap["damp"]) - set(prev.get("damp") or []):
             s, f = x.split(":"); v = R["damp"][s][f]; _event(O, now, "damped", f"{s}s: the '{f}' vote shrunk {v['d']:.0%} (it pointed the wrong way, t={v['t']} over {v['moves']} market moves)")
         for x in set(prev.get("damp") or []) - set(snap["damp"]): _event(O, now, "released", f"{x.replace(':', 's: the ')} vote back to full weight")
@@ -243,8 +245,14 @@ def daily(mem, rep, log=print, force=False):
     md, title = compose(mem, rep, now)
     os.makedirs(C.DOCS_DIR, exist_ok=True); open(f"{C.DOCS_DIR}/daily.md", "w").write(md)
     O["reportDay"] = day; O["lastReport"] = {"at": _utc(now), "title": title}
+    if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"):      # owner, Nov 17: Telegram instead of GitHub e-mail
+        from .report import _send
+        import re as _re
+        txt = _re.sub(r"^#+ *", "", md, flags=_re.M).replace("**", "")
+        _send(f"{html.escape(title)}\n\n{html.escape(txt)}"[:4000], log); O["sentVia"] = "telegram"; log("overseer: daily report sent by Telegram")
+        return md
     try:
-        r = _gh("POST", "/issues", json={"title": title, "body": md + f"\n\n@{OWNER}"})
+        r = _gh("POST", "/issues", json={"title": title, "body": md})
         if r is not None and r.ok:
             num = r.json().get("number"); prev = O.get("issue")
             if prev: _gh("PATCH", f"/issues/{prev}", json={"state": "closed"})

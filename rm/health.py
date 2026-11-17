@@ -172,7 +172,10 @@ def write(mem, J, timings, problems, live, t0, log=print):
         if not RA.get("killed"): mem.pop("killAlerted", None)
         if why and mem.get("alertedFor") != why + snap["at"][:10]:          # at most one alert per reason per day
             mem["alertedFor"] = why + snap["at"][:10]
-            open("alert.txt", "w").write(f"Volvox needs a look: {why}.\n" + "\n".join(f"{c['check']}: {c['status']} - {c['detail']}" for c in checks if c["status"] != "OK"))
+            msg = f"Volvox needs a look: {why}.\n" + "\n".join(f"{c['check']}: {c['status']} - {c['detail']}" for c in checks if c["status"] != "OK")
+            if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"):
+                import html as _h; from .report import _send; _send("⚠️ " + _h.escape(msg)[:3900], log)    # Telegram instead of a failed-run e-mail
+            else: open("alert.txt", "w").write(msg)
     except Exception as e: log(f"alert check failed: {e}")
     try:
         from . import overseer; overseer.daily(mem, rep, log)
