@@ -14,8 +14,8 @@ def call_gemini(prompt):
     if not api_key: 
         return '{"error": "No GEMINI_API_KEY found"}'
     
-    # The model name is now gemini-1.5-flash, not gemini-3-flash
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # The model name is now gemini-2.5-flash (the current stable model)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
