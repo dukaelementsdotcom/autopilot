@@ -2,32 +2,25 @@ name: Agent Team (Research)
 
 on:
   schedule:
-    - cron: '0 0 * * 0'
-  workflow_dispatch:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+  workflow_dispatch: # Allows you to click "Run workflow" manually
 
 permissions:
   contents: write
 
 jobs:
   research:
-    runs-on: ubuntu-24.04 # Force newer OS that natively supports Python 3.12
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          
-      - name: Verify Python version
-        run: |
-          echo "Python version:"
-          python --version
-          echo "Pip version:"
-          python -m pip --version
+          python-version: '3.10' # Using 3.10 to match your other workflows
           
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+        run: pip install -r requirements-agent.txt # Using the new isolated file
         
       - name: Run Agent Team
         env:
