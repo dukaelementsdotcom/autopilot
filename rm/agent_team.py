@@ -2,13 +2,18 @@
 import os, json, re, requests
 from . import config as C
 
+# ---- CONFIG ----
+GITHUB_REPO = "dukaelementsdotcom/autopilot"
+GITHUB_BRANCH = "gh-pages"  # If your site is hosted from the main branch's docs folder, change to "main"
+HEALTH_DIR = "autopilot"    # The folder on GitHub Pages. If files are at the root, use ""
+# ----------------
+
 def call_gemini(prompt):
     """Calls Gemini. Ensure GEMINI_API_KEY is in your GitHub Secrets."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key: 
         return '{"error": "No GEMINI_API_KEY found"}'
     
-    # Using 1.5-pro for better reasoning, formatted to force JSON output
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -23,20 +28,54 @@ def call_gemini(prompt):
         print(f"Gemini API Error Response: {r.text}")
         return '{"error": "Gemini API failed"}'
 
-def run_agent_team():
-    # 1. OBSERVER: Fetch the latest health report from your live site
-    # IMPORTANT: Check if your URL is actually /health.json or if it has a timestamp in the name.
-    health_url = "https://dukaelementsdotcom.github.io/autopilot/health.json"
-    print(f"Observer downloading from: {health_url}")
+def get_latest_health():
+    """Try to find the newest dated health file via GitHub API, fallback to static health.json"""
     
+    # Method 1: Ask GitHub API for all files, find the newest health-*.json
     try:
-        r = requests.get(health_url, timeout=30)
-        if r.status_code != 200:
-            print(f"Failed to fetch health.json. Status: {r.status_code}")
-            return
-        health = r.json()
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
+        r = requests.get(api_url, timeout=30)
+        if r.status_code == 200:
+            tree = r.json().get("tree", [])
+            # Find all files that match health-*.json
+            health_files = [
+                f["path"] for f in tree 
+                if f["path"].startswith(f"{HEALTH_DIR}/health-") and f["path"].endswith(".json")
+            ]
+            if health_files:
+                # Sort them. Because of the date format, the newest one will be last.
+                latest_file = sorted(health_files)[-1]
+                print(f"Found latest health report via API: {latest_file}")
+                
+                raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{latest_file}"
+                r2 = requests.get(raw_url, timeout=30)
+                if r2.status_code == 200:
+                    return r2.json()
+                print(f"Failed to download {raw_url}: {r2.status_code}")
+            else:
+                print(f"No health-*.json files found in {HEALTH_DIR}/ on branch {GITHUB_BRANCH}")
+        else:
+            print(f"GitHub API returned {r.status_code}")
     except Exception as e:
-        print(f"Could not download health report: {e}")
+        print(f"Error querying GitHub API: {e}")
+
+    # Method 2: Fallback to the static health.json link
+    print("Falling back to static health.json...")
+    try:
+        r = requests.get("https://dukaelementsdotcom.github.io/autopilot/health.json", timeout=30)
+        if r.status_code == 200:
+            return r.json()
+        print(f"Static health.json returned {r.status_code}")
+    except Exception as e:
+        print(f"Error fetching static health.json: {e}")
+
+    return None
+
+def run_agent_team():
+    # 1. OBSERVER: Get the latest health report
+    health = get_latest_health()
+    if not health:
+        print("Could not obtain health report. Exiting.")
         return
 
     # Extract what is broken.
@@ -66,7 +105,6 @@ def run_agent_team():
     print(f"RAW GEMINI RESPONSE:\n{response}\n")
     
     try:
-        # Clean up potential markdown formatting
         clean_resp = re.sub(r"^```[a-zA-Z]*\s*", "", response)
         clean_resp = re.sub(r"\s*```$", "", clean_resp)
         idea = json.loads(clean_resp)
@@ -96,11 +134,9 @@ def run_agent_team():
     print("Coder (Gemini) is writing the labtest...")
     code = call_gemini(coder_prompt)
     
-    # Clean up any markdown formatting
     code = re.sub(r"^```python\s*", "", code)
     code = re.sub(r"\s*```$", "", code)
     
-    # Use a safe fallback name if rule_name is missing
     safe_name = idea.get('rule_name', 'unnamed_rule').replace(' ', '_')
     filename = f"rm/labtest_agent_{safe_name}.py"
     
