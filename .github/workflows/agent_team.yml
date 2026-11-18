@@ -1,0 +1,34 @@
+name: Agent Team (Research)
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+  workflow_dispatch: # Allows you to click "Run workflow" manually
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run Agent Team
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python -m rm.agent_team
+        
+      - name: Commit new lab test
+        run: |
+          git config --global user.name "Agent Team"
+          git config --global user.email "agent@volvox.local"
+          git add rm/labtest_agent_*.py
+          git commit -m "Agent Team: Generated new hypothesis" || echo "No new ideas"
+          git push
