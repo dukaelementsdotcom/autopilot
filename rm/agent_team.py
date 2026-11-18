@@ -4,8 +4,8 @@ from . import config as C
 
 # ---- CONFIG ----
 GITHUB_REPO = "dukaelementsdotcom/autopilot"
-GITHUB_BRANCH = "gh-pages"  # If your site is hosted from the main branch's docs folder, change to "main"
-HEALTH_DIR = "autopilot"    # The folder on GitHub Pages. If files are at the root, use ""
+GITHUB_BRANCH = "gh-pages"
+HEALTH_DIR = "autopilot"
 # ----------------
 
 def call_gemini(prompt):
@@ -14,8 +14,8 @@ def call_gemini(prompt):
     if not api_key: 
         return '{"error": "No GEMINI_API_KEY found"}'
     
-    # Updated to the latest available model endpoint
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key={api_key}"
+    # The model name is now gemini-1.5-flash, not gemini-3-flash
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -32,35 +32,29 @@ def call_gemini(prompt):
 def get_latest_health():
     """Try to find the newest dated health file via GitHub API, fallback to static health.json"""
     
-    # Method 1: Ask GitHub API for all files, find the newest health-*.json
+    # Method 1: GitHub API (may hit rate limit 403, but that's okay)
     try:
         api_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
         r = requests.get(api_url, timeout=30)
         if r.status_code == 200:
             tree = r.json().get("tree", [])
-            # Find all files that match health-*.json
             health_files = [
                 f["path"] for f in tree 
                 if f["path"].startswith(f"{HEALTH_DIR}/health-") and f["path"].endswith(".json")
             ]
             if health_files:
-                # Sort them. Because of the date format, the newest one will be last.
                 latest_file = sorted(health_files)[-1]
                 print(f"Found latest health report via API: {latest_file}")
-                
                 raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{latest_file}"
                 r2 = requests.get(raw_url, timeout=30)
                 if r2.status_code == 200:
                     return r2.json()
-                print(f"Failed to download {raw_url}: {r2.status_code}")
-            else:
-                print(f"No health-*.json files found in {HEALTH_DIR}/ on branch {GITHUB_BRANCH}")
-        else:
-            print(f"GitHub API returned {r.status_code}")
+        elif r.status_code == 403:
+            print("GitHub API rate limit hit. Falling back to static file.")
     except Exception as e:
         print(f"Error querying GitHub API: {e}")
 
-    # Method 2: Fallback to the static health.json link
+    # Method 2: Static fallback (this is what worked in your log)
     print("Falling back to static health.json...")
     try:
         r = requests.get("https://dukaelementsdotcom.github.io/autopilot/health.json", timeout=30)
@@ -73,13 +67,11 @@ def get_latest_health():
     return None
 
 def run_agent_team():
-    # 1. OBSERVER: Get the latest health report
     health = get_latest_health()
     if not health:
         print("Could not obtain health report. Exiting.")
         return
 
-    # Extract what is broken.
     by_side = health.get("referee", {}).get("calibration", {}).get("bySide", {})
     long_stats = by_side.get("long", {})
     long_hit = long_stats.get("hit", 0)
@@ -87,7 +79,6 @@ def run_agent_team():
     context = f"The current long side win rate is {long_hit:.1%}. The system needs a new rule to find long edges."
     print(f"Observer says: {context}")
 
-    # 2. STRATEGIST: Invent a rule
     prompt = f"""
     You are a quantitative researcher building a crypto trading bot.
     Context: {context}
@@ -116,7 +107,6 @@ def run_agent_team():
 
     print(f"Strategist proposed: {idea.get('rule_name')} - {idea.get('description')}")
 
-    # 3. CODER: Write the labtest file
     coder_prompt = f"""
     Write a standalone python script for a crypto research engine.
     The file will be saved as `rm/labtest_agent_generated.py`.
