@@ -118,10 +118,19 @@ def digest(log=print):
               "direction one of [up, down, unclear], severity 1-3). No other text.\n\n" + heads)
     txt, model = _groq([{"role": "user", "content": prompt}], 700)
     if not txt: return {"error": f"AI did not answer ({model})"}
+    
+    # The fixed parsing logic:
     try:
-        a, b = txt.find("{"), txt.rfind("}"); j = json.loads(txt[a:b + 1])
+        a, b = txt.find("{"), txt.rfind("}")
+        if a == -1 or b == -1: 
+            return {"error": "AI did not return JSON"}
+        j = json.loads(txt[a:b + 1])
         row = {"t": int(time.time()), "brief": str(j.get("brief"))[:500], "risk": int(max(-2, min(2, int(j.get("risk") or 0)))), "events": (j.get("events") or [])[:5], "model": model, "n": len(items)}
-    except Exception as e: return {"error": f"unreadable answer: {str(e)[:80]}"}
+    except json.JSONDecodeError as e:
+        return {"error": f"AI returned broken JSON: {str(e)}. Raw: {txt[a:b+1][:100]}"}
+    except Exception as e: 
+        return {"error": f"unreadable answer: {str(e)[:80]}"}
+        
     with open(p, "a") as f: f.write(json.dumps(row) + "\n")
     return {"risk": row["risk"], "events": len(row["events"])}
 
