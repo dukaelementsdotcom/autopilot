@@ -8,8 +8,8 @@ def call_gemini(prompt):
     if not api_key: 
         return '{"error": "No GEMINI_API_KEY found"}'
     
-    # Using 1.5-flash for better speed and stability on free tier
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # Using 1.5-pro for better reasoning, formatted to force JSON output
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -19,19 +19,27 @@ def call_gemini(prompt):
     r = requests.post(url, headers=headers, json=payload, timeout=60)
     try:
         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as e:
-        print(f"Gemini API Error: {r.text}")
+    except Exception:
+        print(f"Gemini API Error Response: {r.text}")
         return '{"error": "Gemini API failed"}'
 
 def run_agent_team():
-    health_path = f"{C.STATE_DIR}/health.json"
-    if not os.path.exists(health_path):
-        print("No health.json found. Cannot observe.")
+    # 1. OBSERVER: Fetch the latest health report from your live site
+    # IMPORTANT: Check if your URL is actually /health.json or if it has a timestamp in the name.
+    health_url = "https://dukaelementsdotcom.github.io/autopilot/health.json"
+    print(f"Observer downloading from: {health_url}")
+    
+    try:
+        r = requests.get(health_url, timeout=30)
+        if r.status_code != 200:
+            print(f"Failed to fetch health.json. Status: {r.status_code}")
+            return
+        health = r.json()
+    except Exception as e:
+        print(f"Could not download health report: {e}")
         return
 
-    with open(health_path, "r") as f:
-        health = json.load(f)
-
+    # Extract what is broken.
     by_side = health.get("referee", {}).get("calibration", {}).get("bySide", {})
     long_stats = by_side.get("long", {})
     long_hit = long_stats.get("hit", 0)
@@ -39,6 +47,7 @@ def run_agent_team():
     context = f"The current long side win rate is {long_hit:.1%}. The system needs a new rule to find long edges."
     print(f"Observer says: {context}")
 
+    # 2. STRATEGIST: Invent a rule
     prompt = f"""
     You are a quantitative researcher building a crypto trading bot.
     Context: {context}
@@ -58,7 +67,7 @@ def run_agent_team():
     
     try:
         # Clean up potential markdown formatting
-        clean_resp = re.sub(r"^```json\s*", "", response)
+        clean_resp = re.sub(r"^```[a-zA-Z]*\s*", "", response)
         clean_resp = re.sub(r"\s*```$", "", clean_resp)
         idea = json.loads(clean_resp)
         if "error" in idea: raise ValueError(idea["error"])
@@ -68,6 +77,7 @@ def run_agent_team():
 
     print(f"Strategist proposed: {idea.get('rule_name')} - {idea.get('description')}")
 
+    # 3. CODER: Write the labtest file
     coder_prompt = f"""
     Write a standalone python script for a crypto research engine.
     The file will be saved as `rm/labtest_agent_generated.py`.
