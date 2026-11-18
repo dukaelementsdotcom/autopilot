@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Updated for your modern numpy/pandas
+          python-version: '3.12' # Updated to match numpy 2.5.3 requirements
           
       - name: Install dependencies
         run: pip install -r requirements.txt
