@@ -14,8 +14,8 @@ def call_gemini(prompt):
     if not api_key: 
         return '{"error": "No GEMINI_API_KEY found"}'
     
-    # The model name is now gemini-2.5-flash (the current stable model)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Using gemini-4-hydrogen as requested
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -31,8 +31,6 @@ def call_gemini(prompt):
 
 def get_latest_health():
     """Try to find the newest dated health file via GitHub API, fallback to static health.json"""
-    
-    # Method 1: GitHub API (may hit rate limit 403, but that's okay)
     try:
         api_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
         r = requests.get(api_url, timeout=30)
@@ -54,13 +52,11 @@ def get_latest_health():
     except Exception as e:
         print(f"Error querying GitHub API: {e}")
 
-    # Method 2: Static fallback (this is what worked in your log)
     print("Falling back to static health.json...")
     try:
         r = requests.get("https://dukaelementsdotcom.github.io/autopilot/health.json", timeout=30)
         if r.status_code == 200:
             return r.json()
-        print(f"Static health.json returned {r.status_code}")
     except Exception as e:
         print(f"Error fetching static health.json: {e}")
 
