@@ -1,41 +1,54 @@
 name: Agent Team (Research)
 
+# Weekly (Sundays 00:00 UTC) or by hand. The AI proposes ONE long-side rule as a plain true/false expression (never code); it is checked and tested on the
+# past years in separate windows, and the idea plus its numbers is saved in rm/agent_ideas/. It never touches the Arbiter. The run FAILS if nothing could be tested.
 on:
   schedule:
-    - cron: '0 0 * * 0' # Every Sunday at midnight
-  workflow_dispatch: # Allows you to click "Run workflow" manually
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 permissions:
   contents: write
+  actions: read
+
+concurrency:
+  group: agent-team
+  cancel-in-progress: false
 
 jobs:
   research:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || secrets.GROQ }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      COINALYZE_KEY: ${{ secrets.COINALYZE_KEY }}
+      RM_RELAY_KEY: ${{ secrets.RM_RELAY_KEY }}
+      RM_OWN_RELAY: ${{ secrets.RM_OWN_RELAY }}
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          
-      - name: Install dependencies
-        run: pip install -r requirements-agent.txt
-        
-      - name: Run Agent Team
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ: ${{ secrets.GROQ }}
-        run: python -m rm.agent_team
-        
-      - name: Commit new lab test
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: rawdata-lab-${{ github.run_id }}
+          restore-keys: rawdata-
+      - name: restore memory (read only)
         run: |
-          git config --global user.name "Agent Team"
-          git config --global user.email "agent@volvox.local"
-          if ls rm/labtest_agent_*.py 1> /dev/null 2>&1; then
-            git add rm/labtest_agent_*.py
-            git commit -m "Agent Team: Generated new hypothesis"
-            git push
-          else
-            echo "No new tests generated this run. (Likely the AI failed to write valid JSON)."
-          fi
+          mkdir -p state
+          git fetch --depth 1 origin state && git --work-tree=state checkout FETCH_HEAD -- . && git reset -q || true
+      - name: Run Agent Team
+        run: python -W ignore -m rm.agent_team
+      - name: Save the idea and its numbers (data only, no code)
+        if: success()
+        run: |
+          git config user.name "Agent Team"
+          git config user.email "agent@volvox.local"
+          git add rm/agent_ideas/*.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Agent Team: new idea tested (see rm/agent_ideas)"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break || sleep 10; done

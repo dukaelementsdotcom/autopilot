@@ -1,138 +1,76 @@
-"""Agent Team: Reads health.json, invents a new rule via Gemini, writes a labtest_*.py file for the engine to test."""
-import os, json, re, requests
-from . import config as C
+"""AGENT TEAM (weekly research): observer -> strategist -> checker -> tester -> notebook.
+  observer   reads where the long side stands (live health report) and what ideas were already tried
+  strategist the AI (Groq first, Google AI Studio behind it, retried) invents ONE long-side rule: a true/false expression over past-only measurements
+  checker    rm/agent_rule.py accepts only plain comparisons of those measurements (no code from the AI is ever run); a bad rule goes back to the AI with the reason
+  tester     the same walk-forward as the lab tests: 7 separate 120-day windows, no brain, one random trade a day, against a baseline
+  notebook   rm/agent_ideas/<date>_<name>.json: the idea, the rule, the numbers and the verdict (committed by the workflow)
+Nothing here touches the Arbiter. A PASS only means 'worth racing as a contestant'; the live race decides. The run FAILS (so you hear about it) if no idea could be tested."""
+import os, re, sys, json, time, glob, datetime as dt, requests
+from . import config as C, features, ideas, agent_rule as AR
+from .judge import Judge
 
-# ---- CONFIG ----
-GITHUB_REPO = "dukaelementsdotcom/autopilot"
-GITHUB_BRANCH = "gh-pages"
-HEALTH_DIR = "autopilot"
-# ----------------
+OUT = "rm/agent_ideas"
+MEANING = ("p_* = a percentile rank (0 to 1) against the coin's own recent history; x_* = the same measured across the whole market; "
+           "positioning (p_glob, p_topPos, p_oi*), flow (p_timb*, p_tk*, p_vr), trend (p_r1..p_r168 = recent returns, p_pos24 = where price sits in its 24h range, don20, emat, emax, rsi14, bbz, adx14, streak), "
+           "volatility (p_vol24, p_volr), leverage (p_basis*, p_hlprem*, p_hlfund24), real money (p_sshare*, p_stimb24), mood (p_btc_r1, p_btc_r24, p_fg, p_cbp*, p_dvol*, p_stab7, hour, dow)")
 
-def call_gemini(prompt):
-    """Calls Gemini. Ensure GEMINI_API_KEY is in your GitHub Secrets."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key: 
-        return '{"error": "No GEMINI_API_KEY found"}'
-    
-    # Using gemini-4-hydrogen as requested
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"response_mime_type": "application/json"}
-    }
-    
-    r = requests.post(url, headers=headers, json=payload, timeout=60)
-    try:
-        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        print(f"Gemini API Error Response: {r.text}")
-        return '{"error": "Gemini API failed"}'
-
-def get_latest_health():
-    """Try to find the newest dated health file via GitHub API, fallback to static health.json"""
-    try:
-        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
-        r = requests.get(api_url, timeout=30)
-        if r.status_code == 200:
-            tree = r.json().get("tree", [])
-            health_files = [
-                f["path"] for f in tree 
-                if f["path"].startswith(f"{HEALTH_DIR}/health-") and f["path"].endswith(".json")
-            ]
-            if health_files:
-                latest_file = sorted(health_files)[-1]
-                print(f"Found latest health report via API: {latest_file}")
-                raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{latest_file}"
-                r2 = requests.get(raw_url, timeout=30)
-                if r2.status_code == 200:
-                    return r2.json()
-        elif r.status_code == 403:
-            print("GitHub API rate limit hit. Falling back to static file.")
-    except Exception as e:
-        print(f"Error querying GitHub API: {e}")
-
-    print("Falling back to static health.json...")
+def health():
     try:
         r = requests.get("https://dukaelementsdotcom.github.io/autopilot/health.json", timeout=30)
-        if r.status_code == 200:
-            return r.json()
-    except Exception as e:
-        print(f"Error fetching static health.json: {e}")
+        if r.status_code == 200: return r.json()
+    except Exception as e: print("health report not reachable:", str(e)[:100])
+    return {}
 
-    return None
+def tried():
+    out = []
+    for f in sorted(glob.glob(f"{OUT}/*.json")):
+        try: d = json.load(open(f)); out.append(f"{d.get('rule_name')}: {d.get('rule_expr')} -> {d.get('result', {}).get('summary', {}).get('verdict')}")
+        except Exception: pass
+    return out
 
-def run_agent_team():
-    health = get_latest_health()
-    if not health:
-        print("Could not obtain health report. Exiting.")
-        return
+def ask(messages):
+    """Groq first, Google AI Studio behind it; retried with a pause (503 'high demand' passes)"""
+    for attempt in range(3):
+        txt, who = ideas._groq_call(messages, 1500)
+        if txt:
+            a, b = txt.find("{"), txt.rfind("}")
+            try: return json.loads(txt[a:b + 1]), who
+            except Exception as e: print(f"AI answer was not valid JSON ({who}): {str(e)[:80]}")
+        else: print(f"AI unavailable (attempt {attempt + 1}/3): {who}")
+        time.sleep(20 * (attempt + 1))
+    return None, None
 
-    by_side = health.get("referee", {}).get("calibration", {}).get("bySide", {})
-    long_stats = by_side.get("long", {})
-    long_hit = long_stats.get("hit", 0)
-    
-    context = f"The current long side win rate is {long_hit:.1%}. The system needs a new rule to find long edges."
-    print(f"Observer says: {context}")
+def main():
+    hh = health(); long_ = (((hh.get("referee") or {}).get("calibration") or {}).get("bySide") or {}).get("long") or {}
+    ctx = (f"The long side's live shadow calls win {long_['hit']:.0%} of the time against the {long_.get('pred', 0):.0%} predicted. " if long_.get("hit") is not None else "") + "The system has no working long-side edge yet."
+    prev = tried(); print("Observer:", ctx, f"| {len(prev)} earlier ideas")
+    blocks = []
+    try: blocks = json.load(open(f"{C.STATE_DIR}/memory.json")).get("blocks") or []
+    except Exception: pass
+    J = Judge(features.build(blocks=blocks)); allowed = [c for c in AR.OKCOLS if c in J.cols]
+    prompt = (f"You are a quantitative researcher for a crypto futures system (hourly data, 54 coins). {ctx}\n"
+              f"Invent ONE rule that picks hours when a LONG trade (+2% target before a volatility stop, within 48h) is more likely to work than at a random hour.\n"
+              f"Measurements you may use (past-only): {', '.join(allowed)}.\nMeaning: {MEANING}.\n"
+              "The rule is ONE true/false expression using only those measurements, plain numbers, + - * /, abs(x), comparisons < > <= >=, joined with & | ~ ; put every comparison in parentheses. "
+              "Example: ((p_r24 < 0.2) & (p_glob < 0.3) & (p_timb4 > 0.6)).\n"
+              + (f"Ideas already tried (do not repeat them):\n- " + "\n- ".join(prev[-30:]) + "\n" if prev else "")
+              + 'Answer with one JSON object: {"rule_name": "short_snake_case", "description": "one or two plain sentences on why it should work", "rule_expr": "the expression"}')
+    msgs = [{"role": "system", "content": "You are a careful quantitative researcher. Answer with one JSON object only, no other text."}, {"role": "user", "content": prompt}]
+    idea = None; who = None; result = None; err = None
+    for attempt in range(3):
+        idea, who = ask(msgs)
+        if not idea: break
+        try: result = AR.evaluate(J, idea.get("rule_expr", "")); break
+        except ValueError as e:
+            err = str(e); print(f"Checker rejected the rule (attempt {attempt + 1}/3): {err}")
+            msgs += [{"role": "assistant", "content": json.dumps(idea)}, {"role": "user", "content": f"That rule was rejected: {err}\nFix it and answer with the same JSON object."}]
+    if not result:
+        print("FAILED: no idea could be tested this week." + (f" Last rejection: {err}" if err else " The AI did not answer.")); sys.exit(1)
+    name = re.sub(r"[^a-z0-9_]", "", str(idea.get("rule_name", "rule")).lower().replace(" ", "_"))[:40] or "rule"
+    rec = {"at": dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), "model": who, "context": ctx, "rule_name": name, "description": idea.get("description"), "rule_expr": idea.get("rule_expr"),
+           "result": result, "ideasTriedSoFar": len(prev) + 1,
+           "note": "history only: with many ideas tried, some pass by luck. A PASS means 'worth racing as a contestant', never 'proven'."}
+    os.makedirs(OUT, exist_ok=True); path = f"{OUT}/{dt.datetime.utcnow():%Y-%m-%d}_{name}.json"; json.dump(rec, open(path, "w"), indent=1)
+    print(json.dumps(result["summary"])); print("Wrote", path)
 
-    prompt = f"""
-    You are a quantitative researcher building a crypto trading bot.
-    Context: {context}
-    
-    Look at the available data (funding rates, order book imbalance, spot vs perp CVD, whale positioning).
-    Invent ONE actionable trading rule to filter or improve the LONG side.
-    
-    Output a JSON object with:
-    - "rule_name": A short snake_case name (e.g., "whale_accumulation_long")
-    - "description": How the rule works.
-    - "python_logic": A few lines of pandas/python logic to test this on historical data.
-    """
-    
-    print("Strategist (Gemini) is thinking...")
-    response = call_gemini(prompt)
-    print(f"RAW GEMINI RESPONSE:\n{response}\n")
-    
-    try:
-        clean_resp = re.sub(r"^```[a-zA-Z]*\s*", "", response)
-        clean_resp = re.sub(r"\s*```$", "", clean_resp)
-        idea = json.loads(clean_resp)
-        if "error" in idea: raise ValueError(idea["error"])
-    except Exception as e:
-        print(f"Strategist failed to parse JSON: {e}")
-        return
-
-    print(f"Strategist proposed: {idea.get('rule_name')} - {idea.get('description')}")
-
-    coder_prompt = f"""
-    Write a standalone python script for a crypto research engine.
-    The file will be saved as `rm/labtest_agent_generated.py`.
-    
-    It must test this hypothesis: {idea['description']}
-    Logic: {idea['python_logic']}
-    
-    The script MUST:
-    1. Import necessary libraries (pandas, numpy).
-    2. Assume it has access to a pandas DataFrame called `P` (the panel data) which has columns like `t`, `coin`, `px`, `p_vol24`, and various `w_` features.
-    3. Calculate a boolean mask for when the rule triggers.
-    4. Print "PASS" if the rule is profitable on the long side, or "FAIL" if it loses money.
-    5. Output ONLY the python code, no markdown.
-    """
-    
-    print("Coder (Gemini) is writing the labtest...")
-    code = call_gemini(coder_prompt)
-    
-    code = re.sub(r"^```python\s*", "", code)
-    code = re.sub(r"\s*```$", "", code)
-    
-    safe_name = idea.get('rule_name', 'unnamed_rule').replace(' ', '_')
-    filename = f"rm/labtest_agent_{safe_name}.py"
-    
-    with open(filename, "w") as f:
-        f.write(f"# GENERATED BY AGENT TEAM\n")
-        f.write(f"# DESCRIPTION: {idea.get('description')}\n\n")
-        f.write(code)
-        
-    print(f"SUCCESS: Wrote new test to {filename}. The labtest workflow will run it.")
-
-if __name__ == "__main__":
-    run_agent_team()
+if __name__ == "__main__": main()
