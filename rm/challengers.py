@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "tide": False}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "tide": False, "noregime": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -61,6 +61,7 @@ def registry(B=None):
     reg["curious"] = ({"curious": True}, "Curious: unfamiliar situations are grouped by kind; a kind with a proven live record becomes tradable (its own witness)", "policy")
     reg["curious-side"] = ({"curiousSide": True}, "Curious, coarse: unfamiliar calls grouped only by side and market state; a group becomes tradable once it is right well above break-even over 20+ separate 6-hour market moves (live Nov 16: unfamiliar shorts 82/89 right, but only 15 moves in one falling week)", "policy")
     reg["alloc"] = ({"alloc": True}, "Daily-goal allocator: one budget per opportunity (up to 30% margin, 6% risk), all-in on one strong setup or split across 2-4 coins that are NOT the same bet; judged on account growth", "policy")
+    reg["noregime"] = ({"noregime": True}, "Trades through every market state: ignores the per-state on/off switch (e.g. shorts off in falling-and-wild) and uses only the side's exams and overall live record; tests whether that switch is too strict (live Nov 20: shorts off in falling-and-wild on 10 calls, 63% vs 68% needed; no trades for 5 days)", "policy")
     reg["lowbar"] = ({"lowbar": True}, "Less cautious: half the safety margin above break-even (catches over-caution live)", "policy")
     reg["cointrust"] = ({"cointrust": True}, "Coin trust: demands more evidence on groups of coins where its own live odds proved too optimistic", "policy")
     reg["rules"] = ({"rules": True}, "Research rules as fair witnesses: a rule counts only by its LIVE record in the current market state (trusted: odds up; keeps failing: a warning sign, odds down)", "policy")

@@ -471,7 +471,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
                         if (name == "short" and x_["macro"] == 1) or (name == "long" and x_["tide"] != 1): continue
                     elif x_["tide"] != (1 if name == "long" else -1): continue
                 except Exception: continue                     # a reader failure only stops the contestant, never the Arbiter
-            elif not (cfg.get("statebar") or fast or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
+            elif not (cfg.get("statebar") or fast or side_live(({**R, "regimeOverride": {}} if cfg.get("noregime") else R), name, sd, None if cfg.get("noregime") else REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
             if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
             if not g: continue
@@ -547,7 +547,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False, "noregime": False}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
