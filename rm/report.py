@@ -111,7 +111,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 
 <section data-tab="accounts">
 <h2>Arbiter: one judge, every kind of evidence</h2>
-<p class="help">One brain instead of many rules. For each of the ~40 most liquid coins it asks "will this reach +2% before its stop?", long and short. Seven independent kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +2% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
+<p class="help">One brain instead of many rules. For each of the ~⟦TOPN⟧ most liquid coins it asks "will this reach +⟦TARGET⟧% before its stop?", long and short. ⟦NFAM⟧ kinds of evidence vote; it trades only when the combined odds are clearly above break-even <b>and</b> at least two kinds agree. At most one trade a day; most days it may skip. At +⟦TARGET⟧% half is taken and the rest becomes risk-free; the rest is held while the evidence says the move continues.</p>
 <div id="rbox"></div>
 <h2>Upgrades under test</h2><p class="help">Every new ability is a clone of the referee that differs by exactly one thing. It is scored on the same live candidates and takes over only when it is more accurate, finds at least as many Grade A trades, keeps honest odds and earns at least as much, over at least 40 independent bets (calls made in the same market move count as one).</p><div id="chalbox"></div><div id="chalpos"></div>
 <h2>Honest odds: what it predicted vs what happened</h2><div id="calbox"></div>
@@ -124,7 +124,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 
 <section data-tab="rules">
 <h2>Champions</h2><p class="help">Rules that passed every exam. They are paper-traded and must keep earning to stay.</p><div id="champs"></div>
-<h2>Waiting for the final exam</h2><p class="help">Passed the first two exams; they still need to pass the newest 4 months.</p><div id="val"></div>
+<h2>Waiting for the final exam</h2><p class="help">Passed the first two exams; they still need to pass the newest ⟦HOLDM⟧ months.</p><div id="val"></div>
 <details><summary>Near misses (looked good on old data, not yet on newer data)</summary><div id="near"></div></details>
 <details><summary>Twins (near-copies merged into a better champion)</summary><div id="twins"></div></details>
 <details><summary>Dropped champions (failed with live trades)</summary><div id="died"></div></details>
@@ -153,7 +153,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <h2>How to read this page</h2>
 <div class="card">
 <p><b>What the machine does:</b> every hour it invents and tests trading ideas on 6 years of hourly data for about 50 coins. Nearly all of them fail. The few that pass become <b>champions</b> and are traded with <b>paper money</b> (never real money).</p>
-<p><b>The three exams:</b> (1) <i>discovery</i>: the older years, where ideas may be found; (2) <i>validation</i>: the next year, which the idea must also win, and beat random trading; (3) <i>final exam</i>: the newest 4 months, used once. Only then is a rule a champion.</p>
+<p><b>The three exams:</b> (1) <i>discovery</i>: the older years, where ideas may be found; (2) <i>validation</i>: the next year, which the idea must also win, and beat random trading; (3) <i>final exam</i>: the newest ⟦HOLDM⟧ months, used once. Only then is a rule a champion.</p>
 <p><b>Live vs exam trades:</b> <i>exam</i> trades happened before a rule was promoted (a test). <i>Live</i> trades happened after: the real proof.</p>
 <p><b>"t" numbers:</b> how far a result is from luck. Around 2 is "probably not luck", 3+ is strong. Win rate alone can fool you.</p>
 <p><b>Why trades appear a day late:</b> the data comes from Binance's free archive, published once a day. Each trade still uses the real price of the hour it fired, so the results are exact; they just show up later.</p>
@@ -222,7 +222,7 @@ const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric"
 const sum=a=>a.reduce((x,r)=>x+r.usd,0);
 const grp=ty=>{const a=T.filter(r=>r.type==ty);const w=a.filter(r=>r.usd>0).length;return [a.length,w,sum(a)]};
 const [ln,lw,lu]=grp("live"),[en,ew,eu]=grp("exam"),[on,,ou]=grp("open");
-$("acctnote").innerHTML=`Every trade uses <b>$${D.margin} margin at ${D.lev}x leverage</b> (a $${D.margin*D.lev} position); a loss can never be more than the $${D.margin} margin. Fees included. <b>Live</b> = trades after a rule was promoted. <b>Exam</b> = the last 4 months before promotion, data the rule never saw while being chosen. Prices come from Binance's public archive, about 1 day behind.`;
+$("acctnote").innerHTML=`Every trade uses <b>$${D.margin} margin at ${D.lev}x leverage</b> (a $${D.margin*D.lev} position); a loss can never be more than the $${D.margin} margin. Fees included. <b>Live</b> = trades after a rule was promoted. <b>Exam</b> = the last ⟦HOLDM⟧ months before promotion, data the rule never saw while being chosen. Prices come from Binance's public archive, about 1 day behind.`;
 const money=x=>`<span style="color:var(--${x>=0?"good":"bad"})">${x>=0?"+":"−"}$${Math.abs(x).toFixed(2)}</span>`;
 $("acct").innerHTML=[["Live trades",ln?`${ln} · ${lw} won`:"none yet"],["Live result",ln?money(lu):"–"],["Open now",on?`${on} · ${money(ou)} so far`:"none"],["Exam trades",en?`${en} · ${en?Math.round(100*ew/en):0}% won`:"–"],["Exam result",en?money(eu):"–"]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("");
 const stats=a=>{const c=a.filter(r=>r.usd!=null);const w=c.filter(r=>r.usd>0),l=c.filter(r=>r.usd<=0);const tot=sum(c);
@@ -257,14 +257,14 @@ const ladderHTML=(q,L,m)=>{const lo=L[0].px,hi=L[L.length-1].px,f=px=>Math.max(0
 const posCard=(p,lev,acct)=>{const q=posOf(p,lev),pn=pnlOf(q,q.mark),roe=pn/q.margin*100,c=pn>=0?"good":"bad",LD=ladderOf(q);if(LD){q.lo=LD[0].px;q.hi=LD[LD.length-1].px}const m=railPos(q,q.mark),en=railPos(q,q.avg);
  const tpTxt=q.tp?fx(q.tp)+(q.half?" ✓ half taken":""):(q.trail?`trailing ${(q.trail*100).toFixed(1)}%`:"–");
  return `<div class="pos ${q.sd>0?"L":"S"}" data-coin="${esc(q.coin)}" data-sd="${q.sd}" data-avg="${q.avg}" data-notional="${q.notional}" data-margin="${q.margin}" data-acct="${acct}" data-tp="${q.tp||""}" data-sl="${q.sl||""}" data-half="${q.half?1:0}" data-lo="${q.lo||""}" data-hi="${q.hi||""}">
- <div class="ph"><span class="sym">${esc(q.coin)}USDT<small>Perp</small></span><span class="bdg ${q.sd>0?"L":"S"}">${q.sd>0?"Long":"Short"} ${q.L}x</span><span class="bdg">${q.L>1?"Isolated":"Spot-like"}</span>${q.grade?`<span class="bdg A" title="model probability of reaching +2% before the stop">Grade ${q.grade} · ${Math.round(q.prob*100)}%</span>`:""}${q.rule?`<span class="bdg" title="the rule that opened this trade; the account may have moved to another rule since">opened by Rule #${esc(q.rule)}</span>`:""}${q.added?'<span class="bdg A">+ added</span>':""}
+ <div class="ph"><span class="sym">${esc(q.coin)}USDT<small>Perp</small></span><span class="bdg ${q.sd>0?"L":"S"}">${q.sd>0?"Long":"Short"} ${q.L}x</span><span class="bdg">${q.L>1?"Isolated":"Spot-like"}</span>${q.grade?`<span class="bdg A" title="model probability of reaching +⟦TARGET⟧% before the stop">Grade ${q.grade} · ${Math.round(q.prob*100)}%</span>`:""}${q.rule?`<span class="bdg" title="the rule that opened this trade; the account may have moved to another rule since">opened by Rule #${esc(q.rule)}</span>`:""}${q.added?'<span class="bdg A">+ added</span>':""}
  <span class="pnlbox"><span class="v upnl" style="color:var(--${c})">${pn>=0?"+":""}${usd(pn)}</span><span class="r roe" style="color:var(--${c})">ROE ${roe>=0?"+":""}${roe.toFixed(2)}%</span></span></div>
  <div class="pg"><div><span>Size</span><b>${fx(q.notional/q.avg)} ${esc(q.coin)}</b><div class="mute" style="font-size:12px">${usd(q.notional)}</div></div>
  <div><span>Entry price</span><b>${fx(q.avg)}</b></div><div><span>Mark price</span><b class="mark">${fx(q.mark)}</b></div>
  <div class="liq"><span>Liq. price</span><b>${q.liq?fx(q.liq):"none"}</b></div><div><span>Margin</span><b>${usd(q.margin)}</b></div>
  <div><span>TP / SL</span>${LD?`<b style="color:var(--good)">${nextTP(q)}</b><br><b style="color:var(--bad)">${slName(q).split(" ")[0]} ${q.sl?fx(q.sl):"–"}</b>`:`<b style="color:var(--good)">${tpTxt}</b> <b style="color:var(--bad)">${q.sl?fx(q.sl):"–"}</b>`}</div><div><span>Open for</span><b>${age(q.t)}</b><div class="mute" style="font-size:12px">${when(q.t)}</div></div></div>
  ${LD?ladderHTML(q,LD,m):m!=null?`<div class="track"><div class="rail"><span class="ent" style="left:${(en*100).toFixed(1)}%" title="entry"></span><span class="mk" style="left:${(m*100).toFixed(1)}%"></span></div><div class="tl"><span>SL ${fx(q.sl)}</span><span>entry ${fx(q.avg)}</span><span>TP ${fx(q.tp)}</span></div></div>`:""}
- ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +2% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
+ ${q.card?`<div class="ev">Why: ${q.card.for.length?"<b>"+q.card.for.map(esc).join(", ")+"</b> pointed this way":"no single family stood out"}${q.card.against.length?"; against: "+q.card.against.map(esc).join(", "):""} · the 50 most similar past moments reached +⟦TARGET⟧% first ${q.card.similar}% of the time${q.card.rules&&q.card.rules.length?" · champion rules firing too: "+q.card.rules.map(esc).join(" "):""}${q.cont!=null?` · <b>exit model now: ${Math.round(q.cont*100)}% chance the move continues</b>`:""}</div>`:""}</div>`};
 const exPanel=(A,lev,acct,extra)=>{const unr=A.open.reduce((x,p)=>{const q=posOf(p,lev);return x+pnlOf(q,q.mark)},0),mu=A.open.reduce((x,p)=>x+(p.margin||0),0),eq=A.cash+unr;
  const C=A.closed.slice().sort((a,b)=>(b.exitT||0)-(a.exitT||0)),pm=C.filter(r=>r.pm);
  const tabs=[["pos",`Positions (${A.open.length})`],["hist",`Trade history (${C.length})`],...(pm.length?[["pm",`Post-mortems (${pm.length})`]]:[]),["curve","Equity"]];
@@ -314,7 +314,7 @@ function renderObs(R){const O=R.obs;if(!O||!$("obs"))return;const e=esc,n=(x,d=2
   `${SY?`<div style="font-weight:600;color:var(--${SY.ok?"good":"bad"})">${SY.ok?"✓ In sync":"⚠ Out of sync"}: Arbiter holds ${SY.arbiter.length?SY.arbiter.map(x=>e(x[1].toLowerCase()+" "+x[0])).join(", "):"nothing"}; Binance holds ${SY.demo.length?SY.demo.map(x=>e(x[1].toLowerCase()+" "+x[0])).join(", "):"nothing"}</div>`:""}
   <div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;justify-content:start;font-size:14.5px;margin-top:6px"><span>Demo account</span><b>$${(+DA.equity).toFixed(2)}</b><span>Arbiter (paper)</span><b>$${(+((R.acct||{}).equity??(R.acct||{}).cash)).toFixed(2)}</b><span>Started</span><b>${e(DA.born||"–")} UTC with $${DA.start}</b><span>Finished trades</span><b>${(DA.closed||[]).length}</b></div>
   <a href="#accounts" data-go="accounts" style="font-size:13px;color:var(--acc)">Open the demo account →</a>`):"";
- const risk=card("Risk right now","Risk = what the account loses if every open trade hits its stop. The Arbiter risks up to 4% per Grade A trade; no path in the code can exceed "+n(K.perTradeMaxPct,0)+"% on one trade.",
+ const risk=card("Risk right now","Risk = what the account loses if every open trade hits its stop. The Arbiter risks up to ⟦RISKA⟧% per Grade A trade; no path in the code can exceed "+n(K.perTradeMaxPct,0)+"% on one trade.",
   `<div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;justify-content:start;font-size:14.5px"><span>Open risk</span><b>${n(K.openRiskPct)}% of the account</b>${(K.positions||[]).map(q=>`<span>${e(q.side)} ${e(q.coin)} (${q.lev}x)</span><b>${n(q.riskPct)}%</b>`).join("")}<span>Kill switch</span><b>${K.killed?"TRIPPED":"armed"}</b><span>Fall from the peak</span><b>${pc(ks.drawdown)} of ${pc(ks.limit)} allowed</b><span>It trips at</span><b>$${n(ks.tripsAt)}</b></div>
   <div class="mute" style="font-size:13px;margin-top:6px">${K.killed?`<b style="color:var(--bad)">${e(K.killed.reason)}</b>. Everything was closed; it restarts only when you say so.`:`What would trip it right now: ${e(K.wouldTrip||"–")}. When it trips, every trade is closed and it stays stopped until you reset it.`}</div>`);
  const sides=Object.entries(G.sides||{}).map(([sd,v])=>`<div style="margin-top:4px"><b>${e(sd)}s: <span style="color:var(--${v.allowed?"good":"bad"})">${v.allowed?"on":"off"}</span></b> <span class="mute" style="font-size:13px">because of ${e(v.why)}</span></div>`).join("");
@@ -330,9 +330,9 @@ const kpis=(A,box,extra)=>`<div class="grid">${[["Account value",`<span class="a
 const shadowBox=R=>{const S=R.shadow||{},O=R.override||{};const cr=R.callRate,cs=R.callRateBySide||{};
  const rate=cr?`<div class="grid" style="margin-bottom:8px">${[["Grade A calls / day (7 days)",cr.A],["Grade B calls / day (7 days)",cr.B],["A calls: long / short",`${cs.long?.A??0} / ${cs.short?.A??0}`]].map(([a,b])=>`<div class="card"><div class="mute">${a}</div><div class="big" style="font-size:20px">${b}</div></div>`).join("")}</div>`:"";const sides=["long","short"].filter(n=>S[n]||O[n]);
  if(!sides.length)return rate+'<p class="mute">Every grade-A/B call on both sides is scored 48 hours later against what the price really did. The first results appear about two days after the brain is trained. After 25 calls, this live record can switch a side on or off by itself.</p>';
- return rate+`<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +2% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
+ return rate+`<div class="scroll"><table><tr><th>side</th><th>calls scored</th><th>hit +⟦TARGET⟧% first</th><th>predicted</th><th>break-even</th><th>avg result</th><th>waiting</th><th>live verdict</th></tr>${sides.map(n=>{const x=S[n]||{},o=O[n];
   return `<tr><td><b>${n}</b></td><td>${x.n??0}</td><td style="color:var(--${(x.hit??0)>=(x.be??1)?"good":"bad"});font-weight:650">${x.hit!=null?Math.round(x.hit*100)+"%":"–"}</td><td>${x.pred!=null?Math.round(x.pred*100)+"%":"–"}</td><td>${x.be!=null?Math.round(x.be*100)+"%":"–"}</td><td>${x.avg!=null?(x.avg>0?"+":"")+x.avg+"%":"–"}</td><td>${x.open??0}</td><td>${o?`<span class="tag ${o.live?"champion":"dead"}">${o.live?"switched ON":"switched OFF"}</span> <span class="mute" style="font-size:12px">${esc(o.why)}</span>`:'<span class="mute">needs 25 calls</span>'}</td></tr>`}).join("")}</table></div>
- ${(R.shadowRecent||[]).length?`<details style="margin-top:6px"><summary class="mute">Latest scored calls</summary><table>${R.shadowRecent.map(x=>`<tr><td>${when(x.t)}</td><td><b>${esc(x.coin)}</b> ${x.side}</td><td>grade ${x.grade} · ${Math.round(x.prob*100)}%</td><td class="mute">${x.px?`${fx(x.px)} · SL ${fx(x.px*(1-(x.side=="long"?1:-1)*x.stop))} · TP ${fx(x.px*(1+(x.side=="long"?1:-1)*0.02))}`:""}</td><td style="color:var(--${x.y?"good":"bad"})">${x.y?"reached +2% first":"stop / no target"}</td><td>${x.ret>0?"+":""}${(x.ret*100).toFixed(2)}%</td></tr>`).join("")}</table></details>`:""}`};
+ ${(R.shadowRecent||[]).length?`<details style="margin-top:6px"><summary class="mute">Latest scored calls</summary><table>${R.shadowRecent.map(x=>`<tr><td>${when(x.t)}</td><td><b>${esc(x.coin)}</b> ${x.side}</td><td>grade ${x.grade} · ${Math.round(x.prob*100)}%</td><td class="mute">${x.px?`${fx(x.px)} · SL ${fx(x.px*(1-(x.side=="long"?1:-1)*x.stop))} · TP ${fx(x.px*(1+(x.side=="long"?1:-1)*0.02))}`:""}</td><td style="color:var(--${x.y?"good":"bad"})">${x.y?"reached +⟦TARGET⟧% first":"stop / no target"}</td><td>${x.ret>0?"+":""}${(x.ret*100).toFixed(2)}%</td></tr>`).join("")}</table></details>`:""}`};
 const RG={"up-calm":"rising, calm","up-wild":"rising, wild","down-calm":"falling, calm","down-wild":"falling, wild"};
 const adaptBox=R=>{const A=R.adapt||{},O=R.regimeOverride||{};const now=R.regimeNow;
  const head=`<p>Market regime now (from Bitcoin): <b>${esc(RG[now]||now||"unknown")}</b>. The referee re-shapes itself every hour from its live record: it raises or relaxes its bar when its odds prove too optimistic or too cautious, sizes up or down with its live edge (0.5x to 1.25x, never above plan), and switches each side on or off <i>separately for each market regime</i> once it has 15 live calls there. Margin per trade is capped at 20% of the account, easing to 10% as the account grows from 2x to 4x its start.</p>`;
@@ -351,13 +351,13 @@ const monthly=list=>{const acc={};list.forEach(([name,A])=>{(A?.closed||[]).forE
  <div class="kv"><span>Exam trades</span><b>${s.exam?.trades??0}</b><span>Win rate</span><b>${s.exam?.win??"–"}%</b><span>Avg move per trade</span><b>${s.exam?.avg!=null?(s.exam.avg>0?"+":"")+s.exam.avg+"%":"–"}</b><span>Trades per month</span><b>${s.exam?.perMonth??"–"}</b><span>Normal hit rate</span><b>${Math.round((s.base||0)*100)}%</b><span>Safety margin</span><b>+${Math.round((s.margin||0)*100)} pts</b></div></div>`:"";
  const W=M?Object.entries(M.long?.weights||{}).map(([f,w])=>`${esc(f)} ${w>0?"+":""}${w}`).join(" · "):"";
  const look=R.look,lk=look&&look.rows?.length?`<div class="cands">${look.rows.map(x=>{const why=x.off?"side watching only":x.unfamiliar?"unfamiliar situation":x.grade?"Grade "+x.grade:x.prob<x.need?"odds too low":"not enough agreement";
-  const sd=x.side=="LONG"?1:-1,lv=x.px&&x.stopPct?`price then ${fx(x.px)} · SL ${fx(x.px*(1-sd*x.stopPct))} (−${(x.stopPct*100).toFixed(1)}%) · TP ${fx(x.px*(1+sd*0.02))} (+2%)`:"";
+  const sd=x.side=="LONG"?1:-1,lv=x.px&&x.stopPct?`price then ${fx(x.px)} · SL ${fx(x.px*(1-sd*x.stopPct))} (−${(x.stopPct*100).toFixed(1)}%) · TP ${fx(x.px*(1+sd*0.02))} (+⟦TARGET⟧%)`:"";
   return `<div class="cand ${x.grade&&!x.off?"go":""}" data-coin="${esc(x.coin)}" data-sd="${sd}" data-px="${x.px||""}" data-stop="${x.stopPct||""}" data-ok="${x.grade&&!x.off?1:0}" data-off="${x.off?1:0}"><div class="ch"><b>${esc(x.coin)}</b><span class="bdg ${sd>0?"L":"S"}">${sd>0?"Long":"Short"}</span>${x.grade&&!x.off?`<span class="tag champion">${why}</span>`:`<span class="mute" style="font-size:12.5px">${why}</span>`}<span class="odds">${Math.round(x.prob*100)}% <small>needs ${Math.round(x.need*100)}%</small></span></div>
   <div class="meter" style="margin:7px 0 2px"><i style="width:${Math.min(100,x.prob*100)}%"></i><u style="left:${Math.min(100,x.need*100)}%"></u></div>${lv?`<div class="lv">${lv}</div>`:""}<div class="cv" style="font-size:13px;font-weight:600;margin:3px 0 5px"></div>
   <div>${x.for.map(f=>`<span class="fam y">${esc(f)}</span>`).join("")}${x.against.map(f=>`<span class="fam n">${esc(f)}</span>`).join("")}</div></div>`}).join("")}</div>`:'<p class="mute">Appears after the next run with a trained model.</p>';
  $("rbox").innerHTML=kpis(A,"rbox",[["Brain",M?`<span style="font-size:13.5px;font-weight:500">Deep training weekly: last ${esc(M.trainedAt.slice(5,10))}, next ~${esc(new Date(new Date(M.trainedAt.replace(" ","T")+"Z").getTime()+7*864e5).toISOString().slice(5,10))}<br>Live learning: every hour</span>`:'<span style="font-size:14px" class="mute">not trained yet</span>']])+
  (A.paused?`<div class="card" style="border-color:var(--bad);margin-top:10px;color:var(--bad)"><b>Kill switch:</b> ${esc(A.paused)}</div>`:"")+exPanel(A,10,"rbox")+
- `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest 4 months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
+ `<div class="card" style="margin-top:10px"><b>Its honest final exam</b> <span class="mute" style="font-size:13px">(the newest ⟦HOLDM⟧ months, which it never saw while learning; one trade a day, sized by risk, simple exits)</span>
   ${M?`<div class="exam">${ex("Long",M.long)}${ex("Short",M.short)}</div><div class="mute" style="font-size:12.5px;margin-top:6px">How much it trusts each kind of evidence (long side): ${W}. Retrained weekly on the newest data. ${esc(R.trainNote||"")}</div>`:`<p class="mute">${esc(R.trainNote||"The first training happens on the next run with enough time (about 10-20 minutes).")}</p>`}</div>
  <h3>What it sees right now ${look?`<span class="mute" style="font-weight:400;font-size:13px">(${look.scanned} coins scanned; prices as of ${when(look.t)}, <b>${Math.max(0,Math.round((Date.now()/1000-look.t)/60))} min ago</b>; each card is re-checked live against the current price, see the line under it; a real trade is filled at the live price when the decision is made, with stop and target set from that price)</span>`:""}</h3>${lk}
  <h3>Live scorecard: every A/B call, traded or not</h3>${shadowBox(R)}
@@ -414,7 +414,7 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  async function tick(){const m=await prices();if(!m)return;const age=Math.round((Date.now()-T0)/6e4);
   cards.forEach(el=>{const now=pick(m,el.dataset.coin);if(!now)return;const sd=+el.dataset.sd,px=+el.dataset.px,st=+el.dataset.stop,x=ext[el.dataset.coin]||{hi:now,lo:now};
    const hi=Math.max(x.hi,now),lo=Math.min(x.lo,now),fav=sd*(now/px-1),best=sd>0?hi/px-1:1-lo/px,worst=sd>0?1-lo/px:hi/px-1;let t,c,dead=false;
-   if(best>=0.02){t=`✗ No longer valid: the +2% target was already reached after this reading.`;c="bad";dead=true}
+   if(best>=0.02){t=`✗ No longer valid: the +⟦TARGET⟧% target was already reached after this reading.`;c="bad";dead=true}
    else if(st&&worst>=st){t=`✗ No longer valid: the price went through the stop after this reading.`;c="bad";dead=true}
    else if(fav>=0.01){t=`⚠ Late: ${(fav*100).toFixed(1)}% of the 2% move has already happened. Entering now is chasing.`;c="warn"}
    else if(st&&fav<=-0.5*st){t=`⚠ Weaker: it has moved ${(-fav*100).toFixed(1)}% against the call, more than halfway to the stop.`;c="warn"}
@@ -463,8 +463,9 @@ function demoLive(){const box=document.getElementById("demolive");if(!box)return
  const waitWhy=(!A.open.length&&!best&&offRows.length)?`No trade open, on purpose. The best candidates (${offRows.slice(0,3).map(x=>x.side+" "+x.coin+" "+p(x.prob)).join(", ")}) score well, but ${offRows[0].side.toLowerCase()}s are switched off in a ${RG[R.regimeNow]||"this"} market: ${reasonOff(offRows[0].side.toLowerCase())}. They switch back on by themselves when that record recovers or the market changes.`:null;
  const now=A.open.length?`Holding ${A.open.map(o=>`<b>${o.side} ${o.coin}</b> (${o.unreal>=0?"+":""}${usd(o.unreal)})`).join(", ")}.`
   :best?`No trade open. Best candidate now: <b>${best.side} ${best.coin}</b> at ${p(best.prob)} odds; it needs ${p(best.need)} and at least two witnesses agreeing${best.grade?` (qualifies as Grade ${best.grade})`:", so it waits"}.`:waitWhy?waitWhy:"No trade open; scanning every hour.";
- const champName=(ch.history||[]).length?(ch.history[ch.history.length-1].promoted):"the original Arbiter";
- const promo=(ch.history||[]).slice(-3).reverse().map(h=>h.undone?`<div style="margin-top:4px">↩️ ${esc(h.at.slice(0,10))}: <b>${esc(h.undone)}</b> was taken back out of charge (owner's decision: it races as a contestant and is judged on live results). The Arbiter is on its original plan.</div>`:`<div style="margin-top:4px">📈 ${esc(h.at.slice(0,10))}: <b>${esc(h.promoted)}</b> took over (${esc(h.what)}). It beat the previous version on live candidates: more accurate odds, at least as many Grade A trades, at least as much profit.</div>`).join("")||`<div class="mute">No promotions yet: an upgrade must first be clearly ahead over at least 40 separate market moves and 10 days.</div>`;
+ const hist=ch.history||[];const stack=["the original Arbiter"];hist.forEach(h=>{if(h.undone){const i=stack.lastIndexOf(h.undone);if(i>0)stack.splice(i,1)}else if(h.promoted)stack.push(h.promoted)});const champName=stack[stack.length-1];
+ const ev=[];hist.forEach(h=>{if(h.undone){const j=ev.map(e=>e.promoted).lastIndexOf(h.undone);const pr=j>=0?ev.splice(j,1)[0]:null;ev.push({undone:h.undone,at:h.at,from:pr&&pr.at})}else ev.push(h)});
+ const promo=ev.slice(-3).reverse().map(h=>h.undone?`<div style="margin-top:4px">↩️ ${esc(h.at.slice(0,10))}: <b>${esc(h.undone)}</b> ${h.from?`was promoted on ${esc(h.from.slice(0,10))} and `:"was "}taken back out of charge (owner's decision: it races as a contestant and is judged on live results). The Arbiter is on ${stack.length>1?esc(champName):"its original plan"}.</div>`:`<div style="margin-top:4px">📈 ${esc(h.at.slice(0,10))}: <b>${esc(h.promoted)}</b> took over (${esc(h.what)}). It beat the previous version on live candidates: more accurate odds, at least as many Grade A trades, at least as much profit.</div>`).join("")||`<div class="mute">No promotions yet: an upgrade must first be clearly ahead over at least 40 separate market moves and 10 days.</div>`;
  const race=Object.entries(sc).filter(([n])=>n!="champion").map(([n,s])=>({n,s,prog:Math.min(1,(s.bets||0)/(n in (R.chal||{})&&(R.chal[n].kind=="policy")&&s.me&&s.me.trades!=null?15:40))})).sort((a,b)=>(b.s.better-a.s.better)||(b.prog-a.prog)).slice(0,4);
  const raceH=race.length?race.map(r=>`<div style="display:flex;align-items:center;gap:8px;margin-top:5px"><div style="width:150px;font-size:13px"><b>${esc(r.n)}</b></div><div style="flex:1;height:8px;background:var(--soft);border-radius:4px"><div style="width:${Math.round(r.prog*100)}%;height:8px;border-radius:4px;background:var(--${r.s.better?"good":"acc"})"></div></div><div style="width:120px;font-size:12.5px" class="mute">${r.s.better?"ahead so far":"not ahead"} · ${Math.round(r.prog*100)}%</div></div>`).join("")
   :`<div class="mute">${Object.keys(R.chal||{}).length} upgrades are being scored; the race board fills in as candidates are scored (48 hours after they are seen).</div>`;
@@ -490,7 +491,7 @@ function demoLive(){const box=document.getElementById("demolive");if(!box)return
  $("arb").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px"><div><span style="font-size:20px;font-weight:700">Arbiter</span> <span class="mute">· the trading judge</span></div><div class="mute" style="font-size:13px">Market: <b>${esc(RG[R.regimeNow]||"–")}</b></div></div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px">
   <div><div class="mute" style="font-size:13px">Paper account</div><div class="big">${usd(A.equity??A.cash)}</div><div class="mute" style="font-size:13px">${((A.equity??A.cash)/A.start*100-100).toFixed(1)}% since ${esc((A.born||"").slice(0,10))} · ${A.closed.length} closed trades${R.obs&&R.obs.arbiter&&R.obs.arbiter.expectancyUsd!=null?` · average ${R.obs.arbiter.expectancyUsd>=0?"+$":"−$"}${Math.abs(R.obs.arbiter.expectancyUsd).toFixed(2)} per trade · deepest drop ${R.obs.arbiter.maxDrawdownPct}%`:""}</div><div class="mute" style="font-size:12px">What it means: money the paper account holds now, and what one trade earns on average.</div>${spark(J.map(x=>x.equity),"good",usd)}</div>
-  <div><div class="mute" style="font-size:13px">Live calls (shorts)</div><div class="big">${p(S.hit)}</div><div class="mute" style="font-size:13px">of its calls reached +2% before the stop, vs ${p(S.pred)} predicted · ${S.n||0} calls scored${S.moves?` (${S.moves} separate market moves)`:""}</div>${spark(J.map(x=>x.hit),"acc",p)}</div>
+  <div><div class="mute" style="font-size:13px">Live calls (shorts)</div><div class="big">${p(S.hit)}</div><div class="mute" style="font-size:13px">of its calls reached +⟦TARGET⟧% before the stop, vs ${p(S.pred)} predicted · ${S.n||0} calls scored${S.moves?` (${S.moves} separate market moves)`:""}</div>${spark(J.map(x=>x.hit),"acc",p)}</div>
   <div><div class="mute" style="font-size:13px">Version in charge</div><div style="font-size:17px;font-weight:650;margin-top:4px">${esc(champName)}</div><div class="mute" style="font-size:13px">${Object.keys(R.chal||{}).length} upgrades competing to replace it</div></div></div>
  <div style="margin-top:12px">${now}</div><div class="mute" style="margin-top:4px;font-size:14px">${sharp}</div>
  <div class="mute" style="margin-top:6px;font-size:14px">Compass trend reader (many views): <b>${esc(R.trend2Now||"–")}</b>${R.trendAcc&&R.trendAcc[(R.trend2Now||"").replace(" wild","")]?` · historically the next week averaged ${R.trendAcc[(R.trend2Now||"").replace(" wild","")]["7d"].avg}% for Bitcoin`:""}</div>${R.readerContest?`<div class="mute" style="margin-top:8px;font-size:13px"><b>Market-type contest</b> (each reader's up/down call, graded 48h later on what the average coin did):${Object.entries(R.readerContest).filter(([k])=>k!="note").map(([k,v])=>`<br>${esc(k)}: ${v.calls?`now <b>${v.now>0?"up":v.now<0?"down":"neutral"}</b> · right ${v.right}% · wrong way ${v.wrongWay}% · ${v.calls} calls`:"no graded calls yet"}`).join("")}</div>`:""}
@@ -515,7 +516,7 @@ setInterval(()=>{fetch("summary.json?"+Date.now()).then(r=>r.json()).then(x=>{if
  const hist=(ch.history||[]).slice(-5).reverse().map(h=>`<div class="mute" style="font-size:13px">${esc(h.at)} UTC: <b>${esc(h.promoted)}</b> promoted (${esc(h.what)})</div>`).join("");
  const rj=Object.entries(rej).map(([n,w])=>`<div class="mute" style="font-size:13px"><b>${esc(n)}</b>: ${esc(w)}</div>`).join("");
  const wt=Object.entries(W).filter(([n,w])=>!(w.state||"").startsWith("challenger")).map(([n,w])=>`<div class="mute" style="font-size:13px"><b>${esc(n)}</b>: ${esc(w.state)}</div>`).join("");
- const se=R.shapeExam||{};const sx=Object.entries(se).map(([n,v])=>`${n}s: ${f2(v.exam&&v.exam.monthly)}%/month (fixed +2%: ${f2(v.fixedExam&&v.fixedExam.monthly)}%/month)`).join(" · ");
+ const se=R.shapeExam||{};const sx=Object.entries(se).map(([n,v])=>`${n}s: ${f2(v.exam&&v.exam.monthly)}%/month (fixed +⟦TARGET⟧%: ${f2(v.fixedExam&&v.fixedExam.monthly)}%/month)`).join(" · ");
  $("chalbox").innerHTML=`<div class="card"><div class="mute" style="font-size:13px">Champion now: ${esc(Object.entries(ch.cfg||{}).filter(([k,v])=>!(k=="shape"&&v=="fixed"||k=="pace"&&v=="daily1"||k=="risk"&&v=="plain"||k=="size"&&v=="fixed"||k=="odds"&&v=="weekly"||k=="shock"&&!v)).map(([k,v])=>k+": "+v).join(", ")||"the original referee")}. Independent bets so far: correlation between calls made together ${f2((R.chalStats||{}).icc)}.</div>
  <div style="overflow-x:auto"><table style="width:100%;margin-top:8px"><tr><th>Challenger</th><th>Live score (lower odds error is better)</th><th>Status</th></tr>${rows||"<tr><td colspan=3 class=mute>Starting.</td></tr>"}</table></div>
  ${hist?`<h3>Promotions</h3>${hist}`:""}${rj?`<h3>Not admitted yet</h3>${rj}`:""}${R.stateBar&&R.stateBar.exam?`<div class="mute" style="font-size:13px;margin-top:6px">Bar per trend state, final exam (newest months): ${R.stateBar.exam.perWeek} trades/week, ${R.stateBar.exam.win}% won, ${R.stateBar.exam.monthly}%/month, deepest drop ${R.stateBar.exam.maxDrop}% · today's single bar scored the same way: ${R.stateBar.todayExam?`${R.stateBar.todayExam.perWeek} trades/week, ${R.stateBar.todayExam.monthly}%/month`:"–"}. Plan: ${esc(Object.entries(R.stateBar.plan||{}).map(([k,v])=>k.replace("|"," in ")+" +"+Math.round(v*100)).join(", "))}</div>`:""}${sx?`<div class="mute" style="font-size:13px;margin-top:6px">Trade-shape backtest (newest months): ${esc(sx)}</div>`:""}${wt?`<h3>New evidence on the way</h3>${wt}`:""}
@@ -531,10 +532,10 @@ try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Binance demo",
 (()=>{const M=D.referee?.model||{},L=M.long||{},S=M.short||{},pts=x=>x!=null?"+"+Math.round(x*100)+" pts":"learned";
  const step=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
  const gl=(t,d)=>`<div class="card"><b>${t}</b><p>${d}</p></div>`;
- $("howref").innerHTML=`<p class="mute">Every hour it looks at the ~40 most liquid coins, both directions, and asks one question: <b>"will this reach +2% before its stop?"</b></p>
+ $("howref").innerHTML=`<p class="mute">Every hour it looks at the ~40 most liquid coins, both directions, and asks one question: <b>"will this reach +⟦TARGET⟧% before its stop?"</b></p>
  <h3 class="howh">The decision, step by step</h3>
  <div class="flow">${[
-  step("Shape the trade","Target is always +2%. The stop sits outside the coin's normal noise: 1.25× its usual daily move, kept between 1.5% and 4%."),
+  step("Shape the trade","Target is always +⟦TARGET⟧%. The stop sits outside the coin's normal noise: 1.25× its usual daily move, kept between 1.5% and 4%."),
   step("Work out break-even","The win rate needed to not lose money with that shape: (stop + fees) ÷ (2% + stop). A 2% stop needs ~52%; a 3% stop ~62%."),
   step("Ask each kind of evidence","Positioning, flow, trend, volatility, leverage, real money, mood, invented measurements and similar past moments each give their own odds."),
   step("Combine them","A small combiner, trained on a separate year, decides how much to trust each kind. Result: the <b>odds</b> you see on the Accounts tab."),
@@ -549,12 +550,12 @@ try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Binance demo",
  <h3 class="howh">Once a trade is open</h3>
  <div class="flow">${[
   step("Hard stop","Always set at entry. Isolated 10x: liquidation is ~9.5% away, far beyond the stop."),
-  step("Half at +2%","Half the position is closed at the target and the stop moves to break-even: the rest is risk-free."),
+  step("Half at +⟦TARGET⟧%","Half the position is closed at the target and the stop moves to break-even: the rest is risk-free."),
   step("Let the rest run","An exit model asks every hour: '+1% more before −1%?' It holds and trails while yes, and closes when the move fades."),
   step("One add-on","If the trade is up 1% and the evidence strongly says it continues, it adds once and moves the stop to the entry.")].join("")}</div>
  <h3 class="howh">How it keeps itself honest</h3>
  <div class="gl">${[
-  gl("Three exams","Learns on the older years, tunes on the next year, then is graded once on the newest 4 months it never saw. A side that fails becomes <i>watching only</i>."),
+  gl("Three exams","Learns on the older years, tunes on the next year, then is graded once on the newest ⟦HOLDM⟧ months it never saw. A side that fails becomes <i>watching only</i>."),
   gl("Live scorecard","Every A/B call, traded or not, is scored 48 hours later against what the price really did."),
   gl("Self-calibration","If its calls hit less often than predicted, it raises its own bar; if more often, it relaxes a little. Size moves 0.5×–1.25× with the live edge."),
   gl("Regime switch","Market regime from Bitcoin: rising or falling × calm or wild. Each side is switched on or off separately per regime once it has 15 live calls there."),
@@ -569,7 +570,7 @@ try{$("monthly").innerHTML=monthly([["Referee",D.referee?.acct],["Binance demo",
   gl("Real money","Spot market's share of trading and spot buyers vs sellers: is the move backed by real buyers?"),
   gl("Mood","Bitcoin's move, Fear & Greed, Coinbase premium, options fear gauge, stablecoin inflows, time of day."),
   gl("Invented","Measurements the AI designed itself, kept only while they prove useful."),
-  gl("Similar moments","The 50 most similar situations in 6 years: how often did they reach +2% first?")].join("")}</div></details>`})();
+  gl("Similar moments","The 50 most similar situations in 6 years: how often did they reach +⟦TARGET⟧% first?")].join("")}</div></details>`})();
 try{$("roadmap").innerHTML=D.roadmap||'<p class="mute">Not available.</p>'}catch(e){}
 // self-check panel + downloadable health report
 (()=>{const H=D.healthSummary;if(!H)return;const col={OK:"good",WARN:"warn",FAIL:"bad"},n=H.checks.filter(c=>c[1]=="OK").length;
@@ -580,7 +581,7 @@ try{$("roadmap").innerHTML=D.roadmap||'<p class="mute">Not available.</p>'}catch
 // overseer: data promises and the automatic parts
 (()=>{const O=D.overseer;if(!O||!O.promises)return;const ic={"in use":"✅","on track":"⏳","BROKEN":"❌"},br=O.promises.filter(p=>p.status=="BROKEN").length,pb=(O.parts||[]).filter(p=>!p.ok).length;
  $("oversee").innerHTML=`<details class="card" style="margin-top:10px" ${br||pb?"open":""}><summary><b style="color:var(--${br?"bad":pb?"warn":"good"})">● Overseer: ${br?br+" data promise(s) broken":pb?pb+" automatic part(s) need a look":"every data source is used when due; every automatic part ran"}</b> <span class="mute">${esc(O.at||"")} UTC${O.lastReport?` · daily report: ${esc(O.lastReport.at)}`:""}</span></summary>
-  <p class="mute" style="font-size:12.5px">Every source of evidence says who uses it and from when; the overseer checks every hour that it really happens, repairs what it safely can, and e-mails a daily report (a GitHub issue in the repository).</p>
+  <p class="mute" style="font-size:12.5px">Every source of evidence says who uses it and from when; the overseer checks every hour that it really happens, repairs what it safely can, and sends a daily report (to Telegram if it is set up, otherwise as a GitHub issue that GitHub e-mails).</p>
   <table>${O.promises.map(p=>`<tr><td style="width:24px">${ic[p.status]||""}</td><td><b>${esc(p.source)}</b><div class="mute" style="font-size:12.5px">${esc(p.user)}: ${esc(p.detail)}</div></td></tr>`).join("")}</table>
   <table style="margin-top:8px">${(O.parts||[]).map(p=>`<tr><td style="width:24px">${p.ok?"✅":p.warn?"⚠️":"❌"}</td><td><b>${esc(p.check)}</b><div class="mute" style="font-size:12.5px">${esc(p.detail)}</div></td></tr>`).join("")}</table></details>`})();
 // analyst
@@ -683,6 +684,15 @@ def _evo_summary():
         return d
     except Exception: return None
 
+def _tokens(page, mem):
+    """numbers written inside the prose come from the real settings, so the text can never drift from what the system does"""
+    from . import referee as RF
+    fm = lambda x: f"{x:.1f}".rstrip("0").rstrip(".")
+    try: nfam = len((((mem.get("referee") or {}).get("model") or {}).get("short") or {}).get("weights") or {}) or 9
+    except Exception: nfam = 9
+    for k, v in {"⟦TARGET⟧": fm(RF.TARGET * 100), "⟦HOLDM⟧": fm(C.HOLDOUT_DAYS / 30), "⟦TOPN⟧": str(RF.TOP_LIQUID), "⟦RISKA⟧": fm(RF.RISK["A"] * 100), "⟦NFAM⟧": str(nfam)}.items(): page = page.replace(k, v)
+    return page
+
 def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
@@ -718,7 +728,7 @@ def write(mem, J=None, log=print):
     d["blocksRetired"] = (mem.get("blocks_retired") or [])[::-1][:40]
     d["twins"] = [{"text": t.get("plain") or t["text"], "of": t.get("twinOf")} for t in mem["tests"].values() if t["status"] == "twin"][:40]
     blob = json.dumps(d, separators=(",", ":")).replace("</", "<\\/")
-    with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(PAGE.replace("__DATA__", blob))
+    with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(_tokens(PAGE, mem).replace("__DATA__", blob))
     with open(f"{C.DOCS_DIR}/summary.json", "w", encoding="utf-8") as f: json.dump(d, f)
     log(f"report: {C.DOCS_DIR}/index.html")
 
