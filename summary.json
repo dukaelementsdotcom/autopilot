@@ -1,0 +1,1675 @@
+{
+ "at": "2026-11-21 03:21",
+ "N": 56743,
+ "bar": 4.6,
+ "filled": 50,
+ "cells": 128,
+ "lastNight": {
+  "at": "2026-11-21 03:21",
+  "evals": 4200,
+  "new": 151,
+  "filled": 50,
+  "N": 56743,
+  "bar": 4.6,
+  "mode": "explore",
+  "focus": 48,
+  "rejected": {
+   "error": 0,
+   "too little data": 12,
+   "no gain": 1407,
+   "shy (fails ranking / profit / volume)": 651,
+   "correlated with the Arbiter": 863,
+   "twin": 217,
+   "worse than its niche": 899
+  },
+  "origins": {
+   "random": 1,
+   "mutation": 150
+  },
+  "llmCalls": 8,
+  "staged": [],
+  "mins": 100.8,
+  "fitness": "Arbiter odds-error drop"
+ },
+ "fitness": "Arbiter odds-error drop (t per market move)",
+ "arbiterLL": {
+  "1": {
+   "disc": 0.6760733715728258,
+   "val": 0.6818485995614314,
+   "exam": 0.6738114927247164
+  },
+  "-1": {
+   "disc": 0.6536114209010044,
+   "val": 0.650328255354926,
+   "exam": 0.6390248897711716
+  }
+ },
+ "misses": {
+  "confidentLosers": {
+   "long": [
+    {
+     "losses": 2991,
+     "share": 0.34,
+     "where": "hour low (-0.9 sd), p_r24 high (+0.4 sd), p_btc_r24 high (+0.4 sd)"
+    },
+    {
+     "losses": 2492,
+     "share": 0.28,
+     "where": "p_r24 low (-1.1 sd), p_btc_r24 low (-1.0 sd), p_oi24 low (-0.8 sd)"
+    },
+    {
+     "losses": 3394,
+     "share": 0.38,
+     "where": "hour high (+0.9 sd), p_r24 high (+0.3 sd), p_btc_r24 high (+0.3 sd)"
+    }
+   ],
+   "short": [
+    {
+     "losses": 2091,
+     "share": 0.23,
+     "where": "p_r24 low (-1.1 sd), p_btc_r24 low (-1.0 sd), p_vol24 high (+0.9 sd)"
+    },
+    {
+     "losses": 3123,
+     "share": 0.34,
+     "where": "p_r24 high (+1.0 sd), p_btc_r24 high (+0.8 sd), p_glob low (-0.7 sd)"
+    },
+    {
+     "losses": 4072,
+     "share": 0.44,
+     "where": "p_glob high (+0.6 sd), p_vol24 low (-0.5 sd), p_basis low (-0.2 sd)"
+    }
+   ]
+  },
+  "nearMissWinners": {
+   "long": [
+    {
+     "winners": 9118,
+     "share": 0.34,
+     "where": "p_r24 low (-1.1 sd), p_btc_r24 low (-0.9 sd), p_oi24 low (-0.9 sd)"
+    },
+    {
+     "winners": 7501,
+     "share": 0.28,
+     "where": "p_vol24 low (-1.0 sd), p_glob high (+0.4 sd), p_basis low (-0.2 sd)"
+    },
+    {
+     "winners": 10032,
+     "share": 0.38,
+     "where": "p_r24 high (+1.0 sd), p_oi24 high (+0.8 sd), p_btc_r24 high (+0.7 sd)"
+    }
+   ],
+   "short": [
+    {
+     "winners": 15255,
+     "share": 0.37,
+     "where": "p_vol24 low (-0.8 sd), p_glob high (+0.3 sd), p_btc_r24 high (+0.2 sd)"
+    },
+    {
+     "winners": 14137,
+     "share": 0.34,
+     "where": "p_r24 low (-1.0 sd), p_btc_r24 low (-0.9 sd), p_oi24 low (-0.8 sd)"
+    },
+    {
+     "winners": 12315,
+     "share": 0.3,
+     "where": "p_r24 high (+1.1 sd), p_oi24 high (+0.8 sd), p_btc_r24 high (+0.8 sd)"
+    }
+   ]
+  }
+ },
+ "top": [
+  {
+   "text": "SHORT when z(mul(lag24(div(w_g_chips5, resid_btc(72h,1h))), p_r24)) >=2.5",
+   "fit": 12.18,
+   "gain": {
+    "long": {
+     "milli": 0.143,
+     "bandMilli": 0.138,
+     "aucBand": [
+      0.5796,
+      0.5794
+     ]
+    },
+    "short": {
+     "milli": 0.246,
+     "bandMilli": 0.159,
+     "aucBand": [
+      0.5807,
+      0.5811
+     ]
+    },
+    "t": 12.18,
+    "milli": 0.197,
+    "windows": 2085,
+    "grades": {
+     "before": 1563,
+     "after": 1251,
+     "profitBefore": -2.16,
+     "profitAfter": -1.77
+    },
+    "aucGain": 0.0001,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 6041,
+    "windows": 3346,
+    "t": 0.27,
+    "mean": -0.013,
+    "win": 64.6,
+    "freq": 105.01,
+    "hold": 12.1,
+    "btc": 0.256
+   },
+   "cell": "short \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish",
+   "origin": "random",
+   "born": "2026-11-15 02:06",
+   "checks": {
+    "bar": 4.31,
+    "N": 14544,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.216,
+      "bandMilli": -0.011,
+      "aucBand": [
+       0.6047,
+       0.6041
+      ]
+     },
+     "short": {
+      "milli": -0.02,
+      "bandMilli": -0.151,
+      "aucBand": [
+       0.5603,
+       0.5599
+      ]
+     },
+     "t": 3.18,
+     "milli": 0.079,
+     "windows": 1460,
+     "grades": {
+      "before": 602,
+      "after": 751,
+      "profitBefore": -0.65,
+      "profitAfter": 5.8
+     },
+     "aucGain": -0.0005,
+     "gates": {
+      "ranking": false,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.218,
+      "bandMilli": 1.593,
+      "aucBand": [
+       0.6195,
+       0.6214
+      ]
+     },
+     "short": {
+      "milli": -0.158,
+      "bandMilli": -0.069,
+      "aucBand": [
+       0.5943,
+       0.5945
+      ]
+     },
+     "t": 0.4,
+     "milli": -0.004,
+     "windows": 472,
+     "grades": {
+      "before": 239,
+      "after": 364,
+      "profitBefore": 5.8,
+      "profitAfter": 7.73
+     },
+     "aucGain": 0.001,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.006
+  },
+  {
+   "text": "LONG when z(div(resid_btc(72h,1h), resid_btc(168h,24h))) >=1.5",
+   "fit": 11.38,
+   "gain": {
+    "long": {
+     "milli": 0.221,
+     "bandMilli": 0.311
+    },
+    "short": {
+     "milli": 0.267,
+     "bandMilli": 0.137
+    },
+    "t": 11.38,
+    "milli": 0.245,
+    "windows": 2084
+   },
+   "stats": {
+    "n": 9185,
+    "windows": 4768,
+    "t": -6.6,
+    "mean": -0.248,
+    "win": 60.9,
+    "freq": 159.75,
+    "hold": 12.0,
+    "btc": 0.275
+   },
+   "cell": "long \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish",
+   "origin": "random",
+   "born": "2026-11-13 10:02",
+   "checks": {
+    "bar": 3.72,
+    "N": 1166,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.353,
+      "bandMilli": 0.258
+     },
+     "short": {
+      "milli": 0.03,
+      "bandMilli": -0.141
+     },
+     "t": 6.5,
+     "milli": 0.165,
+     "windows": 1460
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.428,
+      "bandMilli": 2.939
+     },
+     "short": {
+      "milli": -0.126,
+      "bandMilli": -0.275
+     },
+     "t": 2.45,
+     "milli": 0.102,
+     "windows": 472
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "corr": 0.006
+  },
+  {
+   "text": "LONG when z(abs(div(sub(w_g_nvda20, w_c_div72), lag72(w_g_spx20)))) >=2.5; only when z(w_shockN) > 0.0",
+   "fit": 6.49,
+   "gain": {
+    "long": {
+     "milli": 1.581,
+     "bandMilli": 1.67,
+     "aucBand": [
+      0.5847,
+      0.5995
+     ]
+    },
+    "short": {
+     "milli": 2.591,
+     "bandMilli": 2.121,
+     "aucBand": [
+      0.5798,
+      0.5956
+     ]
+    },
+    "t": 6.49,
+    "milli": 2.107,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1256,
+     "profitBefore": -0.5,
+     "profitAfter": 4.89
+    },
+    "aucGain": 0.0153,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 2961,
+    "windows": 346,
+    "t": -2.89,
+    "mean": -0.771,
+    "win": 51.4,
+    "freq": 51.29,
+    "hold": 13.3,
+    "btc": 0.166
+   },
+   "cell": "long \u00b7 busy \u00b7 8-20h \u00b7 own",
+   "origin": "mutation",
+   "born": "2026-11-21 02:56",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -2.472,
+      "bandMilli": -2.453,
+      "aucBand": [
+       0.5968,
+       0.585
+      ]
+     },
+     "short": {
+      "milli": -2.163,
+      "bandMilli": -1.524,
+      "aucBand": [
+       0.5625,
+       0.552
+      ]
+     },
+     "t": -2.56,
+     "milli": -2.289,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 925,
+      "profitBefore": 3.76,
+      "profitAfter": -3.87
+     },
+     "aucGain": -0.0111,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -1.089,
+      "bandMilli": 3.74,
+      "aucBand": [
+       0.6035,
+       0.6349
+      ]
+     },
+     "short": {
+      "milli": -2.12,
+      "bandMilli": -1.353,
+      "aucBand": [
+       0.5943,
+       0.5737
+      ]
+     },
+     "t": -1.67,
+     "milli": -1.704,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 384,
+      "profitBefore": 6.91,
+      "profitAfter": 12.72
+     },
+     "aucGain": 0.0054,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.054
+  },
+  {
+   "text": "LONG when z(abs(div(sub(w_g_nvda20, w_c_div72), lag72(w_g_spx20)))) <= -2.5; only when z(w_shockN) > 0.0",
+   "fit": 6.49,
+   "gain": {
+    "long": {
+     "milli": 1.581,
+     "bandMilli": 1.67,
+     "aucBand": [
+      0.5847,
+      0.5995
+     ]
+    },
+    "short": {
+     "milli": 2.591,
+     "bandMilli": 2.121,
+     "aucBand": [
+      0.5798,
+      0.5956
+     ]
+    },
+    "t": 6.49,
+    "milli": 2.107,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1256,
+     "profitBefore": -0.5,
+     "profitAfter": 4.89
+    },
+    "aucGain": 0.0153,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": null,
+   "cell": "long \u00b7 rare \u00b7 20-36h \u00b7 own",
+   "origin": "mutation",
+   "born": "2026-11-21 02:46",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -2.472,
+      "bandMilli": -2.453,
+      "aucBand": [
+       0.5968,
+       0.585
+      ]
+     },
+     "short": {
+      "milli": -2.163,
+      "bandMilli": -1.524,
+      "aucBand": [
+       0.5625,
+       0.552
+      ]
+     },
+     "t": -2.56,
+     "milli": -2.289,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 925,
+      "profitBefore": 3.76,
+      "profitAfter": -3.87
+     },
+     "aucGain": -0.0111,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -1.089,
+      "bandMilli": 3.74,
+      "aucBand": [
+       0.6035,
+       0.6349
+      ]
+     },
+     "short": {
+      "milli": -2.12,
+      "bandMilli": -1.353,
+      "aucBand": [
+       0.5943,
+       0.5737
+      ]
+     },
+     "t": -1.67,
+     "milli": -1.704,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 384,
+      "profitBefore": 6.91,
+      "profitAfter": 12.72
+     },
+     "aucGain": 0.0054,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.054
+  },
+  {
+   "text": "LONG when z(abs(div(sub(w_g_nvda20, w_c_div72), lag72(w_g_spx20)))) <= -2.0; only when z(w_shockN) > 0.0",
+   "fit": 6.49,
+   "gain": {
+    "long": {
+     "milli": 1.581,
+     "bandMilli": 1.67,
+     "aucBand": [
+      0.5847,
+      0.5995
+     ]
+    },
+    "short": {
+     "milli": 2.591,
+     "bandMilli": 2.121,
+     "aucBand": [
+      0.5798,
+      0.5956
+     ]
+    },
+    "t": 6.49,
+    "milli": 2.107,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1256,
+     "profitBefore": -0.5,
+     "profitAfter": 4.89
+    },
+    "aucGain": 0.0153,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 86,
+    "windows": 30,
+    "t": 0.63,
+    "mean": -0.029,
+    "win": 61.6,
+    "freq": 1.49,
+    "hold": 17.8,
+    "btc": 0.087
+   },
+   "cell": "long \u00b7 rare \u00b7 8-20h \u00b7 own",
+   "origin": "mutation",
+   "born": "2026-11-21 02:37",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -2.472,
+      "bandMilli": -2.453,
+      "aucBand": [
+       0.5968,
+       0.585
+      ]
+     },
+     "short": {
+      "milli": -2.163,
+      "bandMilli": -1.524,
+      "aucBand": [
+       0.5625,
+       0.552
+      ]
+     },
+     "t": -2.56,
+     "milli": -2.289,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 925,
+      "profitBefore": 3.76,
+      "profitAfter": -3.87
+     },
+     "aucGain": -0.0111,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -1.089,
+      "bandMilli": 3.74,
+      "aucBand": [
+       0.6035,
+       0.6349
+      ]
+     },
+     "short": {
+      "milli": -2.12,
+      "bandMilli": -1.353,
+      "aucBand": [
+       0.5943,
+       0.5737
+      ]
+     },
+     "t": -1.67,
+     "milli": -1.704,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 384,
+      "profitBefore": 6.91,
+      "profitAfter": 12.72
+     },
+     "aucGain": 0.0054,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.054
+  },
+  {
+   "text": "LONG when z(abs(div(sub(w_g_nvda20, w_c_div72), lag72(w_g_spx20)))) <= -1.5; only when z(w_shockN) > 0.0",
+   "fit": 6.49,
+   "gain": {
+    "long": {
+     "milli": 1.581,
+     "bandMilli": 1.67,
+     "aucBand": [
+      0.5847,
+      0.5995
+     ]
+    },
+    "short": {
+     "milli": 2.591,
+     "bandMilli": 2.121,
+     "aucBand": [
+      0.5798,
+      0.5956
+     ]
+    },
+    "t": 6.49,
+    "milli": 2.107,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1256,
+     "profitBefore": -0.5,
+     "profitAfter": 4.89
+    },
+    "aucGain": 0.0153,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 795,
+    "windows": 205,
+    "t": -1.86,
+    "mean": -0.234,
+    "win": 60.8,
+    "freq": 13.77,
+    "hold": 12.2,
+    "btc": 0.299
+   },
+   "cell": "long \u00b7 daily \u00b7 8-20h \u00b7 BTC-ish",
+   "origin": "mutation",
+   "born": "2026-11-21 02:45",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -2.472,
+      "bandMilli": -2.453,
+      "aucBand": [
+       0.5968,
+       0.585
+      ]
+     },
+     "short": {
+      "milli": -2.163,
+      "bandMilli": -1.524,
+      "aucBand": [
+       0.5625,
+       0.552
+      ]
+     },
+     "t": -2.56,
+     "milli": -2.289,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 925,
+      "profitBefore": 3.76,
+      "profitAfter": -3.87
+     },
+     "aucGain": -0.0111,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -1.089,
+      "bandMilli": 3.74,
+      "aucBand": [
+       0.6035,
+       0.6349
+      ]
+     },
+     "short": {
+      "milli": -2.12,
+      "bandMilli": -1.353,
+      "aucBand": [
+       0.5943,
+       0.5737
+      ]
+     },
+     "t": -1.67,
+     "milli": -1.704,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 384,
+      "profitBefore": 6.91,
+      "profitAfter": 12.72
+     },
+     "aucGain": 0.0054,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.054
+  },
+  {
+   "text": "SHORT when z(abs(div(sub(w_g_dax5, w_c_div72), lag72(w_g_spx20)))) <= -2.0; only when z(max(ema4(w_c_rel), lag12(lag720(mul(w_c_div168, x_topPos))))) < -1.0",
+   "fit": 6.35,
+   "gain": {
+    "long": {
+     "milli": 1.335,
+     "bandMilli": 0.76,
+     "aucBand": [
+      0.5847,
+      0.5891
+     ]
+    },
+    "short": {
+     "milli": 1.591,
+     "bandMilli": 1.213,
+     "aucBand": [
+      0.5798,
+      0.5939
+     ]
+    },
+    "t": 6.35,
+    "milli": 1.468,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1260,
+     "profitBefore": -0.5,
+     "profitAfter": 3.41
+    },
+    "aucGain": 0.0092,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": null,
+   "cell": "short \u00b7 rare \u00b7 20-36h \u00b7 own",
+   "origin": "mutation",
+   "born": "2026-11-21 03:19",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -1.584,
+      "bandMilli": -0.187,
+      "aucBand": [
+       0.5968,
+       0.5903
+      ]
+     },
+     "short": {
+      "milli": -1.647,
+      "bandMilli": -1.366,
+      "aucBand": [
+       0.5625,
+       0.5514
+      ]
+     },
+     "t": -2.41,
+     "milli": -1.621,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 891,
+      "profitBefore": 3.76,
+      "profitAfter": -0.66
+     },
+     "aucGain": -0.0088,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -1.71,
+      "bandMilli": 2.567,
+      "aucBand": [
+       0.6035,
+       0.624
+      ]
+     },
+     "short": {
+      "milli": -1.023,
+      "bandMilli": -1.038,
+      "aucBand": [
+       0.5943,
+       0.58
+      ]
+     },
+     "t": -1.3,
+     "milli": -1.3,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 393,
+      "profitBefore": 6.91,
+      "profitAfter": 12.21
+     },
+     "aucGain": 0.0031,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.043
+  },
+  {
+   "text": "SHORT when z(abs(div(sub(w_g_dax5, w_c_div72), lag72(w_g_spx20)))) >=2.0; only when z(max(ema4(w_c_rel), lag12(lag720(mul(w_c_div168, x_topPos))))) < -1.0",
+   "fit": 6.35,
+   "gain": {
+    "long": {
+     "milli": 1.335,
+     "bandMilli": 0.76,
+     "aucBand": [
+      0.5847,
+      0.5891
+     ]
+    },
+    "short": {
+     "milli": 1.591,
+     "bandMilli": 1.213,
+     "aucBand": [
+      0.5798,
+      0.5939
+     ]
+    },
+    "t": 6.35,
+    "milli": 1.468,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1260,
+     "profitBefore": -0.5,
+     "profitAfter": 3.41
+    },
+    "aucGain": 0.0092,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 1309,
+    "windows": 766,
+    "t": 2.85,
+    "mean": 0.364,
+    "win": 71.7,
+    "freq": 22.68,
+    "hold": 11.4,
+    "btc": 0.199
+   },
+   "cell": "short \u00b7 daily \u00b7 8-20h \u00b7 own",
+   "origin": "mutation",
+   "born": "2026-11-21 03:19",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -1.584,
+      "bandMilli": -0.187,
+      "aucBand": [
+       0.5968,
+       0.5903
+      ]
+     },
+     "short": {
+      "milli": -1.647,
+      "bandMilli": -1.366,
+      "aucBand": [
+       0.5625,
+       0.5514
+      ]
+     },
+     "t": -2.41,
+     "milli": -1.621,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 891,
+      "profitBefore": 3.76,
+      "profitAfter": -0.66
+     },
+     "aucGain": -0.0088,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -1.71,
+      "bandMilli": 2.567,
+      "aucBand": [
+       0.6035,
+       0.624
+      ]
+     },
+     "short": {
+      "milli": -1.023,
+      "bandMilli": -1.038,
+      "aucBand": [
+       0.5943,
+       0.58
+      ]
+     },
+     "t": -1.3,
+     "milli": -1.3,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 393,
+      "profitBefore": 6.91,
+      "profitAfter": 12.21
+     },
+     "aucGain": 0.0031,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.043
+  },
+  {
+   "text": "LONG when z(abs(div(add(w_g_nvda20, max(mul(resid_btc(24h,72h), l[t-1]), min(p_topPos24, w_b_imb5))), lag72(w_g_spx20)))) <= -1.5; only when z(w_shockN) > 0.0",
+   "fit": 6.29,
+   "gain": {
+    "long": {
+     "milli": 0.958,
+     "bandMilli": 1.671,
+     "aucBand": [
+      0.5847,
+      0.5952
+     ]
+    },
+    "short": {
+     "milli": 1.79,
+     "bandMilli": 1.537,
+     "aucBand": [
+      0.5798,
+      0.5906
+     ]
+    },
+    "t": 6.29,
+    "milli": 1.391,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1195,
+     "profitBefore": -0.5,
+     "profitAfter": 1.81
+    },
+    "aucGain": 0.0106,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 514,
+    "windows": 177,
+    "t": -1.97,
+    "mean": -0.122,
+    "win": 63.0,
+    "freq": 8.9,
+    "hold": 10.6,
+    "btc": 0.37
+   },
+   "cell": "long \u00b7 weekly \u00b7 8-20h \u00b7 BTC-ish",
+   "origin": "mutation",
+   "born": "2026-11-21 02:48",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -0.354,
+      "bandMilli": 2.384,
+      "aucBand": [
+       0.5968,
+       0.596
+      ]
+     },
+     "short": {
+      "milli": -1.558,
+      "bandMilli": -1.071,
+      "aucBand": [
+       0.5625,
+       0.5525
+      ]
+     },
+     "t": -1.66,
+     "milli": -1.066,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 778,
+      "profitBefore": 3.76,
+      "profitAfter": -1.12
+     },
+     "aucGain": -0.0054,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": 1.207,
+      "bandMilli": 6.812,
+      "aucBand": [
+       0.6035,
+       0.6255
+      ]
+     },
+     "short": {
+      "milli": -1.501,
+      "bandMilli": -0.431,
+      "aucBand": [
+       0.5943,
+       0.5763
+      ]
+     },
+     "t": -0.61,
+     "milli": -0.409,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 357,
+      "profitBefore": 6.91,
+      "profitAfter": 10.2
+     },
+     "aucGain": 0.002,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.025
+  },
+  {
+   "text": "LONG when z(abs(div(add(w_g_nvda20, max(mul(resid_btc(24h,72h), l[t-1]), min(p_topPos24, w_b_imb5))), lag72(w_g_spx20)))) <= -2.0; only when z(w_shockN) > 0.0",
+   "fit": 6.29,
+   "gain": {
+    "long": {
+     "milli": 0.958,
+     "bandMilli": 1.671,
+     "aucBand": [
+      0.5847,
+      0.5952
+     ]
+    },
+    "short": {
+     "milli": 1.79,
+     "bandMilli": 1.537,
+     "aucBand": [
+      0.5798,
+      0.5906
+     ]
+    },
+    "t": 6.29,
+    "milli": 1.391,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1195,
+     "profitBefore": -0.5,
+     "profitAfter": 1.81
+    },
+    "aucGain": 0.0106,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 84,
+    "windows": 42,
+    "t": 0.54,
+    "mean": 0.318,
+    "win": 70.2,
+    "freq": 1.46,
+    "hold": 10.7,
+    "btc": 0.4
+   },
+   "cell": "long \u00b7 rare \u00b7 8-20h \u00b7 BTC-ish",
+   "origin": "mutation",
+   "born": "2026-11-21 02:31",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": -0.354,
+      "bandMilli": 2.384,
+      "aucBand": [
+       0.5968,
+       0.596
+      ]
+     },
+     "short": {
+      "milli": -1.558,
+      "bandMilli": -1.071,
+      "aucBand": [
+       0.5625,
+       0.5525
+      ]
+     },
+     "t": -1.66,
+     "milli": -1.066,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 778,
+      "profitBefore": 3.76,
+      "profitAfter": -1.12
+     },
+     "aucGain": -0.0054,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": 1.207,
+      "bandMilli": 6.812,
+      "aucBand": [
+       0.6035,
+       0.6255
+      ]
+     },
+     "short": {
+      "milli": -1.501,
+      "bandMilli": -0.431,
+      "aucBand": [
+       0.5943,
+       0.5763
+      ]
+     },
+     "t": -0.61,
+     "milli": -0.409,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 357,
+      "profitBefore": 6.91,
+      "profitAfter": 10.2
+     },
+     "aucGain": 0.002,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "passed": false
+   },
+   "corr": 0.025
+  },
+  {
+   "text": "SHORT when z(diff168(tsr720(xsd(zs4(zs12(w_vix5)))))) >=2.0; only when z(w_c_spot72) < 1.0",
+   "fit": 6.17,
+   "gain": {
+    "long": {
+     "milli": 0.395,
+     "bandMilli": 0.674,
+     "aucBand": [
+      0.5847,
+      0.5928
+     ]
+    },
+    "short": {
+     "milli": 0.154,
+     "bandMilli": 0.433,
+     "aucBand": [
+      0.5798,
+      0.5817
+     ]
+    },
+    "t": 6.17,
+    "milli": 0.269,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1200,
+     "profitBefore": -0.5,
+     "profitAfter": 0.14
+    },
+    "aucGain": 0.005,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 918,
+    "windows": 49,
+    "t": -0.04,
+    "mean": 0.249,
+    "win": 69.2,
+    "freq": 15.9,
+    "hold": 12.1,
+    "btc": 0.266
+   },
+   "cell": "short \u00b7 daily \u00b7 8-20h \u00b7 BTC-ish",
+   "origin": "mutation",
+   "born": "2026-11-21 03:20",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0001,
+    "valGain": {
+     "long": {
+      "milli": -0.023,
+      "bandMilli": 0.141,
+      "aucBand": [
+       0.5968,
+       0.5982
+      ]
+     },
+     "short": {
+      "milli": -0.071,
+      "bandMilli": -0.128,
+      "aucBand": [
+       0.5625,
+       0.5623
+      ]
+     },
+     "t": -0.71,
+     "milli": -0.051,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 700,
+      "profitBefore": 3.76,
+      "profitAfter": 3.74
+     },
+     "aucGain": 0.0006,
+     "gates": {
+      "ranking": true,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -0.076,
+      "bandMilli": 0.228,
+      "aucBand": [
+       0.6035,
+       0.6017
+      ]
+     },
+     "short": {
+      "milli": -0.226,
+      "bandMilli": -0.303,
+      "aucBand": [
+       0.5943,
+       0.5915
+      ]
+     },
+     "t": -1.48,
+     "milli": -0.166,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 345,
+      "profitBefore": 6.91,
+      "profitAfter": 7.68
+     },
+     "aucGain": -0.0023,
+     "gates": {
+      "ranking": false,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "passed": false
+   },
+   "corr": 0.011
+  },
+  {
+   "text": "LONG when z(abs(div(add(lag4(w_g_nvda20), max(resid_btc(72h,72h), p_topPos24)), lag72(w_g_spx20)))) <= -2.0; only when z(w_shockN) > 0.0",
+   "fit": 6.13,
+   "gain": {
+    "long": {
+     "milli": 1.278,
+     "bandMilli": 1.376,
+     "aucBand": [
+      0.5847,
+      0.5951
+     ]
+    },
+    "short": {
+     "milli": 2.231,
+     "bandMilli": 1.703,
+     "aucBand": [
+      0.5798,
+      0.5943
+     ]
+    },
+    "t": 6.13,
+    "milli": 1.774,
+    "windows": 2094,
+    "grades": {
+     "before": 1488,
+     "after": 1263,
+     "profitBefore": -0.5,
+     "profitAfter": 8.07
+    },
+    "aucGain": 0.0125,
+    "gates": {
+     "ranking": true,
+     "profit": true,
+     "volume": true
+    },
+    "passesGates": true
+   },
+   "stats": {
+    "n": 79,
+    "windows": 34,
+    "t": -0.87,
+    "mean": 0.177,
+    "win": 68.4,
+    "freq": 1.37,
+    "hold": 6.1,
+    "btc": 0.391
+   },
+   "cell": "long \u00b7 rare \u00b7 <8h \u00b7 BTC-ish",
+   "origin": "mutation",
+   "born": "2026-11-21 03:03",
+   "checks": {
+    "bar": 4.6,
+    "N": 56743,
+    "pLuck": 0.0001,
+    "valGain": {
+     "long": {
+      "milli": -1.136,
+      "bandMilli": 0.117,
+      "aucBand": [
+       0.5968,
+       0.5857
+      ]
+     },
+     "short": {
+      "milli": -1.776,
+      "bandMilli": -1.125,
+      "aucBand": [
+       0.5625,
+       0.5515
+      ]
+     },
+     "t": -1.93,
+     "milli": -1.514,
+     "windows": 1460,
+     "grades": {
+      "before": 514,
+      "after": 882,
+      "profitBefore": 3.76,
+      "profitAfter": -1.0
+     },
+     "aucGain": -0.0111,
+     "gates": {
+      "ranking": false,
+      "profit": false,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "examGain": {
+     "long": {
+      "milli": -0.455,
+      "bandMilli": 2.275,
+      "aucBand": [
+       0.6035,
+       0.6175
+      ]
+     },
+     "short": {
+      "milli": -1.903,
+      "bandMilli": -0.644,
+      "aucBand": [
+       0.5943,
+       0.5737
+      ]
+     },
+     "t": -1.56,
+     "milli": -1.319,
+     "windows": 472,
+     "grades": {
+      "before": 235,
+      "after": 381,
+      "profitBefore": 6.91,
+      "profitAfter": 10.8
+     },
+     "aucGain": -0.0033,
+     "gates": {
+      "ranking": false,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "passed": false
+   },
+   "corr": 0.063
+  }
+ ],
+ "map": {
+  "short \u00b7 busy \u00b7 8-20h \u00b7 own": 5.93,
+  "long \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish": 11.38,
+  "short \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish": 12.18,
+  "short \u00b7 rare \u00b7 20-36h \u00b7 own": 6.35,
+  "long \u00b7 busy \u00b7 <8h \u00b7 BTC-ish": 3.47,
+  "short \u00b7 daily \u00b7 8-20h \u00b7 BTC-ish": 6.17,
+  "long \u00b7 busy \u00b7 8-20h \u00b7 own": 6.49,
+  "short \u00b7 weekly \u00b7 8-20h \u00b7 BTC-ish": 5.06,
+  "long \u00b7 rare \u00b7 20-36h \u00b7 own": 6.49,
+  "long \u00b7 daily \u00b7 <8h \u00b7 own": 4.71,
+  "short \u00b7 busy \u00b7 <8h \u00b7 own": 4.21,
+  "long \u00b7 daily \u00b7 8-20h \u00b7 own": 4.58,
+  "short \u00b7 weekly \u00b7 8-20h \u00b7 BTC-beta": 3.2,
+  "long \u00b7 rare \u00b7 8-20h \u00b7 own": 6.49,
+  "short \u00b7 weekly \u00b7 <8h \u00b7 BTC-ish": 2.58,
+  "long \u00b7 daily \u00b7 8-20h \u00b7 BTC-ish": 6.49,
+  "long \u00b7 daily \u00b7 8-20h \u00b7 BTC-beta": 1.61,
+  "short \u00b7 daily \u00b7 8-20h \u00b7 own": 6.35,
+  "long \u00b7 busy \u00b7 <8h \u00b7 own": 2.99,
+  "long \u00b7 weekly \u00b7 8-20h \u00b7 BTC-ish": 6.29,
+  "long \u00b7 rare \u00b7 <8h \u00b7 BTC-ish": 6.13,
+  "short \u00b7 weekly \u00b7 8-20h \u00b7 own": 3.89,
+  "short \u00b7 daily \u00b7 <8h \u00b7 own": 2.66,
+  "long \u00b7 weekly \u00b7 8-20h \u00b7 own": 6.0,
+  "short \u00b7 rare \u00b7 <8h \u00b7 own": 2.58,
+  "short \u00b7 weekly \u00b7 <8h \u00b7 own": 3.68,
+  "long \u00b7 weekly \u00b7 8-20h \u00b7 BTC-beta": 2.27,
+  "long \u00b7 weekly \u00b7 <8h \u00b7 own": 3.09,
+  "long \u00b7 weekly \u00b7 <8h \u00b7 BTC-ish": 5.65,
+  "short \u00b7 rare \u00b7 8-20h \u00b7 own": 2.58,
+  "long \u00b7 rare \u00b7 <8h \u00b7 anti-BTC": 3.2,
+  "short \u00b7 rare \u00b7 8-20h \u00b7 BTC-ish": 5.91,
+  "short \u00b7 weekly \u00b7 8-20h \u00b7 anti-BTC": 3.89,
+  "long \u00b7 rare \u00b7 8-20h \u00b7 anti-BTC": 2.63,
+  "short \u00b7 daily \u00b7 <8h \u00b7 BTC-ish": 3.0,
+  "short \u00b7 busy \u00b7 <8h \u00b7 BTC-ish": 3.0,
+  "short \u00b7 rare \u00b7 <8h \u00b7 BTC-ish": 2.72,
+  "short \u00b7 weekly \u00b7 20-36h \u00b7 own": 2.88,
+  "long \u00b7 rare \u00b7 8-20h \u00b7 BTC-ish": 6.29,
+  "long \u00b7 rare \u00b7 8-20h \u00b7 BTC-beta": 2.49,
+  "long \u00b7 rare \u00b7 <8h \u00b7 own": 3.93,
+  "short \u00b7 rare \u00b7 20-36h \u00b7 anti-BTC": 2.94,
+  "short \u00b7 rare \u00b7 8-20h \u00b7 anti-BTC": 2.94,
+  "short \u00b7 rare \u00b7 8-20h \u00b7 BTC-beta": 3.2,
+  "long \u00b7 rare \u00b7 20-36h \u00b7 BTC-beta": 2.49,
+  "short \u00b7 rare \u00b7 <8h \u00b7 anti-BTC": 2.19,
+  "long \u00b7 daily \u00b7 20-36h \u00b7 BTC-beta": 2.66,
+  "long \u00b7 weekly \u00b7 8-20h \u00b7 anti-BTC": 2.19,
+  "long \u00b7 rare \u00b7 20-36h \u00b7 BTC-ish": 2.55,
+  "long \u00b7 weekly \u00b7 20-36h \u00b7 BTC-beta": 2.55
+ },
+ "staged": {
+  "active": [],
+  "retired": [
+   {
+    "id": "evo47d9c47e",
+    "genome": {
+     "sig": [
+      "div",
+      [
+       "resid",
+       72,
+       1
+      ],
+      [
+       "resid",
+       168,
+       24
+      ]
+     ],
+     "side": 1,
+     "tail": "hi",
+     "z": 1.5,
+     "flt": null
+    },
+    "what": "Evolved voter (long \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish): LONG when z(div(resid_btc(72h,1h), resid_btc(168h,24h))) >=1.5",
+    "stagedAt": "2026-11-13 10:16",
+    "checks": {
+     "bar": 3.72,
+     "N": 1166,
+     "pLuck": 0.0,
+     "valGain": {
+      "long": {
+       "milli": 0.353,
+       "bandMilli": 0.258
+      },
+      "short": {
+       "milli": 0.03,
+       "bandMilli": -0.141
+      },
+      "t": 6.5,
+      "milli": 0.165,
+      "windows": 1460
+     },
+     "examGain": {
+      "long": {
+       "milli": 0.428,
+       "bandMilli": 2.939
+      },
+      "short": {
+       "milli": -0.126,
+       "bandMilli": -0.275
+      },
+      "t": 2.45,
+      "milli": 0.102,
+      "windows": 472
+     },
+     "causal": true,
+     "noLeak": true,
+     "leaky": null,
+     "passed": true
+    },
+    "fit": 11.38,
+    "retiredWhy": "failed the validation-year odds-error gate ({'long': {'milli': 0.352, 'bandMilli': 0.265, 'aucBand': [0.5871, 0.587]}, 'short': {'milli': 0.027, 'bandMilli': -0.138, 'aucBand': [0.5557, 0.5552]}, 't': 6.44, 'milli': 0.163, 'windows': 1460, 'grades': {'before': 610, 'after': 771, 'profitBefore': np.float64(-3.65), 'profitAfter': np.float64(6.36)}, 'aucGain': -0.0003, 'gates': {'ranking': False, 'profit': True, 'volume': True}, 'passesGates': False})"
+   }
+  ]
+ }
+}
