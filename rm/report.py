@@ -40,6 +40,8 @@ main{max-width:1000px;margin:0 auto;padding:18px 16px 60px}h1{font-size:24px;mar
 .dot{width:9px;height:9px;border-radius:50%;background:var(--good)}.cd{font-variant-numeric:tabular-nums;font-weight:650}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 4px;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:5;border-bottom:1px solid var(--line)}
 .tabs button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:99px;cursor:pointer;font:inherit;font-size:14px}
+@media(max-width:700px){.tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:0 0 auto;white-space:nowrap}}
+.more>summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin-top:6px}
 .tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 section[data-tab]{display:none}section[data-tab].on{display:block}
 .story{font-size:17px;line-height:1.6}.story b{font-weight:650}
@@ -197,7 +199,7 @@ $("kpi").innerHTML=k.map(([a,b,c])=>`<div class="card"><div class="mute">${a}</d
 const tabs=[...document.querySelectorAll("#tabs button")];const show=t=>{tabs.forEach(b=>b.classList.toggle("on",b.dataset.t==t));document.querySelectorAll("section[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab==t));try{localStorage.setItem("tab",t)}catch(e){}};
 tabs.forEach(b=>b.onclick=()=>{show(b.dataset.t);history.replaceState(null,"","#"+b.dataset.t)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){e.preventDefault();show(g.dataset.go);window.scrollTo(0,0)}});
-let first=location.hash.slice(1);try{first=first||localStorage.getItem("tab")}catch(e){};show(tabs.some(b=>b.dataset.t==first)?first:"home");
+let first=location.hash.slice(1);try{first=first||localStorage.getItem("tab")}catch(e){};show(tabs.some(b=>b.dataset.t==first)?first:"home");const keepTab=()=>{try{const o=document.querySelector("#tabs .on");if(o)$("tabs").scrollLeft=o.offsetLeft-24}catch(e){}};keepTab();$("tabs").addEventListener("click",()=>setTimeout(keepTab,0));
 // status + countdown to the next run (runs at minute 17 of every hour, UTC; GitHub may start a few minutes late)
 const builtMs=Date.parse(D.built.replace(" UTC","Z").replace(" ","T"));
 const tick=()=>{const now=Date.now(),ago=(now-builtMs)/6e4;const n=new Date(now);const nx=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate(),n.getUTCHours(),17,0));if(nx<=n)nx.setUTCHours(nx.getUTCHours()+1);
@@ -207,12 +209,14 @@ const tick=()=>{const now=Date.now(),ago=(now-builtMs)/6e4;const n=new Date(now)
  $("sdot").style.background=`var(--${ago>240?"bad":late?"warn":"good"})`};tick();setInterval(tick,1000);
 const EV={promoted:["became a champion","champion"],demoted:["dropped: lost money live","dead"],"failed re-exam":["dropped: failed a re-exam on newer data","dead"],proven:["proven with live trades","champion"],certified:["passed the undeniable-edge checklist","champion"]};
 $("events").innerHTML=D.events.length?D.events.map(e=>`<div class="rule"><span class="tag ${(EV[e[0]]||["",""])[1]}">${esc((EV[e[0]]||[e[0]])[0])}</span>${e[2]?`<b>Rule #${e[2]}</b> · `:""}${esc(e[1])}</div>`).join(""):'<p class="mute">Nothing promoted or dropped yet. Early on this is normal: the bar is high on purpose.</p>';
+const vline=t=>{const x=(t.live&&t.live.n)?["live",t.live]:(t.hold&&t.hold.n)?["final exam",t.hold]:(t.val&&t.val.n)?["validation",t.val]:null;if(!x)return"";const s=x[1];return `<div style="margin-top:4px;font-size:14px"><b style="color:var(--${s.mean>=0?"good":"bad"})">${x[0]}: ${s.n} trades, avg ${s.mean>0?"+":""}${s.mean}%, ${s.hit}% won</b></div>`};
+const lst=(a,n=5)=>a.length<=n?a.map(rule).join(""):a.slice(0,n).map(rule).join("")+`<details style="margin-top:8px"><summary class="mute" style="cursor:pointer">Show ${a.length-n} more</summary>${a.slice(n).map(rule).join("")}</details>`;
 const rule=t=>`<div class="rule">${t.no?`<span class="tag champion">Rule #${t.no}</span>`:""}<span class="tag ${t.status.startsWith("dead")?"dead":t.status}">${esc(t.status)}</span><span class="tag">${esc(t.src)}${t.gen?" · gen "+t.gen:""}</span>${t.proven?'<span class="tag champion">proven live</span>':""}${t.certified?'<span class="tag champion">★ CERTIFIED</span>':""}${t.haircut?`<span class="tag ${t.haircut.admissible?"champion":"dead"}" title="its discovery score is ${t.haircut.rawT}; ${t.haircut.ideasTried} ideas were tried to find rules like it; on ${t.haircut.unseenN} unseen trades its score is ${t.haircut.unseenT}">${t.haircut.admissible?"holds after the luck check":"fails the luck check: study only"}</span>`:""}
-<div style="margin-top:6px;font-size:16px"><b>${esc(t.plain||t.text)}</b></div>${t.plain?`<details><summary>exact rule</summary><div class="mute">${esc(t.text)}</div></details>`:""}${t.why?`<div class="mute">${esc(t.why)}</div>`:""}
+<div style="margin-top:6px;font-size:16px"><b>${esc(t.plain||t.text)}</b></div>${t.plain?`<details><summary>exact rule</summary><div class="mute">${esc(t.text)}</div></details>`:""}${vline(t)}<details class="more"><summary>numbers and evidence</summary>${t.why?`<div class="mute">${esc(t.why)}</div>`:""}
 <div class="nums">discovery: ${st(t.disc)}<br>validation: ${st(t.val)}${t.val?.p_random!=null?` · random entries beat it ${Math.round(t.val.p_random*100)}% of the time`:""}${t.hold?`<br>final exam: ${st(t.hold)}`:""}${t.live?`<br><b>live paper since ${esc(t.promotedOn)}: ${st(t.live)}</b>`:""}</div>
 ${t.certChecks?`<details><summary>undeniable-edge checklist</summary><ul>${Object.entries(t.certChecks).map(([a,b])=>`<li>${b?"✔":"✘"} ${esc(a)}</li>`).join("")}</ul></details>`:""}
 ${t.evidence?`<div class="nums">evidence by year (trades · avg as traded): ${Object.entries(t.evidence).map(([y,v])=>`<span style="color:var(--${v[1]>=0?"good":"bad"})">${y}: ${v[0]} · ${v[1]>0?"+":""}${v[1]}%</span>`).join(" &nbsp; ")}${(()=>{const e=Object.entries(t.evidence),n=e.reduce((a,[,v])=>a+v[0],0),old=e.filter(([y])=>+y<2023).reduce((a,[,v])=>a+v[0],0);return n&&old/n<0.15?' <span class="tag near">young evidence: mostly 2023+</span>':""})()}</div>`:""}
-${t.signals?.length?`<div class="nums">recent signals: ${t.signals.map(s=>`${s.side} ${s.coin} @ ${s.px} (${new Date(s.t*1000).toISOString().slice(5,16).replace("T"," ")})`).join(" · ")}</div>`:""}</div>`;
+${t.signals?.length?`<div class="nums">recent signals: ${t.signals.map(s=>`${s.side} ${s.coin} @ ${s.px} (${new Date(s.t*1000).toISOString().slice(5,16).replace("T"," ")})`).join(" · ")}</div>`:""}</details></div>`;
 const T=D.trades||[];const fmt=x=>x==null?"–":(x>=100?x.toLocaleString(undefined,{maximumFractionDigits:2}):Number(x.toPrecision(5)));
 const when=s=>s?new Date(s*1000).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"–";
 const sum=a=>a.reduce((x,r)=>x+r.usd,0);
@@ -594,10 +598,10 @@ let F="all";const draw=()=>{const a=T.filter(r=>F=="all"||r.type==F).slice(0,200
 $("trades").innerHTML=a.length?"<tr><th>rule</th><th>coin</th><th>side</th><th>entered</th><th>entry</th><th>take-profit</th><th>stop-loss</th><th>exit</th><th>how it ended</th><th>move</th><th>$ at "+D.lev+"x</th><th></th></tr>"+a.map(r=>`<tr><td>#${String(r.no??"?").replace(/,/g,", #")}</td><td>${esc(r.coin)}</td><td>${r.side}</td><td>${when(r.t)}</td><td>${fmt(r.entry)}</td>${r.tp==null?`<td colspan=2 class=mute>none, exits on time</td>`:`<td>${fmt(r.tp)}</td><td>${fmt(r.sl)}</td>`}<td>${r.how=="open"?"now "+fmt(r.exitPx):fmt(r.exitPx)+"<br><span class=mute>"+when(r.exitT)+"</span>"}</td><td>${esc(r.how)}</td><td>${r.pct>0?"+":""}${r.pct}%</td><td>${money(r.usd)}</td><td><span class="tag ${r.type=="live"?"champion":r.type=="open"?"validated":""}">${r.type}</span></td></tr>`).join(""):'<tr><td class="mute">No trades yet. Trades appear here as soon as a rule becomes a champion.</td></tr>'};
 $("filt").innerHTML=["all","live","open","exam"].map(f=>`<button data-f="${f}" style="margin-right:6px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer">${f}</button>`).join("");
 document.querySelectorAll("#filt button").forEach(b=>b.onclick=()=>{F=b.dataset.f;draw()});draw();
-$("champs").innerHTML=D.champions.length?D.champions.map(rule).join(""):'<p class="mute">None yet.</p>';
-$("val").innerHTML=D.validated.length?D.validated.map(rule).join(""):'<p class="mute">None yet.</p>';
-$("near").innerHTML=D.near.map(rule).join("")||'<p class="mute">None.</p>';
-$("died").innerHTML=D.died_live.map(rule).join("")||'<p class="mute">None.</p>';
+$("champs").innerHTML=D.champions.length?lst(D.champions,6):'<p class="mute">None yet.</p>';
+$("val").innerHTML=D.validated.length?lst(D.validated):'<p class="mute">None yet.</p>';
+$("near").innerHTML=lst(D.near)||'<p class="mute">None.</p>';
+$("died").innerHTML=lst(D.died_live)||'<p class="mute">None.</p>';
 $("lessons").innerHTML=D.lessons.length?"<ul>"+D.lessons.map(l=>`<li>${esc(l)}</li>`).join("")+"</ul>":'<p class="mute">The AI researcher writes lessons once a week (needs the GROQ_API_KEY secret).</p>';
 $("fam").innerHTML="<tr><th>family</th><th>tests</th><th>best t</th><th>survivors</th></tr>"+D.families.map(f=>`<tr><td>${esc(f[0])}</td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td></tr>`).join("");
 $("runs").innerHTML="<tr><th>run (UTC)</th><th>tested</th><th>result</th><th>new validated</th><th>secs</th></tr>"+D.runs.map(r=>`<tr><td>${esc(r.at)}</td><td>${r.tested}</td><td>${esc(Object.entries(r.counts).map(([a,b])=>a+" "+b).join(", "))}</td><td>${r.validated}</td><td>${r.secs}</td></tr>`).join("");

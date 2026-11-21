@@ -115,19 +115,18 @@ def digest(log=print):
     prompt = ("You are a markets analyst for a crypto trading desk. From ONLY these headlines of the last day, answer in strict JSON with keys: "
               "brief (max 60 words, plain English: what is driving markets and crypto right now), risk (integer -2 very fearful .. +2 very confident), "
               "events (up to 5 objects: title, type one of [macro, geopolitics, regulation, crypto, company, ai], assets (list of tickers or sectors affected), "
-              "direction one of [up, down, unclear], severity 1-3). No other text.\n\n" + heads)
-    txt, model = _groq([{"role": "user", "content": prompt}], 700)
-    if not txt: return {"error": f"AI did not answer ({model})"}
-    
-    # The fixed parsing logic:
-    try:
+              "direction one of [up, down, unclear], severity 1-3). Do NOT quote any price, index level or percentage in the brief or the titles (headlines can be old or from different days): describe direction and cause in words only. No other text.\n\n" + heads)
+    j = None; err = None
+    for attempt in range(2):                                  # one retry: the AI sometimes returns broken JSON
+        txt, model = _groq([{"role": "user", "content": prompt}], 700)
+        if not txt: err = f"AI did not answer ({model})"; continue
         a, b = txt.find("{"), txt.rfind("}")
-        if a == -1 or b == -1: 
-            return {"error": "AI did not return JSON"}
-        j = json.loads(txt[a:b + 1])
+        if a == -1 or b == -1: err = "AI did not return JSON"; continue
+        try: j = json.loads(txt[a:b + 1]); break
+        except json.JSONDecodeError as e: err = f"AI returned broken JSON: {str(e)}. Raw: {txt[a:b+1][:100]}"
+    if j is None: return {"error": err}
+    try:
         row = {"t": int(time.time()), "brief": str(j.get("brief"))[:500], "risk": int(max(-2, min(2, int(j.get("risk") or 0)))), "events": (j.get("events") or [])[:5], "model": model, "n": len(items)}
-    except json.JSONDecodeError as e:
-        return {"error": f"AI returned broken JSON: {str(e)}. Raw: {txt[a:b+1][:100]}"}
     except Exception as e: 
         return {"error": f"unreadable answer: {str(e)[:80]}"}
         
