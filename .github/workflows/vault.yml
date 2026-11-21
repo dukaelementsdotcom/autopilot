@@ -1,0 +1,46 @@
+name: Data Vault (backup)
+
+# Daily 03:23 UTC. Copies every FINISHED day of the recordings that cannot be downloaded again (own-server order book, funding, liquidations,
+# Hyperliquid whales, Deribit options, news, AI briefs) from the live 'state' branch into the append-only 'vault' branch.
+# Nothing is ever overwritten or deleted there, so a bug that damages the live copy cannot reach the history. Trading is not touched.
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vault
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pandas pyarrow
+      - name: Copy new finished days into the vault branch
+        run: |
+          set -e
+          git config --global user.name "Data Vault"; git config --global user.email "vault@volvox.local"
+          git fetch -q --depth 1 origin state
+          mkdir -p ../state_src && git archive FETCH_HEAD collect archive | tar -x -C ../state_src
+          if git fetch -q --depth 50 origin vault; then
+            git worktree add -q ../vault -B vault FETCH_HEAD
+          else
+            git worktree add -q --detach ../vault
+            (cd ../vault && git checkout -q --orphan vault && git rm -rfq --ignore-unmatch . )
+          fi
+          python -W ignore -m rm.vault ../state_src ../vault
+          cd ../vault
+          git add -A
+          if git diff --cached --quiet; then echo "nothing new today"; exit 0; fi
+          git commit -q -m "vault: $(date -u +%F)"
+          for i in 1 2 3; do git push -q origin vault && break || { git pull -q --rebase origin vault; sleep 5; }; done
+          echo "vault now has $(git ls-files | wc -l) files"

@@ -117,6 +117,22 @@ def write(mem, J, timings, problems, live, t0, log=print):
         chk("new evidence keeps arriving (macro, on-chain, sectors, shocks)", lagd.get("macro", 99) <= 5 and lagd.get("on-chain", 99) <= 4 and wnow >= 0.7, warn=True,
             detail=f"newest macro day {lagd.get('macro')} days ago (weekends have no stock data), on-chain {lagd.get('on-chain')} days ago; {wnow:.0%} of witness measurements present at the newest hour")
     except Exception as e: chk("new evidence keeps arriving (macro, on-chain, sectors, shocks)", False, warn=True, detail=str(e)[:150])
+    # the irreplaceable recordings (they cannot be downloaded again later): are they complete hour by hour, and still arriving?
+    NM = "irreplaceable recordings complete (order book, funding, liquidations, whales)"
+    try:
+        import glob as _g
+        nowt = time.time(); rep = []; bad = []
+        for nm in ("rec_depth", "rec_funding", "rec_liq", "hl_whales"):
+            fp = f"{C.STATE_DIR}/collect/{nm}.parquet"
+            if not os.path.exists(fp): bad.append(f"{nm} missing"); continue
+            t = pd.to_numeric(pd.read_parquet(fp, columns=["t"])["t"]); n = len(t); t = t / 1000 if t.max() > 1e11 else t
+            hrs = set((t // H).astype(int)); last = max(hrs); lo = max(int(nowt // H) - 48, min(hrs))
+            miss = [h for h in range(lo, last + 1) if h not in hrs]; age = (nowt - last * H) / H
+            rep.append(f"{nm} {n:,} rows (newest {age:.1f} h old, {len(miss)} missing hours in the last 48 h)")
+            if len(miss) > 2 or age > 3: bad.append(f"{nm}: {len(miss)} missing hours in the last 48 h, newest {age:.1f} h old")
+        nf = len(_g.glob(f"{C.STATE_DIR}/collect/news/2*.jsonl.gz"))
+        chk(NM, not bad, warn=True, detail=("; ".join(bad)) if bad else "; ".join(rep) + f"; {nf} daily news files kept")
+    except Exception as e: chk(NM, False, warn=True, detail=str(e)[:150])
     gs = (mem.get("referee") or {}).get("guardSync") or {}
     chk("server guard (minute-by-minute watch)", "error" not in gs and "skipped" not in gs, warn=True, detail=f"watching {gs.get('watching')} open positions; last events: {json.dumps((mem.get('referee') or {}).get('guardApply'))[:120]}")
     chs = (mem.get("referee") or {}).get("chal") or {}; rj = (mem.get("referee") or {}).get("chalRejected") or {}; cst = (mem.get("referee") or {}).get("chalStats") or {}
