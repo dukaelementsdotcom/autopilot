@@ -1,0 +1,83 @@
+{
+ "note": "Data Volvox uses or could use. Edited by hand or by the AI researcher. Prices are NOT written here from memory: 'to check' means verify on the provider's own page before deciding.",
+ "items": [
+  {
+   "name": "Own-server recorder: order book, funding, liquidations",
+   "cost": "free",
+   "status": "collecting",
+   "why": "Live depth and flow cannot be downloaded later; it becomes the long-term pattern mine (in the Data Vault)."
+  },
+  {
+   "name": "Hyperliquid: top 50 accounts and candles",
+   "cost": "free",
+   "status": "collecting",
+   "why": "Shows what the largest on-chain traders hold; recorded hourly since Nov 9."
+  },
+  {
+   "name": "Deribit options (skew, volatility)",
+   "cost": "free",
+   "status": "collecting",
+   "why": "Options fear and positioning; snapshots every 30 minutes."
+  },
+  {
+   "name": "News headlines (9 feeds) and the AI market brief",
+   "cost": "free",
+   "status": "collecting",
+   "why": "Event shocks such as hacks, rule changes and big announcements."
+  },
+  {
+   "name": "Coinalyze: liquidations and cross-exchange funding / open interest",
+   "cost": "free",
+   "status": "collecting",
+   "why": "Forced selling and crowding across Binance, Bybit and OKX."
+  },
+  {
+   "name": "CFTC Commitments of Traders (weekly)",
+   "cost": "free",
+   "status": "planned",
+   "why": "How big institutions are positioned in futures; slow but a different kind of evidence."
+  },
+  {
+   "name": "Bybit and OKX own funding and open-interest history",
+   "cost": "free",
+   "status": "planned",
+   "why": "Crowding outside Binance; free public endpoints."
+  },
+  {
+   "name": "DefiLlama: TVL, DEX volume, stablecoin chains",
+   "cost": "free",
+   "status": "planned",
+   "why": "Real money moving on-chain, per sector."
+  },
+  {
+   "name": "Spot ETF flows (daily)",
+   "cost": "free page; terms of use to check",
+   "status": "planned",
+   "why": "Large, slow money in and out of Bitcoin and Ether."
+  },
+  {
+   "name": "Prediction-market odds (Polymarket)",
+   "cost": "free",
+   "status": "planned",
+   "why": "The crowd's odds on rate decisions and elections, a macro read."
+  },
+  {
+   "name": "Tick-level order-book history",
+   "cost": "paid: price to check",
+   "status": "needs owner decision",
+   "why": "Years of microstructure for sniper entries; only worth it if the recorder shows depth matters."
+  },
+  {
+   "name": "On-chain analytics suite (exchange flows, holder cohorts)",
+   "cost": "paid: price to check",
+   "status": "needs owner decision",
+   "why": "Deeper long-side evidence than the free on-chain feed; weigh only after the long contestants show where the gap is."
+  },
+  {
+   "name": "Social and sentiment data",
+   "cost": "paid: price to check",
+   "status": "needs owner decision",
+   "why": "Crowd mood; noisy, so it would enter only as a contestant."
+  }
+ ]
+}

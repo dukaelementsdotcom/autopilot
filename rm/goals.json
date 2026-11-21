@@ -1,0 +1,36 @@
+{
+ "note": "The ladder of goals. The dashboard decides each stage's state from live data; 'manual' stages show the note until the owner sets criteria. Edit here.",
+ "ladder": [
+  {
+   "id": "shorts",
+   "label": "A verified edge on shorts",
+   "why": "Live record above break-even over many separate calls"
+  },
+  {
+   "id": "longs",
+   "label": "An edge on longs",
+   "why": "A long contestant beats the Arbiter on live results, judged by the locked judge"
+  },
+  {
+   "id": "reader",
+   "label": "Reading the market type correctly",
+   "why": "The market-type readers are right more often than not, graded 48 hours later"
+  },
+  {
+   "id": "compound",
+   "label": "Consistent compounding",
+   "why": "Many small wins, shallow drawdowns, no reliance on a few big ones"
+  },
+  {
+   "id": "unattended",
+   "label": "Running unattended",
+   "why": "Hourly runs keep happening and parts repair themselves"
+  },
+  {
+   "id": "money",
+   "label": "Ready for real money",
+   "why": "Passes the graduation and the December exam",
+   "manual": "Graduation Nov 29-30 and the December exam. The pass criteria are for the owner to set before Dec 1."
+  }
+ ]
+}

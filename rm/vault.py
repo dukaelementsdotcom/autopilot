@@ -28,7 +28,7 @@ def run(state, vault):
             day = os.path.basename(fp)[:10]; out = f"{vault}/{sub}/{day}.jsonl.gz"
             if day >= today or os.path.exists(out): continue
             os.makedirs(os.path.dirname(out), exist_ok=True); shutil.copy2(fp, out); added.append(out)
-    for fn in ("digest.jsonl", "calendar.json", "ipos.json", "hl_top.json"):                  # small and growing: keep the latest copy (history keeps every version)
+    for fn in ("digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "growth.jsonl"):                  # small and growing: keep the latest copy (history keeps every version)
         fp = f"{state}/collect/{fn}"
         if os.path.exists(fp):
             os.makedirs(f"{vault}/misc", exist_ok=True); shutil.copy2(fp, f"{vault}/misc/{fn}")

@@ -27,6 +27,7 @@ PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 .themebtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:5px 12px;cursor:pointer;font:inherit;font-size:13px}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 main{max-width:1000px;margin:0 auto;padding:18px 16px 60px}h1{font-size:24px;margin:0}h2{font-size:17px;margin:26px 0 8px}h3{font-size:15px;margin:14px 0 6px}
+.gwrap{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:16px;margin-top:8px;align-items:center}@media(max-width:760px){.gwrap{grid-template-columns:1fr}}
 .tipw{border-bottom:1px dotted var(--mute);cursor:help;position:relative}.tipw:hover::after,.tipw:focus::after{content:attr(data-t);position:absolute;left:0;top:100%;margin-top:4px;z-index:30;width:min(290px,78vw);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:400;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.2);white-space:normal}.tipw:focus{outline:none}
 .mute{color:var(--mute)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.big{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
@@ -96,6 +97,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <nav class="tabs" id="tabs"><button data-t="home">Overview</button><button data-t="accounts">Accounts</button><button data-t="rules">Rules</button><button data-t="research">How it thinks</button><button data-t="data">Trades &amp; data</button><button data-t="roadmap">Build board</button><button data-t="help">Help</button></nav>
 
 <section data-tab="home">
+<div id="growth" style="margin-top:12px"></div>
 <div id="glance" style="margin-top:12px"></div>
 <div id="arb" style="margin-top:12px"></div>
 <div id="obs"></div>
@@ -606,6 +608,66 @@ $("died").innerHTML=lst(D.died_live)||'<p class="mute">None.</p>';
 $("lessons").innerHTML=D.lessons.length?"<ul>"+D.lessons.map(l=>`<li>${esc(l)}</li>`).join("")+"</ul>":'<p class="mute">The AI researcher writes lessons once a week (needs the GROQ_API_KEY secret).</p>';
 $("fam").innerHTML="<tr><th>family</th><th>tests</th><th>best t</th><th>survivors</th></tr>"+D.families.map(f=>`<tr><td>${esc(f[0])}</td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td></tr>`).join("");
 $("runs").innerHTML="<tr><th>run (UTC)</th><th>tested</th><th>result</th><th>new validated</th><th>secs</th></tr>"+D.runs.map(r=>`<tr><td>${esc(r.at)}</td><td>${r.tested}</td><td>${esc(Object.entries(r.counts).map(([a,b])=>a+" "+b).join(", "))}</td><td>${r.validated}</td><td>${r.secs}</td></tr>`).join("");
+(()=>{try{const host=$("growth");if(!host)return;
+const R=D.referee||{},A=R.acct||{},G=D.growth||[],GO=(D.goals||{}).ladder||[],WL=(D.wishlist||{}).items||[],PR=D.proposals||[];
+const num=x=>typeof x==="number"&&isFinite(x);
+const RGN={"down-wild":"falling and wild","down-calm":"falling and calm","up-wild":"rising and wild","up-calm":"rising and calm","flat-calm":"sideways and calm","flat-wild":"sideways and wild"};
+// ---- the cells: every one is a real part of the system
+const cells=[];
+((D.overseer||{}).promises||[]).forEach(x=>cells.push({s:x.status==="in use"?"good":"wait",l:x.source,t:x.detail||""}));
+const cs=R.chalScores||{};Object.keys(cs).forEach(k=>cells.push({s:"race",l:k,t:"a contestant racing the Arbiter"}));
+const rc=R.readerContest||{};Object.keys(rc).filter(k=>rc[k]&&typeof rc[k]==="object").forEach(k=>cells.push({s:rc[k].calls?"good":"wait",l:"market reader: "+k,t:rc[k].calls?`right ${rc[k].right}% over ${rc[k].calls} graded calls`:"waiting for its first graded calls"}));
+const hs0=s=>{let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))>>>0;return h};cells.sort((a,b)=>hs0(a.l)-hs0(b.l));
+const col={good:"var(--good)",wait:"var(--warn)",race:"var(--acc)"};
+// ---- mood, from facts
+const open=A.open||[],lk=((R.look||{}).rows||[]),off=lk.filter(x=>x.off),reg=RGN[R.regimeNow]||R.regimeNow||"unclear";
+const longs=Object.keys(cs).filter(k=>/long|pullback|tide|confluence|plumbing/.test(k));
+let mood=open.length?`Riding ${open.map(o=>o.side+" "+o.coin).join(", ")}`:off.length?`Waiting patiently: ${off[0].side.toLowerCase()}s are switched off in a ${reg} market`:"Scanning every hour";
+if(longs.length)mood+=` · hunting a long edge with ${longs.length} ideas`;
+// ---- goal ladder: the state comes from live data, the wording from rm/goals.json
+const best=Object.entries(rc).filter(([k,v])=>v&&v.calls).sort((a,b)=>b[1].right-a[1].right)[0],rcalls=Object.values(rc).reduce((s,v)=>s+((v&&v.calls)||0),0);
+const ov=R.override||{},hs=D.healthSummary||{},closed=(A.closed||[]).length,eq=A.equity??A.cash,pct=A.start?(eq/A.start*100-100):0;
+const ST={on:["On track","good"],build:["Building","warn"],none:["Not started","mute"],you:["Waiting for you","acc"]};
+const judge={
+ shorts:()=>ov.short&&ov.short.live?["on",ov.short.why||"live record above break-even"]:["build","live record is not yet above break-even"],
+ longs:()=>ov.long&&ov.long.live?["on",ov.long.why||"a long idea is live"]:longs.length?["build",`${longs.length} long ideas racing; none ahead of the Arbiter on live results yet`]:["none","no long idea racing yet"],
+ reader:()=>best?(rcalls>=20&&best[1].right>=55?["on",`best reader ${best[0]}: right ${best[1].right}% over ${best[1].calls} calls`]:["build",`best so far ${best[0]}: right ${best[1].right}% over ${best[1].calls} graded calls (about 20+ needed to judge)`]):["none","the first calls are graded 48 hours after they are made"],
+ compound:()=>closed>=40&&pct>0?["on",`${pct.toFixed(1)}% after ${closed} closed trades`]:["build",`${pct>=0?"+":""}${pct.toFixed(1)}% after ${closed} closed trades (about 40 needed to judge)`],
+ unattended:()=>hs.overall==="OK"?["on",((hs.checks||[])[0]||[])[2]||"all checks OK"]:["build","a health check needs attention"],
+};
+const ladder=GO.map(g=>{let r;if(g.manual)r=["you",g.manual];else{try{r=(judge[g.id]||(()=>["none","not measured yet"]))()}catch(e){r=["none","not measured yet"]}}
+ const [lab,c]=ST[r[0]];return `<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)"><span style="flex:0 0 auto;min-width:104px;font-size:12px;font-weight:700;color:var(--${c});border:1px solid var(--${c});border-radius:999px;padding:2px 9px;text-align:center">${lab}</span><div style="font-size:14px"><b>${esc(g.label)}</b><div class="mute" style="font-size:12.5px;margin-top:1px">${esc(r[1])}</div></div></div>`}).join("");
+// ---- learning curves from the daily snapshots
+const curve=(label,key,fmt,note)=>{const v=G.map(x=>x[key]).filter(num);if(v.length<5)return `<div style="flex:1 1 150px"><div class="mute" style="font-size:12.5px">${label}</div><div style="font-size:13px;margin-top:4px">collecting history: day ${v.length} of 5 needed</div><div class="mute" style="font-size:11.5px">${note}</div></div>`;
+ const a=Math.min(...v),b=Math.max(...v),W=150,Hh=36,pt=v.map((y,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(Hh-(b>a?(y-a)/(b-a)*Hh:Hh/2)).toFixed(1)}`).join(" ");
+ return `<div style="flex:1 1 150px"><div class="mute" style="font-size:12.5px">${label}</div><svg viewBox="0 -3 ${W} ${Hh+6}" style="width:100%;height:42px"><polyline points="${pt}" fill="none" stroke="var(--acc)" stroke-width="2"/></svg><div style="font-size:12.5px"><b>${fmt(v[v.length-1])}</b> now <span class="mute">(from ${fmt(v[0])})</span></div><div class="mute" style="font-size:11.5px">range ${fmt(a)} to ${fmt(b)}</div><div class="mute" style="font-size:11.5px">${note}</div></div>`};
+const pc=x=>(x*100).toFixed(0)+"%";
+const curves=`<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px">`
+ +curve("Odds vs reality (gap, lower is better)","oddsGap",x=>x.toFixed(1)+" pts","how far its stated odds are from what really happened")
+ +curve("Live calls scored","scored",x=>String(Math.round(x)),"more scored calls means the odds can be trusted more")
+ +curve("Short calls actually right","shortHit",pc,"live hit rate of recent short calls")
+ +curve("Days of recordings kept","recordedDays",x=>x.toFixed(0)+" d","the long-term pattern mine, backed up daily")+`</div>`;
+// ---- wishlist and proposals
+const order={"collecting":0,"planned":1,"needs owner decision":2},chip=c=>`<span style="font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--${/^free/.test(c)?"good":"warn"})">${esc(c)}</span>`;
+const wl=[...WL].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)).map(w=>`<div style="padding:6px 0;border-top:1px solid var(--line);font-size:13.5px"><b>${esc(w.name)}</b> ${chip(w.cost)} <span class="mute" style="font-size:12px">${esc(w.status)}</span><div class="mute" style="font-size:12.5px">${esc(w.why)}</div></div>`).join("");
+const pr=[...PR].reverse().map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line);font-size:13.5px"><b>${esc(x.rule_name||"idea")}</b> <span style="font-size:11px;font-weight:700;color:var(--${x.verdict==="PASS"?"good":"bad"})">${esc(x.verdict||"?")}</span> <span class="mute" style="font-size:12px">${x.avgMonthly==null?"":`avg ${x.avgMonthly}%/month, positive in ${esc(x.positive||"?")} windows`}</span><div class="mute" style="font-size:12.5px">${esc(x.description||"")}</div></div>`).join("");
+const nCol=WL.filter(w=>w.status==="collecting").length;
+host.innerHTML=`<div class="card" style="padding:14px 16px"><div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px"><h2 style="margin:0">Volvox is growing</h2><span class="mute" style="font-size:12.5px">every cell is a real part of the system</span></div>
+<div class="gwrap"><div><svg id="gsph" viewBox="-115 -115 230 230" style="width:100%;max-width:290px;display:block;margin:auto" role="img" aria-label="A turning ball of ${cells.length} cells: data sources, market readers and contestants"></svg><div id="gcap" class="mute" style="text-align:center;font-size:12.5px;min-height:2.8em;margin-top:2px">${cells.length} cells · tap one</div>
+<div class="mute" style="text-align:center;font-size:11.5px"><span style="color:var(--good)">●</span> working <span style="color:var(--warn)">●</span> waiting <span style="color:var(--acc)">●</span> contestant</div></div>
+<div><div style="font-size:16px;font-weight:700">${esc(mood)}</div><div class="mute" style="font-size:13px;margin:2px 0 8px">How far from the goals: each stage is judged from live data, never a made-up score.</div>${ladder}</div></div>
+<h3 style="font-size:14.5px;margin:14px 0 0">Is it learning? Real curves from daily snapshots</h3>${curves}
+<details class="more" style="margin-top:12px"><summary>Data it uses and data it wants (${nCol} collecting now, ${WL.length-nCol} more on the list)</summary>${wl||'<div class="mute">no list yet</div>'}<div class="mute" style="font-size:12px;margin-top:6px">Paid sources show "price: to check" on purpose: nothing is decided or priced from memory.</div></details>
+<details class="more"><summary>Build ideas it has proposed (${PR.length})</summary>${pr||'<div class="mute" style="padding:6px 0">none yet: the agent team runs every Sunday</div>'}<div class="mute" style="font-size:12px;margin-top:6px">A PASS only means worth racing as a contestant. Nothing here changes the Arbiter; the live race and you decide.</div></details></div>`;
+// ---- the turning sphere (still when the viewer prefers reduced motion; paused when hidden)
+const svg=$("gsph"),cap=$("gcap"),N=cells.length,ga=Math.PI*(3-Math.sqrt(5)),pts=cells.map((c,i)=>{const y=1-(i+.5)/N*2,r=Math.sqrt(1-y*y),th=ga*i;return{x:Math.cos(th)*r,y,z:Math.sin(th)*r}});
+const NS="http://www.w3.org/2000/svg",els=cells.map((c,i)=>{const e=document.createElementNS(NS,"circle");e.setAttribute("fill",col[c.s]);e.style.cursor="pointer";e.setAttribute("tabindex","0");const t=document.createElementNS(NS,"title");t.textContent=c.l+": "+c.t;e.appendChild(t);
+ const show=()=>{cap.innerHTML=`<b style="color:var(--ink)">${esc(c.l)}</b><br>${esc(c.t)}`};e.addEventListener("click",show);e.addEventListener("mouseenter",show);e.addEventListener("focus",show);svg.appendChild(e);return e});
+const draw=a=>{const ca=Math.cos(a),sa=Math.sin(a),br=1+.012*Math.sin(a*3);pts.forEach((q,i)=>{const x=ca*q.x+sa*q.z,z=-sa*q.x+ca*q.z,k=(z+1)/2,e=els[i];e.setAttribute("cx",(x*100*br).toFixed(1));e.setAttribute("cy",(q.y*100*br).toFixed(1));e.setAttribute("r",(3.2+3.6*k).toFixed(1));e.setAttribute("opacity",(cells[i].s==="wait"?.25:.4)+.6*k*(cells[i].s==="wait"?.6:1))})};
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;let ang=.6,last=0,vis=true;draw(ang);
+if(!reduce){try{new IntersectionObserver(en=>{vis=en[0].isIntersecting}).observe(svg)}catch(e){}
+ const tick=t=>{if(vis&&!document.hidden&&t-last>33){ang+=.006;last=t;draw(ang)}requestAnimationFrame(tick)};requestAnimationFrame(tick)}
+}catch(err){console.log("growth",err)}})();
 // times written as "YYYY-MM-DD HH:MM UTC" are shown in the viewer's own time zone
 try{const re=/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})? UTC/g;const t1=new RegExp(re.source);const tz=(new Intl.DateTimeFormat(undefined,{timeZoneName:"short"}).formatToParts(new Date()).find(x=>x.type==="timeZoneName")||{}).value||"";
  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName)?NodeFilter.FILTER_REJECT:t1.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_SKIP});const ns=[];while(w.nextNode())ns.push(w.currentNode);
@@ -696,6 +758,18 @@ def _tokens(page, mem):
 def write(mem, J=None, log=print):
     os.makedirs(C.DOCS_DIR, exist_ok=True)
     d = _summary(mem); d["built"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    try:
+        from . import growth as GR
+        d["growth"] = GR.update(mem)
+    except Exception as e: d["growth"] = []; log(f"growth snapshot skipped: {str(e)[:100]}")
+    for nm, key in (("data_wishlist.json", "wishlist"), ("goals.json", "goals")):
+        try: d[key] = json.load(open(os.path.join(os.path.dirname(__file__), nm)))
+        except Exception: d[key] = None
+    try:
+        import glob as _g
+        d["proposals"] = [{k: j.get(k) for k in ("at", "rule_name", "description", "rule_expr")} | {"verdict": (j.get("result") or {}).get("summary", {}).get("verdict"), "avgMonthly": (j.get("result") or {}).get("summary", {}).get("avgMonthly"), "positive": (j.get("result") or {}).get("summary", {}).get("positiveWindows")}
+                          for j in (json.load(open(f)) for f in sorted(_g.glob(os.path.join(os.path.dirname(__file__), "agent_ideas", "*.json"))))][-12:]
+    except Exception: d["proposals"] = []
     d["trades"] = _trades(mem, J, log) if J is not None else []; d["margin"] = C.PAPER_MARGIN; d["lev"] = C.LEVERAGE
     for key in ("account",):
         A = mem.get(key)
