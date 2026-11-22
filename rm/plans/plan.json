@@ -1,38 +1,38 @@
 {
  "model": "openai/gpt-oss-120b",
- "headline": "We have a proven short edge in falling markets but no live long edge, so this week we focus on validating long ideas, hardening shorts across regimes, and gathering the cheapest data that could unlock both",
+ "headline": "Short edge still only seen in falling markets; we need to map when it works and try a modest long reversal idea",
  "items": [
   {
-   "title": "Test a long\u2011only contestant filtered to down\u2011wild regime",
-   "why": "If a long signal can survive the same falling\u2011market regime where shorts thrive, it may reveal a hidden upside",
-   "how": "Run a shadow account with the existing live referee, limiting trades to hours flagged as down\u2011wild; track hit\u2011rate and P&L",
+   "title": "short regime split test",
+   "why": "Checks whether the short edge survives in both down\u2011wild and down\u2011calm periods",
+   "how": "Run two parallel short shadow accounts, one gated on down\u2011wild regime and one on down\u2011calm, using the existing short signal",
    "cost": "free"
   },
   {
-   "title": "Add regime\u2011aware logic to the short contestant",
-   "why": "Shorts already work in down markets; making the model explicitly switch on regime should keep performance when the market turns calmer",
-   "how": "Create a variant that only activates when the regime detector says down\u2011calm or down\u2011wild, then run it in shadow",
+   "title": "short exhaustion timing",
+   "why": "Determines if the edge depends on price exhaustion rather than just direction",
+   "how": "Add a filter to a short contestant to fire only after a 5% move within the hour and compare results with a version without the filter",
    "cost": "free"
   },
   {
-   "title": "Gather funding\u2011rate and open\u2011interest series from Bybit and OKX",
-   "why": "Extra funding signals can improve the model\u2019s edge and help differentiate regimes without extra latency",
-   "how": "Use the existing API collector to pull hourly funding and OI for the 40 coins, store for back\u2011test",
+   "title": "short entry window",
+   "why": "Order\u2011book depth is hourly, so entry timing may affect execution quality",
+   "how": "Create two short contestants that use the same signal but enter in the first 10 minutes of the hour versus the last 10 minutes",
    "cost": "free"
   },
   {
-   "title": "Acquire a limited tick\u2011level order\u2011book snapshot for top 10 coins",
-   "why": "Understanding true depth will let us verify that our hourly book isn\u2019t being gamed and will improve execution risk assessment",
-   "how": "Buy a one\u2011month tick\u2011level feed from a data vendor and ingest into the recorder",
+   "title": "long bounce after crash",
+   "why": "A simple reversal after a sharp drop might provide a usable long edge",
+   "how": "Run a long contestant that opens only after a >4% drop in an hour and a subsequent price bounce in the next 15 minutes",
+   "cost": "free"
+  },
+  {
+   "title": "tick\u2011level book",
+   "why": "Hourly depth hides spoofing and slippage; finer data could improve signal reliability",
+   "how": "Purchase a month of tick\u2011level order\u2011book history for the top 40 coins and store it for offline analysis",
    "cost": "paid"
-  },
-  {
-   "title": "Build a simple on\u2011chain whale\u2011flow monitor",
-   "why": "Large transfers often precede price moves; a cheap on\u2011chain signal could boost both long and short timing",
-   "how": "Use the existing node to watch token transfer events for the 40 coins and flag spikes, then feed to the referee",
-   "cost": "free"
   }
  ],
- "at": "2026-11-22 06:09 UTC",
+ "at": "2026-11-22 06:11 UTC",
  "note": "A suggestion list only. Nothing here changes a setting or places a trade; the live race decides."
 }

@@ -1,0 +1,206 @@
+{
+ "at": "2026-11-22 06:11 UTC",
+ "model": "openai/gpt-oss-120b",
+ "context": "The long side's live shadow calls win 38% of the time against the 59% predicted. The system has no working long-side edge yet.",
+ "rule_name": "long_favorable_hour_v3",
+ "description": "Selects hours when recent 24\u2011hour return is strong, volatility low, trend strength moderate and market\u2011wide positioning is not extreme, typically during peak liquidity hours, which historically improves long trade success.",
+ "rule_expr": "((p_r24>0.55)&(p_vol24<0.3)&(adx14>20)&(hour>=13)&(hour<=18)&(p_glob<0.5))",
+ "result": {
+  "side": "long",
+  "summary": {
+   "windows": 7,
+   "trades": 409,
+   "avgMonthly": -4.14,
+   "avgBaselineMonthly": -7.93,
+   "positiveWindows": "2/7",
+   "beatBaselineWindows": "5/7",
+   "verdict": "FAIL"
+  },
+  "windows": [
+   {
+    "window": "20656-20776 (days since 1970)",
+    "firesShare": 0.008,
+    "rule": {
+     "trades": 53,
+     "perWeek": 3.09,
+     "win": 45.3,
+     "avg": -0.604,
+     "monthly": -10.42,
+     "lo": -19.0,
+     "hi": -1.9,
+     "maxDrop": 38.5
+    },
+    "baseline": {
+     "trades": 117,
+     "perWeek": 6.83,
+     "win": 58.1,
+     "avg": -0.237,
+     "monthly": -11.01,
+     "lo": -22.4,
+     "hi": 1.0,
+     "maxDrop": 47.8
+    },
+    "ruleHit": 0.396,
+    "baseHit": 0.546
+   },
+   {
+    "window": "20536-20656 (days since 1970)",
+    "firesShare": 0.011,
+    "rule": {
+     "trades": 70,
+     "perWeek": 4.08,
+     "win": 54.3,
+     "avg": -0.148,
+     "monthly": -4.43,
+     "lo": -13.8,
+     "hi": 6.4,
+     "maxDrop": 25.7
+    },
+    "baseline": {
+     "trades": 118,
+     "perWeek": 6.88,
+     "win": 56.8,
+     "avg": -0.364,
+     "monthly": -11.86,
+     "lo": -22.0,
+     "hi": 1.5,
+     "maxDrop": 49.7
+    },
+    "ruleHit": 0.415,
+    "baseHit": 0.573
+   },
+   {
+    "window": "20416-20536 (days since 1970)",
+    "firesShare": 0.015,
+    "rule": {
+     "trades": 68,
+     "perWeek": 3.97,
+     "win": 51.5,
+     "avg": -0.489,
+     "monthly": -10.22,
+     "lo": -19.2,
+     "hi": -0.8,
+     "maxDrop": 40.7
+    },
+    "baseline": {
+     "trades": 118,
+     "perWeek": 6.88,
+     "win": 50.0,
+     "avg": -0.755,
+     "monthly": -22.28,
+     "lo": -32.6,
+     "hi": -10.5,
+     "maxDrop": 63.7
+    },
+    "ruleHit": 0.547,
+    "baseHit": 0.562
+   },
+   {
+    "window": "20296-20416 (days since 1970)",
+    "firesShare": 0.01,
+    "rule": {
+     "trades": 50,
+     "perWeek": 2.92,
+     "win": 68.0,
+     "avg": 0.302,
+     "monthly": 4.47,
+     "lo": -4.6,
+     "hi": 14.5,
+     "maxDrop": 19.6
+    },
+    "baseline": {
+     "trades": 118,
+     "perWeek": 6.88,
+     "win": 61.0,
+     "avg": -0.148,
+     "monthly": -8.52,
+     "lo": -17.8,
+     "hi": 4.1,
+     "maxDrop": 32.6
+    },
+    "ruleHit": 0.716,
+    "baseHit": 0.595
+   },
+   {
+    "window": "20176-20296 (days since 1970)",
+    "firesShare": 0.018,
+    "rule": {
+     "trades": 62,
+     "perWeek": 3.62,
+     "win": 54.8,
+     "avg": -0.319,
+     "monthly": -6.06,
+     "lo": -14.4,
+     "hi": 3.1,
+     "maxDrop": 40.4
+    },
+    "baseline": {
+     "trades": 118,
+     "perWeek": 6.88,
+     "win": 63.6,
+     "avg": -0.026,
+     "monthly": -2.24,
+     "lo": -14.2,
+     "hi": 11.2,
+     "maxDrop": 40.9
+    },
+    "ruleHit": 0.63,
+    "baseHit": 0.623
+   },
+   {
+    "window": "20056-20176 (days since 1970)",
+    "firesShare": 0.015,
+    "rule": {
+     "trades": 54,
+     "perWeek": 3.15,
+     "win": 61.1,
+     "avg": -0.277,
+     "monthly": -3.14,
+     "lo": -11.8,
+     "hi": 5.3,
+     "maxDrop": 31.5
+    },
+    "baseline": {
+     "trades": 118,
+     "perWeek": 6.88,
+     "win": 61.9,
+     "avg": -0.312,
+     "monthly": -9.47,
+     "lo": -21.5,
+     "hi": 2.7,
+     "maxDrop": 43.4
+    },
+    "ruleHit": 0.564,
+    "baseHit": 0.619
+   },
+   {
+    "window": "19936-20056 (days since 1970)",
+    "firesShare": 0.007,
+    "rule": {
+     "trades": 52,
+     "perWeek": 3.03,
+     "win": 63.5,
+     "avg": 0.041,
+     "monthly": 0.8,
+     "lo": -8.3,
+     "hi": 12.2,
+     "maxDrop": 20.2
+    },
+    "baseline": {
+     "trades": 118,
+     "perWeek": 6.88,
+     "win": 71.2,
+     "avg": 0.269,
+     "monthly": 9.86,
+     "lo": -4.7,
+     "hi": 24.6,
+     "maxDrop": 24.2
+    },
+    "ruleHit": 0.588,
+    "baseHit": 0.623
+   }
+  ]
+ },
+ "ideasTriedSoFar": 4,
+ "note": "history only: with many ideas tried, some pass by luck. A PASS means 'worth racing as a contestant', never 'proven'."
+}
