@@ -462,6 +462,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
         today = [x for x in A["open"] + A["closed"][-20:] if int(x["t"] // 86400) == day]
         best = None
         for name, sd in B["sides"].items():
+            if cfg.get("onlySide") and name != cfg["onlySide"]: continue            # side specialist (shorts-only)
             fast = cfg.get("gate2") == "bocpd" and name == "long" and (R.get("bocpd") or {}).get("unlocked")      # changepoint fast-track (contestant only)
             if cfg.get("tide"):                                   # the tide contestant: a side trades only when the market-type reader says so (longs too)
                 try:
@@ -514,6 +515,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
             ctx["live"] = live_prices(set(J.coin[np.flatnonzero(J.t == J.t[i])].tolist())) or {}
         lp = ctx["live"].get(str(J.coin[i]))
         if lp and abs(lp / e - 1) < 0.05: e, via = float(lp), "live price"
+    if cfg.get("_entry"): e, via = float(cfg["_entry"]), "limit order at a key level"      # sniper: a resting limit order filled at its level
     mult = ((R or {}).get("adapt") or {}).get(name, {}).get("riskMult", 1.0)
     risk = RISK["A" if g in ("A", "S") else "B"] * mult
     if cfg.get("size") == "kelly":                            # fractional (quarter) Kelly from the calibrated odds, kept within 0.5x-1.5x of plan
@@ -547,7 +549,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False, "noregime": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False, "noregime": False, "onlySide": None}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""

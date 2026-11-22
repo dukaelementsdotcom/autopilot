@@ -21,6 +21,10 @@ def trade(J, B, R, A, cfg, rows, S, REG, V, now_iso, newest, ctx):
     if kind == "pairs": return _pairs(J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
     if kind == "runner": return _runner(J, B, R, A, rows, S, pos_new, newest, ctx)
     if kind == "flushlong": return _flushlong(J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
+    from . import shorts
+    if kind in shorts.KINDS:
+        try: return shorts.trade(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx)
+        except Exception as e: R.setdefault("shortsNow", {})[kind] = {"error": str(e)[:160]}; return
     from . import longs
     if kind in longs.KINDS:
         try: return longs.trade(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)

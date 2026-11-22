@@ -609,7 +609,7 @@ $("lessons").innerHTML=D.lessons.length?"<ul>"+D.lessons.map(l=>`<li>${esc(l)}</
 $("fam").innerHTML="<tr><th>family</th><th>tests</th><th>best t</th><th>survivors</th></tr>"+D.families.map(f=>`<tr><td>${esc(f[0])}</td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td></tr>`).join("");
 $("runs").innerHTML="<tr><th>run (UTC)</th><th>tested</th><th>result</th><th>new validated</th><th>secs</th></tr>"+D.runs.map(r=>`<tr><td>${esc(r.at)}</td><td>${r.tested}</td><td>${esc(Object.entries(r.counts).map(([a,b])=>a+" "+b).join(", "))}</td><td>${r.validated}</td><td>${r.secs}</td></tr>`).join("");
 (()=>{try{const host=$("growth");if(!host)return;
-const R=D.referee||{},A=R.acct||{},G=D.growth||[],GO=(D.goals||{}).ladder||[],WL=(D.wishlist||{}).items||[],PR=D.proposals||[];
+const R=D.referee||{},A=R.acct||{},G=D.growth||[],GO=(D.goals||{}).ladder||[],WL=(D.wishlist||{}).items||[],PR=D.proposals||[],PL=D.plan||null;
 const num=x=>typeof x==="number"&&isFinite(x);
 const RGN={"down-wild":"falling and wild","down-calm":"falling and calm","up-wild":"rising and wild","up-calm":"rising and calm","flat-calm":"sideways and calm","flat-wild":"sideways and wild"};
 // ---- the cells: every one is a real part of the system
@@ -658,7 +658,7 @@ host.innerHTML=`<div class="card" style="padding:14px 16px"><div style="display:
 <div><div style="font-size:16px;font-weight:700">${esc(mood)}</div><div class="mute" style="font-size:13px;margin:2px 0 8px">How far from the goals: each stage is judged from live data, never a made-up score.</div>${ladder}</div></div>
 <h3 style="font-size:14.5px;margin:14px 0 0">Is it learning? Real curves from daily snapshots</h3>${curves}
 <details class="more" style="margin-top:12px"><summary>Data it uses and data it wants (${nCol} collecting now, ${WL.length-nCol} more on the list)</summary>${wl||'<div class="mute">no list yet</div>'}<div class="mute" style="font-size:12px;margin-top:6px">Paid sources show "price: to check" on purpose: nothing is decided or priced from memory.</div></details>
-<details class="more"><summary>Build ideas it has proposed (${PR.length})</summary>${pr||'<div class="mute" style="padding:6px 0">none yet: the agent team runs every Sunday</div>'}<div class="mute" style="font-size:12px;margin-top:6px">A PASS only means worth racing as a contestant. Nothing here changes the Arbiter; the live race and you decide.</div></details></div>`;
+${PL&&PL.items&&PL.items.length?`<details class="more" open><summary>This week's plan: what to test next</summary><div style="font-size:13.5px;margin:6px 0 4px">${esc(PL.headline||"")}</div>${PL.items.map((x,i)=>`<div style="padding:6px 0;border-top:1px solid var(--line);font-size:13.5px"><b>${i+1}. ${esc(x.title)}</b> <span class="mute" style="font-size:11.5px">${esc(x.cost||"")}</span><div class="mute" style="font-size:12.5px">${esc(x.why)} <i>How: ${esc(x.how)}</i></div></div>`).join("")}<div class="mute" style="font-size:12px;margin-top:6px">Written by one AI call each Sunday (${esc(PL.at||"")}). A suggestion list only: it changes no setting and places no trade.</div></details>`:""}<details class="more"><summary>Build ideas it has proposed (${PR.length})</summary>${pr||'<div class="mute" style="padding:6px 0">none yet: the agent team runs every Sunday</div>'}<div class="mute" style="font-size:12px;margin-top:6px">A PASS only means worth racing as a contestant. Nothing here changes the Arbiter; the live race and you decide.</div></details></div>`;
 // ---- the turning sphere (still when the viewer prefers reduced motion; paused when hidden)
 const svg=$("gsph"),cap=$("gcap"),N=cells.length,ga=Math.PI*(3-Math.sqrt(5)),pts=cells.map((c,i)=>{const y=1-(i+.5)/N*2,r=Math.sqrt(1-y*y),th=ga*i;return{x:Math.cos(th)*r,y,z:Math.sin(th)*r}});
 const NS="http://www.w3.org/2000/svg",els=cells.map((c,i)=>{const e=document.createElementNS(NS,"circle");e.setAttribute("fill",col[c.s]);e.style.cursor="pointer";e.setAttribute("tabindex","0");const t=document.createElementNS(NS,"title");t.textContent=c.l+": "+c.t;e.appendChild(t);
@@ -770,6 +770,8 @@ def write(mem, J=None, log=print):
         d["proposals"] = [{k: j.get(k) for k in ("at", "rule_name", "description", "rule_expr")} | {"verdict": (j.get("result") or {}).get("summary", {}).get("verdict"), "avgMonthly": (j.get("result") or {}).get("summary", {}).get("avgMonthly"), "positive": (j.get("result") or {}).get("summary", {}).get("positiveWindows")}
                           for j in (json.load(open(f)) for f in sorted(_g.glob(os.path.join(os.path.dirname(__file__), "agent_ideas", "*.json"))))][-12:]
     except Exception: d["proposals"] = []
+    try: d["plan"] = json.load(open(os.path.join(os.path.dirname(__file__), "plans", "plan.json")))
+    except Exception: d["plan"] = None
     d["trades"] = _trades(mem, J, log) if J is not None else []; d["margin"] = C.PAPER_MARGIN; d["lev"] = C.LEVERAGE
     for key in ("account",):
         A = mem.get(key)

@@ -43,12 +43,15 @@ jobs:
           git fetch --depth 1 origin state && git --work-tree=state checkout FETCH_HEAD -- . && git reset -q || true
       - name: Run Agent Team
         run: python -W ignore -m rm.agent_team
-      - name: Save the idea and its numbers (data only, no code)
-        if: success()
+      - name: Weekly planner (one AI call, writes a suggestion list only)
+        continue-on-error: true
+        run: python -W ignore -m rm.planner
+      - name: Save the idea, its numbers and the plan (data only, no code)
+        if: always()
         run: |
           git config user.name "Agent Team"
           git config user.email "agent@volvox.local"
-          git add rm/agent_ideas/*.json
+          git add rm/agent_ideas/*.json rm/plans/plan.json 2>/dev/null || true
           git diff --cached --quiet && exit 0
-          git commit -m "Agent Team: new idea tested (see rm/agent_ideas)"
+          git commit -m "Agent Team: new idea tested and weekly plan (see rm/agent_ideas, rm/planner)"
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break || sleep 10; done
