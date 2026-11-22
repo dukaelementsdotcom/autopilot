@@ -531,9 +531,9 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
         elif edge >= 0.03 and nfor >= 2: tier, risk = "standard", 0.01 + 0.01 * min(1.0, (edge - 0.03) / 0.05)
         elif edge > 0: tier, risk = "probe", 0.005
         else: return                                          # no calibrated edge: skip
-    lev = lev_for(stp); cap = (cfg.get("_budget") or margin_cap(A) * (2.0 if cfg.get("size") == "bold" else 1.0)) * eq * lev
+    lev = int(cfg.get("_lev") or lev_for(stp)); cap = (cfg.get("_budget") or margin_cap(A) * (2.0 if cfg.get("size") == "bold" else 1.0)) * eq * lev
     if cfg.get("_risk") is not None: risk = cfg["_risk"]
-    risk = min(risk, C.RISK_TRADE_MAX)                        # HARD CEILING (config, human-set): no path can size above it
+    if not cfg.get("_nocap"): risk = min(risk, C.RISK_TRADE_MAX)   # HARD CEILING (config, human-set): no path can size above it. ONLY the owner-ordered shadow contestant "blitz" (paper, never the Arbiter) sets _nocap
     notional = min(risk * eq / stp, cap); margin = notional / lev
     fams = {f: round(float(v[pos]), 3) for f, v in S[name]["fams"].items()}; base = B["sides"][name]["base"]
     card = {"for": sorted([f for f, p in fams.items() if p >= base + 0.03], key=lambda f: -fams[f]), "against": [f for f, p in fams.items() if p <= base - 0.03],
@@ -705,7 +705,7 @@ def _manage(J, B, p, A, newest):
                     trail = p["best"] * (1 - sd * (1.5 if cont >= 0.6 else 1.0) * dv)
                     if p.get("lock"): trail = p["entry"] * (1 + sd * 0.5 * peak) if sd * (trail / p["entry"] - 1) < 0.5 * peak else trail   # keep at least half of the best open profit
                     p["stop"] = max(p["stop"], trail) if sd > 0 else min(p["stop"], trail)
-                elif not p["added"] and gain >= 0.01 and cont >= 0.6:
+                elif not p["added"] and not p.get("noadd") and gain >= 0.01 and cont >= 0.6:
                     p["units"].append([px, _size(p) * 0.5]); p["added"] = True
                     p["stop"] = p["entry"] if sd > 0 else p["entry"]                    # whole position now stops at the first entry
                     p["margin"] = round(_size(p) / p.get("lev", LEV), 2)

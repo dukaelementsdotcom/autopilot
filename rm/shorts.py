@@ -17,7 +17,7 @@ from . import config as C
 from .longs import _daily, _row, _hist
 
 H = 3600; DAY = 86400
-KINDS = ("exhaust-short", "exhaust-short-wide", "sniper")
+KINDS = ("exhaust-short", "exhaust-short-wide", "sniper", "blitz")
 
 def _resistances(d):
     """key levels above: daily swing highs of the last 60 days, yesterday's high, the 20-day high"""
@@ -28,6 +28,7 @@ def _resistances(d):
     return sorted(set(lv))
 
 def trade(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx):
+    if kind == "blitz": return _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx)
     if kind == "sniper": return _sniper(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx)
     return _exhaust(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
 
@@ -113,3 +114,26 @@ def _supports_below(d, px):
     for k in range(3, len(L) - 3):
         if L[k] <= L[k - 3:k + 4].min(): lv.append(float(L[k]))
     return sorted(set(lv))
+
+BLITZ_MARGIN, BLITZ_LEV, BLITZ_ROE = 0.35, 20, 0.225          # owner's design (Nov 22): 35% of the account as margin, 20x, exit fully at +22.5% on the margin (= +1.125% price)
+
+def _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx):
+    """hardcoded: ONE trade at a time with 35% of the account as margin at 20x, the Arbiter's stop distance, a FULL exit at +22.5% on the margin
+    (+1.125% price), no trailing, no add-on, no half exit; the moment it closes, look for the next one (no daily limit). Entry = the Arbiter's own
+    best call among the sides it trusts right now. Only the 8% per-trade risk ceiling is lifted, and only for this paper shadow account."""
+    from . import referee as RF
+    if A["open"]: return
+    reg = REG.get(newest) or ""; best = None
+    for side in ("long", "short"):
+        if side not in B["sides"] or not RF.side_live(R, side, B["sides"][side], reg): continue
+        base = B["sides"][side]["base"]
+        for pos in pos_new:
+            pr = float(S[side]["prob"][pos])
+            if pr >= base and (best is None or pr - base > best[0]): best = (pr - base, side, pos, pr)
+    R.setdefault("shortsNow", {})["blitz"] = {"at": now_iso, "candidate": best[1] if best else None}
+    if not best: return
+    _, side, pos, pr = best; i = int(rows[pos]); stp = float(RF.stop_pct(J.dvol[i])); T_ = BLITZ_ROE / BLITZ_LEV
+    be = float((stp + C.FEE) / (T_ + stp))
+    RF._open(J, B, A, i, (side, "A", pr, 0.0), stp, be, S, pos, [], now_iso, R, {"spec": "blitz", "_risk": 10.0, "_nocap": True, "_lev": BLITZ_LEV, "_budget": BLITZ_MARGIN}, T=T_, Hz=48, ctx=ctx)
+    if A["open"] and A["open"][-1]["t"] == int(J.t[i]):
+        A["open"][-1].update(why=f"blitz: {BLITZ_MARGIN:.0%} margin at {BLITZ_LEV}x, full exit at +{BLITZ_ROE:.1%} on the margin", fullExit=True, noadd=True, maxHold=72)
