@@ -71,8 +71,10 @@ def apply(R, log=print):
             sd = p["sd"]; did = None
             if e["kind"] == "shock": RF._close(A, p, px, "shock exit (server guard)", te); n_ += 1; did = "shock exit"
             elif e["kind"] == "target" and not p.get("half") and ((sd > 0 and px >= p["target"]) or (sd < 0 and px <= p["target"])):
-                RF._close(A, p, p["target"], f"half at +{p.get('tgtPct', RF.TARGET)*100:.0f}% (to the minute)", te, part=0.5); p["half"] = True
-                p["stop"] = p["entry"] * (1 + sd * C.FEE * 2); did = "half at target"
+                if p.get("fullExit"): RF._close(A, p, p["target"], f"target +{p.get('tgtPct', RF.TARGET)*100:.1f}% (full exit, to the minute)", te); did = "full exit at target"      # fullExit contestants (blitz, exhaustion, flush) never take the half-and-trail path
+                else:
+                    RF._close(A, p, p["target"], f"half at +{p.get('tgtPct', RF.TARGET)*100:.0f}% (to the minute)", te, part=0.5); p["half"] = True
+                    p["stop"] = p["entry"] * (1 + sd * C.FEE * 2); did = "half at target"
             elif e["kind"] == "stop" and e.get("stop") is not None and (bool(e.get("half")) == bool(p.get("half"))):      # the server managed the stop to the minute (break-even / trailing): its level is the fill
                 lvl = float(e["stop"]); lvl = max(lvl, p["stop"]) if (sd > 0 and p.get("half")) else min(lvl, p["stop"]) if (sd < 0 and p.get("half")) else p["stop"]
                 RF._close(A, p, lvl, ("break-even / trailing stop" if p.get("half") else "stop") + " (to the minute)", te); did = "stop"
