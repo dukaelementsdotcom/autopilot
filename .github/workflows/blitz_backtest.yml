@@ -1,0 +1,47 @@
+name: blitz-backtest
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: blitz-backtest
+  cancel-in-progress: true
+jobs:
+  walkforward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: restore market data
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: rawdata-bt-${{ github.run_id }}
+          restore-keys: rawdata-
+      - name: restore referee models
+        uses: actions/cache/restore@v4
+        with:
+          path: data/models
+          key: models-bt-${{ github.run_id }}
+          restore-keys: models-
+      - name: restore memory (read only)
+        run: |
+          mkdir -p state
+          git fetch --depth 1 origin state && git --work-tree=state checkout FETCH_HEAD -- . && git reset -q || true
+      - name: backtest the blitz on the Arbiter's own decisions
+        run: python -W ignore -m rm.blitz_backtest 6
+      - name: Save the numbers
+        if: always()
+        run: |
+          git config user.name "Backtest"
+          git config user.email "backtest@volvox.local"
+          git add rm/studies/blitz_backtest.json 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -m "Blitz backtest on the Arbiter's decisions (rm/studies)"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break || sleep 10; done
