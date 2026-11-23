@@ -1,0 +1,464 @@
+{
+ "at": "2026-11-23 08:56 UTC",
+ "design": "target +1.125% price, 12h cap unless stated, cost 0.1%, every hour, all coins, no signal; levels = past high/low of 24/72/168h",
+ "note": "LONG: distance above the recent LOW (support). SHORT: distance below the recent HIGH (resistance). 'accountPctPerHour' = result per hour of capital occupied (one trade at a time)",
+ "long": {
+  "A_byDistanceToLevel": {
+   "24h": {
+    "broke through (>0.5% beyond)": null,
+    "just beyond (0-0.5%)": {
+     "n": 85,
+     "win%": 63.5,
+     "stop%": 18.8,
+     "avgAccountPct": -1.51,
+     "avgHoursOccupied": 4.52,
+     "accountPctPerHour": -0.335
+    },
+    "right at it (0-0.5% away)": {
+     "n": 124428,
+     "win%": 54.7,
+     "stop%": 17.6,
+     "avgAccountPct": -1.11,
+     "avgHoursOccupied": 6.55,
+     "accountPctPerHour": -0.169
+    },
+    "near (0.5-1.5% away)": {
+     "n": 427997,
+     "win%": 55.2,
+     "stop%": 16.9,
+     "avgAccountPct": -1.25,
+     "avgHoursOccupied": 6.7,
+     "accountPctPerHour": -0.186
+    },
+    "far (>1.5% away)": {
+     "n": 1635107,
+     "win%": 65.6,
+     "stop%": 16.3,
+     "avgAccountPct": -1.11,
+     "avgHoursOccupied": 5.31,
+     "accountPctPerHour": -0.21
+    }
+   },
+   "72h": {
+    "broke through (>0.5% beyond)": null,
+    "just beyond (0-0.5%)": {
+     "n": 32,
+     "win%": 68.8,
+     "stop%": 15.6,
+     "avgAccountPct": -0.39,
+     "avgHoursOccupied": 4.19,
+     "accountPctPerHour": -0.093
+    },
+    "right at it (0-0.5% away)": {
+     "n": 48784,
+     "win%": 58.4,
+     "stop%": 18.6,
+     "avgAccountPct": -1.18,
+     "avgHoursOccupied": 5.85,
+     "accountPctPerHour": -0.202
+    },
+    "near (0.5-1.5% away)": {
+     "n": 205466,
+     "win%": 54.5,
+     "stop%": 18.1,
+     "avgAccountPct": -1.39,
+     "avgHoursOccupied": 6.56,
+     "accountPctPerHour": -0.212
+    },
+    "far (>1.5% away)": {
+     "n": 1933335,
+     "win%": 63.9,
+     "stop%": 16.3,
+     "avgAccountPct": -1.11,
+     "avgHoursOccupied": 5.55,
+     "accountPctPerHour": -0.2
+    }
+   },
+   "168h": {
+    "broke through (>0.5% beyond)": null,
+    "just beyond (0-0.5%)": {
+     "n": 13,
+     "win%": 61.5,
+     "stop%": 15.4,
+     "avgAccountPct": -2.15,
+     "avgHoursOccupied": 4.31,
+     "accountPctPerHour": -0.499
+    },
+    "right at it (0-0.5% away)": {
+     "n": 22538,
+     "win%": 60.9,
+     "stop%": 19.9,
+     "avgAccountPct": -1.27,
+     "avgHoursOccupied": 5.34,
+     "accountPctPerHour": -0.238
+    },
+    "near (0.5-1.5% away)": {
+     "n": 104078,
+     "win%": 55.4,
+     "stop%": 19.0,
+     "avgAccountPct": -1.43,
+     "avgHoursOccupied": 6.3,
+     "accountPctPerHour": -0.226
+    },
+    "far (>1.5% away)": {
+     "n": 2060988,
+     "win%": 63.3,
+     "stop%": 16.4,
+     "avgAccountPct": -1.12,
+     "avgHoursOccupied": 5.62,
+     "accountPctPerHour": -0.2
+    }
+   }
+  },
+  "B_stopPlacement(trades right at the 72h level)": {
+   "volatilityStop": {
+    "n": 48784,
+    "win%": 58.4,
+    "stop%": 18.6,
+    "avgAccountPct": -1.18,
+    "avgHoursOccupied": 5.85,
+    "accountPctPerHour": -0.202
+   },
+   "stopJustBeyondLevel": {
+    "n": 48784,
+    "win%": 28.8,
+    "stop%": 66.6,
+    "avgAccountPct": -1.12,
+    "avgHoursOccupied": 2.67,
+    "accountPctPerHour": -0.419
+   }
+  },
+  "C_holdCap": {
+   "4h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 44.9,
+     "stop%": 7.0,
+     "avgAccountPct": -0.94,
+     "avgHoursOccupied": 2.98,
+     "accountPctPerHour": -0.314
+    },
+    "rightAtLevel": {
+     "n": 48784,
+     "win%": 41.0,
+     "stop%": 9.3,
+     "avgAccountPct": -0.96,
+     "avgHoursOccupied": 3.01,
+     "accountPctPerHour": -0.32
+    }
+   },
+   "6h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 52.2,
+     "stop%": 10.1,
+     "avgAccountPct": -1.0,
+     "avgHoursOccupied": 3.89,
+     "accountPctPerHour": -0.257
+    },
+    "rightAtLevel": {
+     "n": 48784,
+     "win%": 48.0,
+     "stop%": 12.5,
+     "avgAccountPct": -1.03,
+     "avgHoursOccupied": 3.95,
+     "accountPctPerHour": -0.26
+    }
+   },
+   "8h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 57.1,
+     "stop%": 12.6,
+     "avgAccountPct": -1.05,
+     "avgHoursOccupied": 4.6,
+     "accountPctPerHour": -0.229
+    },
+    "rightAtLevel": {
+     "n": 48784,
+     "win%": 52.5,
+     "stop%": 14.9,
+     "avgAccountPct": -1.09,
+     "avgHoursOccupied": 4.7,
+     "accountPctPerHour": -0.233
+    }
+   },
+   "12h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 62.9,
+     "stop%": 16.5,
+     "avgAccountPct": -1.14,
+     "avgHoursOccupied": 5.65,
+     "accountPctPerHour": -0.202
+    },
+    "rightAtLevel": {
+     "n": 48784,
+     "win%": 58.4,
+     "stop%": 18.6,
+     "avgAccountPct": -1.18,
+     "avgHoursOccupied": 5.85,
+     "accountPctPerHour": -0.202
+    }
+   },
+   "24h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 69.8,
+     "stop%": 22.4,
+     "avgAccountPct": -1.27,
+     "avgHoursOccupied": 7.26,
+     "accountPctPerHour": -0.175
+    },
+    "rightAtLevel": {
+     "n": 48784,
+     "win%": 66.3,
+     "stop%": 24.1,
+     "avgAccountPct": -1.22,
+     "avgHoursOccupied": 7.74,
+     "accountPctPerHour": -0.157
+    }
+   }
+  }
+ },
+ "short": {
+  "A_byDistanceToLevel": {
+   "24h": {
+    "broke through (>0.5% beyond)": {
+     "n": 33,
+     "win%": 69.7,
+     "stop%": 27.3,
+     "avgAccountPct": 1.23,
+     "avgHoursOccupied": 2.12,
+     "accountPctPerHour": 0.579
+    },
+    "just beyond (0-0.5%)": {
+     "n": 165,
+     "win%": 68.5,
+     "stop%": 16.4,
+     "avgAccountPct": 0.19,
+     "avgHoursOccupied": 4.7,
+     "accountPctPerHour": 0.041
+    },
+    "right at it (0-0.5% away)": {
+     "n": 156129,
+     "win%": 56.2,
+     "stop%": 15.2,
+     "avgAccountPct": -0.64,
+     "avgHoursOccupied": 6.59,
+     "accountPctPerHour": -0.097
+    },
+    "near (0.5-1.5% away)": {
+     "n": 432981,
+     "win%": 59.0,
+     "stop%": 14.5,
+     "avgAccountPct": -0.49,
+     "avgHoursOccupied": 6.53,
+     "accountPctPerHour": -0.075
+    },
+    "far (>1.5% away)": {
+     "n": 1598297,
+     "win%": 68.8,
+     "stop%": 15.2,
+     "avgAccountPct": -0.45,
+     "avgHoursOccupied": 5.05,
+     "accountPctPerHour": -0.088
+    }
+   },
+   "72h": {
+    "broke through (>0.5% beyond)": {
+     "n": 22,
+     "win%": 54.5,
+     "stop%": 40.9,
+     "avgAccountPct": -1.75,
+     "avgHoursOccupied": 2.18,
+     "accountPctPerHour": -0.8
+    },
+    "just beyond (0-0.5%)": {
+     "n": 72,
+     "win%": 66.7,
+     "stop%": 20.8,
+     "avgAccountPct": -1.12,
+     "avgHoursOccupied": 4.64,
+     "accountPctPerHour": -0.242
+    },
+    "right at it (0-0.5% away)": {
+     "n": 68377,
+     "win%": 58.2,
+     "stop%": 16.6,
+     "avgAccountPct": -0.85,
+     "avgHoursOccupied": 6.14,
+     "accountPctPerHour": -0.139
+    },
+    "near (0.5-1.5% away)": {
+     "n": 212058,
+     "win%": 58.0,
+     "stop%": 15.9,
+     "avgAccountPct": -0.77,
+     "avgHoursOccupied": 6.41,
+     "accountPctPerHour": -0.12
+    },
+    "far (>1.5% away)": {
+     "n": 1907061,
+     "win%": 67.1,
+     "stop%": 14.9,
+     "avgAccountPct": -0.42,
+     "avgHoursOccupied": 5.33,
+     "accountPctPerHour": -0.079
+    }
+   },
+   "168h": {
+    "broke through (>0.5% beyond)": {
+     "n": 10,
+     "win%": 60.0,
+     "stop%": 40.0,
+     "avgAccountPct": -1.93,
+     "avgHoursOccupied": 1.9,
+     "accountPctPerHour": -1.013
+    },
+    "just beyond (0-0.5%)": {
+     "n": 29,
+     "win%": 69.0,
+     "stop%": 24.1,
+     "avgAccountPct": -2.5,
+     "avgHoursOccupied": 3.31,
+     "accountPctPerHour": -0.756
+    },
+    "right at it (0-0.5% away)": {
+     "n": 35450,
+     "win%": 60.2,
+     "stop%": 17.3,
+     "avgAccountPct": -0.95,
+     "avgHoursOccupied": 5.68,
+     "accountPctPerHour": -0.167
+    },
+    "near (0.5-1.5% away)": {
+     "n": 112186,
+     "win%": 59.3,
+     "stop%": 16.7,
+     "avgAccountPct": -0.92,
+     "avgHoursOccupied": 6.05,
+     "accountPctPerHour": -0.153
+    },
+    "far (>1.5% away)": {
+     "n": 2039859,
+     "win%": 66.4,
+     "stop%": 15.0,
+     "avgAccountPct": -0.44,
+     "avgHoursOccupied": 5.42,
+     "accountPctPerHour": -0.08
+    }
+   }
+  },
+  "B_stopPlacement(trades right at the 72h level)": {
+   "volatilityStop": {
+    "n": 68377,
+    "win%": 58.2,
+    "stop%": 16.6,
+    "avgAccountPct": -0.85,
+    "avgHoursOccupied": 6.14,
+    "accountPctPerHour": -0.139
+   },
+   "stopJustBeyondLevel": {
+    "n": 68377,
+    "win%": 29.6,
+    "stop%": 64.5,
+    "avgAccountPct": -0.86,
+    "avgHoursOccupied": 2.95,
+    "accountPctPerHour": -0.293
+   }
+  },
+  "C_holdCap": {
+   "4h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 47.2,
+     "stop%": 6.6,
+     "avgAccountPct": -0.62,
+     "avgHoursOccupied": 2.94,
+     "accountPctPerHour": -0.21
+    },
+    "rightAtLevel": {
+     "n": 68377,
+     "win%": 39.7,
+     "stop%": 7.7,
+     "avgAccountPct": -0.84,
+     "avgHoursOccupied": 3.08,
+     "accountPctPerHour": -0.273
+    }
+   },
+   "6h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 54.9,
+     "stop%": 9.5,
+     "avgAccountPct": -0.57,
+     "avgHoursOccupied": 3.81,
+     "accountPctPerHour": -0.149
+    },
+    "rightAtLevel": {
+     "n": 68377,
+     "win%": 46.9,
+     "stop%": 10.5,
+     "avgAccountPct": -0.82,
+     "avgHoursOccupied": 4.08,
+     "accountPctPerHour": -0.202
+    }
+   },
+   "8h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 59.9,
+     "stop%": 11.7,
+     "avgAccountPct": -0.52,
+     "avgHoursOccupied": 4.48,
+     "accountPctPerHour": -0.115
+    },
+    "rightAtLevel": {
+     "n": 68377,
+     "win%": 51.9,
+     "stop%": 12.8,
+     "avgAccountPct": -0.81,
+     "avgHoursOccupied": 4.89,
+     "accountPctPerHour": -0.165
+    }
+   },
+   "12h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 66.0,
+     "stop%": 15.1,
+     "avgAccountPct": -0.47,
+     "avgHoursOccupied": 5.46,
+     "accountPctPerHour": -0.086
+    },
+    "rightAtLevel": {
+     "n": 68377,
+     "win%": 58.2,
+     "stop%": 16.6,
+     "avgAccountPct": -0.85,
+     "avgHoursOccupied": 6.14,
+     "accountPctPerHour": -0.139
+    }
+   },
+   "24h": {
+    "allEntries": {
+     "n": 2187618,
+     "win%": 72.8,
+     "stop%": 20.0,
+     "avgAccountPct": -0.43,
+     "avgHoursOccupied": 6.94,
+     "accountPctPerHour": -0.062
+    },
+    "rightAtLevel": {
+     "n": 68377,
+     "win%": 66.4,
+     "stop%": 22.9,
+     "avgAccountPct": -0.91,
+     "avgHoursOccupied": 8.23,
+     "accountPctPerHour": -0.11
+    }
+   }
+  }
+ }
+}
