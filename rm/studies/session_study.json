@@ -1,0 +1,838 @@
+{
+ "at": "2026-11-23 08:45 UTC",
+ "design": "target +1.125% price (+22.5% on margin at 20x), Arbiter volatility stop, 12h cap, cost 0.1%, every hour, all coins, no signal",
+ "volatilityByUtcHour(avg hourly high-low %)": {
+  "0": 1.835,
+  "1": 1.702,
+  "2": 1.55,
+  "3": 1.418,
+  "4": 1.402,
+  "5": 1.394,
+  "6": 1.422,
+  "7": 1.436,
+  "8": 1.525,
+  "9": 1.454,
+  "10": 1.425,
+  "11": 1.42,
+  "12": 1.673,
+  "13": 1.837,
+  "14": 2.024,
+  "15": 1.917,
+  "16": 1.887,
+  "17": 1.671,
+  "18": 1.581,
+  "19": 1.503,
+  "20": 1.527,
+  "21": 1.523,
+  "22": 1.514,
+  "23": 1.395
+ },
+ "long": {
+  "all": {
+   "n": 2192623,
+   "win%": 62.9,
+   "stop%": 16.5,
+   "time%": 20.5,
+   "avgAccountPct": -1.14
+  },
+  "targetReachedShare": {
+   "within 1h": 20.2,
+   "within 2h": 31.9,
+   "within 3h": 39.5,
+   "within 4h": 44.9,
+   "within 6h": 52.3,
+   "within 8h": 57.1,
+   "within 12h": 62.9
+  },
+  "bySession": {
+   "Asia 00-07": {
+    "n": 639600,
+    "win%": 62.6,
+    "stop%": 15.8,
+    "avgAccountPct": -1.13
+   },
+   "London 07-13": {
+    "n": 548095,
+    "win%": 63.4,
+    "stop%": 17.8,
+    "avgAccountPct": -1.33
+   },
+   "New York 13-21": {
+    "n": 730833,
+    "win%": 63.0,
+    "stop%": 16.9,
+    "avgAccountPct": -1.15
+   },
+   "Late 21-24": {
+    "n": 274095,
+    "win%": 62.8,
+    "stop%": 14.8,
+    "avgAccountPct": -0.8
+   }
+  },
+  "byEntryHourUtc": {
+   "0": {
+    "n": 91388,
+    "win%": 62.6,
+    "stop%": 14.5,
+    "time%": 22.9,
+    "avgNetPricePct": -0.115,
+    "avgAccountPct": -0.81,
+    "medBarsToTarget": 2.0
+   },
+   "1": {
+    "n": 91388,
+    "win%": 61.4,
+    "stop%": 15.2,
+    "time%": 23.5,
+    "avgNetPricePct": -0.16,
+    "avgAccountPct": -1.12,
+    "medBarsToTarget": 2.0
+   },
+   "2": {
+    "n": 91389,
+    "win%": 61.7,
+    "stop%": 14.8,
+    "time%": 23.5,
+    "avgNetPricePct": -0.157,
+    "avgAccountPct": -1.1,
+    "medBarsToTarget": 3.0
+   },
+   "3": {
+    "n": 91395,
+    "win%": 62.2,
+    "stop%": 15.6,
+    "time%": 22.2,
+    "avgNetPricePct": -0.172,
+    "avgAccountPct": -1.2,
+    "medBarsToTarget": 3.0
+   },
+   "4": {
+    "n": 91348,
+    "win%": 63.4,
+    "stop%": 15.9,
+    "time%": 20.7,
+    "avgNetPricePct": -0.148,
+    "avgAccountPct": -1.04,
+    "medBarsToTarget": 3.0
+   },
+   "5": {
+    "n": 91346,
+    "win%": 63.4,
+    "stop%": 17.0,
+    "time%": 19.5,
+    "avgNetPricePct": -0.186,
+    "avgAccountPct": -1.3,
+    "medBarsToTarget": 3.0
+   },
+   "6": {
+    "n": 91346,
+    "win%": 63.4,
+    "stop%": 17.5,
+    "time%": 19.1,
+    "avgNetPricePct": -0.188,
+    "avgAccountPct": -1.32,
+    "medBarsToTarget": 3.0
+   },
+   "7": {
+    "n": 91347,
+    "win%": 63.5,
+    "stop%": 17.6,
+    "time%": 18.9,
+    "avgNetPricePct": -0.194,
+    "avgAccountPct": -1.36,
+    "medBarsToTarget": 3.0
+   },
+   "8": {
+    "n": 91350,
+    "win%": 63.6,
+    "stop%": 17.6,
+    "time%": 18.7,
+    "avgNetPricePct": -0.19,
+    "avgAccountPct": -1.33,
+    "medBarsToTarget": 3.0
+   },
+   "9": {
+    "n": 91351,
+    "win%": 63.5,
+    "stop%": 17.8,
+    "time%": 18.7,
+    "avgNetPricePct": -0.191,
+    "avgAccountPct": -1.34,
+    "medBarsToTarget": 3.0
+   },
+   "10": {
+    "n": 91349,
+    "win%": 63.2,
+    "stop%": 17.8,
+    "time%": 19.0,
+    "avgNetPricePct": -0.19,
+    "avgAccountPct": -1.33,
+    "medBarsToTarget": 3.0
+   },
+   "11": {
+    "n": 91349,
+    "win%": 63.3,
+    "stop%": 17.9,
+    "time%": 18.8,
+    "avgNetPricePct": -0.189,
+    "avgAccountPct": -1.32,
+    "medBarsToTarget": 3.0
+   },
+   "12": {
+    "n": 91349,
+    "win%": 63.4,
+    "stop%": 18.0,
+    "time%": 18.6,
+    "avgNetPricePct": -0.184,
+    "avgAccountPct": -1.29,
+    "medBarsToTarget": 2.0
+   },
+   "13": {
+    "n": 91354,
+    "win%": 63.2,
+    "stop%": 18.4,
+    "time%": 18.4,
+    "avgNetPricePct": -0.201,
+    "avgAccountPct": -1.41,
+    "medBarsToTarget": 2.0
+   },
+   "14": {
+    "n": 91355,
+    "win%": 63.6,
+    "stop%": 18.3,
+    "time%": 18.1,
+    "avgNetPricePct": -0.196,
+    "avgAccountPct": -1.37,
+    "medBarsToTarget": 2.0
+   },
+   "15": {
+    "n": 91359,
+    "win%": 62.8,
+    "stop%": 18.1,
+    "time%": 19.1,
+    "avgNetPricePct": -0.202,
+    "avgAccountPct": -1.41,
+    "medBarsToTarget": 2.0
+   },
+   "16": {
+    "n": 91360,
+    "win%": 63.3,
+    "stop%": 17.0,
+    "time%": 19.7,
+    "avgNetPricePct": -0.156,
+    "avgAccountPct": -1.09,
+    "medBarsToTarget": 2.0
+   },
+   "17": {
+    "n": 91362,
+    "win%": 62.7,
+    "stop%": 16.7,
+    "time%": 20.6,
+    "avgNetPricePct": -0.163,
+    "avgAccountPct": -1.14,
+    "medBarsToTarget": 2.0
+   },
+   "18": {
+    "n": 91363,
+    "win%": 62.2,
+    "stop%": 16.4,
+    "time%": 21.4,
+    "avgNetPricePct": -0.161,
+    "avgAccountPct": -1.13,
+    "medBarsToTarget": 3.0
+   },
+   "19": {
+    "n": 91365,
+    "win%": 62.5,
+    "stop%": 15.8,
+    "time%": 21.6,
+    "avgNetPricePct": -0.136,
+    "avgAccountPct": -0.95,
+    "medBarsToTarget": 3.0
+   },
+   "20": {
+    "n": 91315,
+    "win%": 63.3,
+    "stop%": 14.9,
+    "time%": 21.8,
+    "avgNetPricePct": -0.097,
+    "avgAccountPct": -0.68,
+    "medBarsToTarget": 3.0
+   },
+   "21": {
+    "n": 91365,
+    "win%": 63.2,
+    "stop%": 14.9,
+    "time%": 21.9,
+    "avgNetPricePct": -0.107,
+    "avgAccountPct": -0.75,
+    "medBarsToTarget": 3.0
+   },
+   "22": {
+    "n": 91365,
+    "win%": 62.8,
+    "stop%": 14.8,
+    "time%": 22.4,
+    "avgNetPricePct": -0.116,
+    "avgAccountPct": -0.81,
+    "medBarsToTarget": 3.0
+   },
+   "23": {
+    "n": 91365,
+    "win%": 62.4,
+    "stop%": 14.6,
+    "time%": 22.9,
+    "avgNetPricePct": -0.12,
+    "avgAccountPct": -0.84,
+    "medBarsToTarget": 2.0
+   }
+  },
+  "limitEntry": {
+   "0.3% better": {
+    "fillRate%": 86.9,
+    "avgAccountPerSignalPct": -1.385,
+    "avgAccountPerSignalIfMarketEntryPct": -1.143,
+    "winRateOfFilled%": 62.8
+   },
+   "0.6% better": {
+    "fillRate%": 74.5,
+    "avgAccountPerSignalPct": -1.13,
+    "avgAccountPerSignalIfMarketEntryPct": -1.143,
+    "winRateOfFilled%": 64.6
+   },
+   "1.0% better": {
+    "fillRate%": 60.0,
+    "avgAccountPerSignalPct": -0.894,
+    "avgAccountPerSignalIfMarketEntryPct": -1.143,
+    "winRateOfFilled%": 66.5
+   }
+  },
+  "bestEntryNext12h": {
+   "0": {
+    "avgImprovementPct": 2.764,
+    "extremeInFirst2hShare%": 33.0,
+    "mostCommonUtcHourOfExtreme": 0
+   },
+   "1": {
+    "avgImprovementPct": 2.733,
+    "extremeInFirst2hShare%": 31.3,
+    "mostCommonUtcHourOfExtreme": 1
+   },
+   "2": {
+    "avgImprovementPct": 2.705,
+    "extremeInFirst2hShare%": 28.4,
+    "mostCommonUtcHourOfExtreme": 2
+   },
+   "3": {
+    "avgImprovementPct": 2.757,
+    "extremeInFirst2hShare%": 25.4,
+    "mostCommonUtcHourOfExtreme": 14
+   },
+   "4": {
+    "avgImprovementPct": 2.842,
+    "extremeInFirst2hShare%": 24.3,
+    "mostCommonUtcHourOfExtreme": 15
+   },
+   "5": {
+    "avgImprovementPct": 2.928,
+    "extremeInFirst2hShare%": 23.3,
+    "mostCommonUtcHourOfExtreme": 16
+   },
+   "6": {
+    "avgImprovementPct": 2.993,
+    "extremeInFirst2hShare%": 23.0,
+    "mostCommonUtcHourOfExtreme": 6
+   },
+   "7": {
+    "avgImprovementPct": 3.038,
+    "extremeInFirst2hShare%": 23.0,
+    "mostCommonUtcHourOfExtreme": 7
+   },
+   "8": {
+    "avgImprovementPct": 3.09,
+    "extremeInFirst2hShare%": 23.2,
+    "mostCommonUtcHourOfExtreme": 8
+   },
+   "9": {
+    "avgImprovementPct": 3.12,
+    "extremeInFirst2hShare%": 22.1,
+    "mostCommonUtcHourOfExtreme": 9
+   },
+   "10": {
+    "avgImprovementPct": 3.177,
+    "extremeInFirst2hShare%": 22.0,
+    "mostCommonUtcHourOfExtreme": 10
+   },
+   "11": {
+    "avgImprovementPct": 3.187,
+    "extremeInFirst2hShare%": 23.9,
+    "mostCommonUtcHourOfExtreme": 11
+   },
+   "12": {
+    "avgImprovementPct": 3.205,
+    "extremeInFirst2hShare%": 27.7,
+    "mostCommonUtcHourOfExtreme": 12
+   },
+   "13": {
+    "avgImprovementPct": 3.213,
+    "extremeInFirst2hShare%": 32.3,
+    "mostCommonUtcHourOfExtreme": 13
+   },
+   "14": {
+    "avgImprovementPct": 3.191,
+    "extremeInFirst2hShare%": 33.7,
+    "mostCommonUtcHourOfExtreme": 14
+   },
+   "15": {
+    "avgImprovementPct": 3.11,
+    "extremeInFirst2hShare%": 33.5,
+    "mostCommonUtcHourOfExtreme": 15
+   },
+   "16": {
+    "avgImprovementPct": 3.036,
+    "extremeInFirst2hShare%": 32.5,
+    "mostCommonUtcHourOfExtreme": 16
+   },
+   "17": {
+    "avgImprovementPct": 2.954,
+    "extremeInFirst2hShare%": 31.2,
+    "mostCommonUtcHourOfExtreme": 17
+   },
+   "18": {
+    "avgImprovementPct": 2.891,
+    "extremeInFirst2hShare%": 29.8,
+    "mostCommonUtcHourOfExtreme": 18
+   },
+   "19": {
+    "avgImprovementPct": 2.831,
+    "extremeInFirst2hShare%": 29.4,
+    "mostCommonUtcHourOfExtreme": 19
+   },
+   "20": {
+    "avgImprovementPct": 2.794,
+    "extremeInFirst2hShare%": 29.4,
+    "mostCommonUtcHourOfExtreme": 20
+   },
+   "21": {
+    "avgImprovementPct": 2.777,
+    "extremeInFirst2hShare%": 28.5,
+    "mostCommonUtcHourOfExtreme": 21
+   },
+   "22": {
+    "avgImprovementPct": 2.758,
+    "extremeInFirst2hShare%": 26.7,
+    "mostCommonUtcHourOfExtreme": 22
+   },
+   "23": {
+    "avgImprovementPct": 2.753,
+    "extremeInFirst2hShare%": 29.3,
+    "mostCommonUtcHourOfExtreme": 23
+   }
+  }
+ },
+ "short": {
+  "all": {
+   "n": 2192623,
+   "win%": 66.0,
+   "stop%": 15.1,
+   "time%": 18.9,
+   "avgAccountPct": -0.47
+  },
+  "targetReachedShare": {
+   "within 1h": 21.3,
+   "within 2h": 33.6,
+   "within 3h": 41.5,
+   "within 4h": 47.2,
+   "within 6h": 55.0,
+   "within 8h": 60.0,
+   "within 12h": 66.0
+  },
+  "bySession": {
+   "Asia 00-07": {
+    "n": 639600,
+    "win%": 65.3,
+    "stop%": 15.0,
+    "avgAccountPct": -0.55
+   },
+   "London 07-13": {
+    "n": 548095,
+    "win%": 68.4,
+    "stop%": 15.4,
+    "avgAccountPct": -0.2
+   },
+   "New York 13-21": {
+    "n": 730833,
+    "win%": 65.6,
+    "stop%": 15.1,
+    "avgAccountPct": -0.53
+   },
+   "Late 21-24": {
+    "n": 274095,
+    "win%": 63.8,
+    "stop%": 14.7,
+    "avgAccountPct": -0.66
+   }
+  },
+  "byEntryHourUtc": {
+   "0": {
+    "n": 91388,
+    "win%": 64.7,
+    "stop%": 13.9,
+    "time%": 21.4,
+    "avgNetPricePct": -0.053,
+    "avgAccountPct": -0.37,
+    "medBarsToTarget": 2.0
+   },
+   "1": {
+    "n": 91388,
+    "win%": 64.0,
+    "stop%": 14.2,
+    "time%": 21.8,
+    "avgNetPricePct": -0.08,
+    "avgAccountPct": -0.56,
+    "medBarsToTarget": 2.0
+   },
+   "2": {
+    "n": 91389,
+    "win%": 64.1,
+    "stop%": 14.4,
+    "time%": 21.6,
+    "avgNetPricePct": -0.076,
+    "avgAccountPct": -0.53,
+    "medBarsToTarget": 3.0
+   },
+   "3": {
+    "n": 91395,
+    "win%": 64.7,
+    "stop%": 15.2,
+    "time%": 20.1,
+    "avgNetPricePct": -0.101,
+    "avgAccountPct": -0.71,
+    "medBarsToTarget": 3.0
+   },
+   "4": {
+    "n": 91348,
+    "win%": 65.9,
+    "stop%": 15.5,
+    "time%": 18.5,
+    "avgNetPricePct": -0.088,
+    "avgAccountPct": -0.61,
+    "medBarsToTarget": 3.0
+   },
+   "5": {
+    "n": 91346,
+    "win%": 66.5,
+    "stop%": 16.0,
+    "time%": 17.5,
+    "avgNetPricePct": -0.084,
+    "avgAccountPct": -0.59,
+    "medBarsToTarget": 3.0
+   },
+   "6": {
+    "n": 91346,
+    "win%": 67.2,
+    "stop%": 15.9,
+    "time%": 16.9,
+    "avgNetPricePct": -0.067,
+    "avgAccountPct": -0.47,
+    "medBarsToTarget": 3.0
+   },
+   "7": {
+    "n": 91347,
+    "win%": 67.6,
+    "stop%": 15.7,
+    "time%": 16.7,
+    "avgNetPricePct": -0.056,
+    "avgAccountPct": -0.39,
+    "medBarsToTarget": 3.0
+   },
+   "8": {
+    "n": 91350,
+    "win%": 67.9,
+    "stop%": 15.8,
+    "time%": 16.3,
+    "avgNetPricePct": -0.051,
+    "avgAccountPct": -0.36,
+    "medBarsToTarget": 3.0
+   },
+   "9": {
+    "n": 91351,
+    "win%": 68.2,
+    "stop%": 15.4,
+    "time%": 16.4,
+    "avgNetPricePct": -0.029,
+    "avgAccountPct": -0.21,
+    "medBarsToTarget": 3.0
+   },
+   "10": {
+    "n": 91349,
+    "win%": 68.6,
+    "stop%": 15.3,
+    "time%": 16.1,
+    "avgNetPricePct": -0.022,
+    "avgAccountPct": -0.16,
+    "medBarsToTarget": 3.0
+   },
+   "11": {
+    "n": 91349,
+    "win%": 68.7,
+    "stop%": 15.3,
+    "time%": 16.0,
+    "avgNetPricePct": -0.017,
+    "avgAccountPct": -0.12,
+    "medBarsToTarget": 3.0
+   },
+   "12": {
+    "n": 91349,
+    "win%": 69.3,
+    "stop%": 15.0,
+    "time%": 15.7,
+    "avgNetPricePct": 0.003,
+    "avgAccountPct": 0.02,
+    "medBarsToTarget": 2.0
+   },
+   "13": {
+    "n": 91354,
+    "win%": 68.9,
+    "stop%": 15.4,
+    "time%": 15.7,
+    "avgNetPricePct": -0.02,
+    "avgAccountPct": -0.14,
+    "medBarsToTarget": 2.0
+   },
+   "14": {
+    "n": 91355,
+    "win%": 67.8,
+    "stop%": 15.8,
+    "time%": 16.3,
+    "avgNetPricePct": -0.053,
+    "avgAccountPct": -0.37,
+    "medBarsToTarget": 2.0
+   },
+   "15": {
+    "n": 91359,
+    "win%": 66.2,
+    "stop%": 16.2,
+    "time%": 17.6,
+    "avgNetPricePct": -0.093,
+    "avgAccountPct": -0.65,
+    "medBarsToTarget": 2.0
+   },
+   "16": {
+    "n": 91360,
+    "win%": 66.1,
+    "stop%": 15.0,
+    "time%": 19.0,
+    "avgNetPricePct": -0.065,
+    "avgAccountPct": -0.46,
+    "medBarsToTarget": 2.0
+   },
+   "17": {
+    "n": 91362,
+    "win%": 64.9,
+    "stop%": 14.7,
+    "time%": 20.4,
+    "avgNetPricePct": -0.083,
+    "avgAccountPct": -0.58,
+    "medBarsToTarget": 2.0
+   },
+   "18": {
+    "n": 91363,
+    "win%": 64.2,
+    "stop%": 14.6,
+    "time%": 21.2,
+    "avgNetPricePct": -0.085,
+    "avgAccountPct": -0.59,
+    "medBarsToTarget": 2.0
+   },
+   "19": {
+    "n": 91365,
+    "win%": 63.3,
+    "stop%": 14.7,
+    "time%": 22.0,
+    "avgNetPricePct": -0.107,
+    "avgAccountPct": -0.75,
+    "medBarsToTarget": 3.0
+   },
+   "20": {
+    "n": 91315,
+    "win%": 63.4,
+    "stop%": 14.6,
+    "time%": 22.0,
+    "avgNetPricePct": -0.1,
+    "avgAccountPct": -0.7,
+    "medBarsToTarget": 3.0
+   },
+   "21": {
+    "n": 91365,
+    "win%": 63.2,
+    "stop%": 15.0,
+    "time%": 21.8,
+    "avgNetPricePct": -0.117,
+    "avgAccountPct": -0.82,
+    "medBarsToTarget": 3.0
+   },
+   "22": {
+    "n": 91365,
+    "win%": 63.7,
+    "stop%": 14.9,
+    "time%": 21.4,
+    "avgNetPricePct": -0.1,
+    "avgAccountPct": -0.7,
+    "medBarsToTarget": 3.0
+   },
+   "23": {
+    "n": 91365,
+    "win%": 64.4,
+    "stop%": 14.2,
+    "time%": 21.5,
+    "avgNetPricePct": -0.067,
+    "avgAccountPct": -0.47,
+    "medBarsToTarget": 2.0
+   }
+  },
+  "limitEntry": {
+   "0.3% better": {
+    "fillRate%": 85.8,
+    "avgAccountPerSignalPct": -0.945,
+    "avgAccountPerSignalIfMarketEntryPct": -0.47,
+    "winRateOfFilled%": 65.0
+   },
+   "0.6% better": {
+    "fillRate%": 72.6,
+    "avgAccountPerSignalPct": -0.847,
+    "avgAccountPerSignalIfMarketEntryPct": -0.47,
+    "winRateOfFilled%": 66.2
+   },
+   "1.0% better": {
+    "fillRate%": 57.4,
+    "avgAccountPerSignalPct": -0.762,
+    "avgAccountPerSignalIfMarketEntryPct": -0.47,
+    "winRateOfFilled%": 67.5
+   }
+  },
+  "bestEntryNext12h": {
+   "0": {
+    "avgImprovementPct": 2.793,
+    "extremeInFirst2hShare%": 33.6,
+    "mostCommonUtcHourOfExtreme": 0
+   },
+   "1": {
+    "avgImprovementPct": 2.755,
+    "extremeInFirst2hShare%": 31.6,
+    "mostCommonUtcHourOfExtreme": 1
+   },
+   "2": {
+    "avgImprovementPct": 2.78,
+    "extremeInFirst2hShare%": 28.8,
+    "mostCommonUtcHourOfExtreme": 2
+   },
+   "3": {
+    "avgImprovementPct": 2.856,
+    "extremeInFirst2hShare%": 26.4,
+    "mostCommonUtcHourOfExtreme": 14
+   },
+   "4": {
+    "avgImprovementPct": 2.945,
+    "extremeInFirst2hShare%": 25.4,
+    "mostCommonUtcHourOfExtreme": 15
+   },
+   "5": {
+    "avgImprovementPct": 3.019,
+    "extremeInFirst2hShare%": 25.3,
+    "mostCommonUtcHourOfExtreme": 16
+   },
+   "6": {
+    "avgImprovementPct": 3.018,
+    "extremeInFirst2hShare%": 25.4,
+    "mostCommonUtcHourOfExtreme": 6
+   },
+   "7": {
+    "avgImprovementPct": 3.034,
+    "extremeInFirst2hShare%": 26.6,
+    "mostCommonUtcHourOfExtreme": 7
+   },
+   "8": {
+    "avgImprovementPct": 3.019,
+    "extremeInFirst2hShare%": 27.4,
+    "mostCommonUtcHourOfExtreme": 8
+   },
+   "9": {
+    "avgImprovementPct": 3.015,
+    "extremeInFirst2hShare%": 26.1,
+    "mostCommonUtcHourOfExtreme": 9
+   },
+   "10": {
+    "avgImprovementPct": 3.024,
+    "extremeInFirst2hShare%": 25.4,
+    "mostCommonUtcHourOfExtreme": 10
+   },
+   "11": {
+    "avgImprovementPct": 3.039,
+    "extremeInFirst2hShare%": 27.8,
+    "mostCommonUtcHourOfExtreme": 11
+   },
+   "12": {
+    "avgImprovementPct": 3.041,
+    "extremeInFirst2hShare%": 31.8,
+    "mostCommonUtcHourOfExtreme": 12
+   },
+   "13": {
+    "avgImprovementPct": 3.123,
+    "extremeInFirst2hShare%": 34.8,
+    "mostCommonUtcHourOfExtreme": 13
+   },
+   "14": {
+    "avgImprovementPct": 3.066,
+    "extremeInFirst2hShare%": 35.3,
+    "mostCommonUtcHourOfExtreme": 14
+   },
+   "15": {
+    "avgImprovementPct": 2.984,
+    "extremeInFirst2hShare%": 34.4,
+    "mostCommonUtcHourOfExtreme": 15
+   },
+   "16": {
+    "avgImprovementPct": 2.915,
+    "extremeInFirst2hShare%": 32.3,
+    "mostCommonUtcHourOfExtreme": 16
+   },
+   "17": {
+    "avgImprovementPct": 2.839,
+    "extremeInFirst2hShare%": 29.3,
+    "mostCommonUtcHourOfExtreme": 17
+   },
+   "18": {
+    "avgImprovementPct": 2.806,
+    "extremeInFirst2hShare%": 27.3,
+    "mostCommonUtcHourOfExtreme": 18
+   },
+   "19": {
+    "avgImprovementPct": 2.812,
+    "extremeInFirst2hShare%": 26.8,
+    "mostCommonUtcHourOfExtreme": 19
+   },
+   "20": {
+    "avgImprovementPct": 2.827,
+    "extremeInFirst2hShare%": 26.4,
+    "mostCommonUtcHourOfExtreme": 20
+   },
+   "21": {
+    "avgImprovementPct": 2.845,
+    "extremeInFirst2hShare%": 26.5,
+    "mostCommonUtcHourOfExtreme": 21
+   },
+   "22": {
+    "avgImprovementPct": 2.817,
+    "extremeInFirst2hShare%": 25.6,
+    "mostCommonUtcHourOfExtreme": 22
+   },
+   "23": {
+    "avgImprovementPct": 2.786,
+    "extremeInFirst2hShare%": 30.0,
+    "mostCommonUtcHourOfExtreme": 23
+   }
+  }
+ }
+}
