@@ -1,0 +1,32 @@
+name: Collector test (new data sources)
+
+# By hand: runs the new collectors once on GitHub's machines (the only place that can reach these sites) and prints what REALLY came back. Saves nothing to the memory.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: run every new collector once and show the real rows
+        run: |
+          mkdir -p state/collect
+          python -W ignore - <<'PY'
+          import json, glob, pandas as pd
+          from rm import collect_more as M
+          info = M.update(log=print)
+          print("\n=== REPORT ===\n" + json.dumps(info, indent=1))
+          for f in sorted(glob.glob("state/collect/*.parquet")):
+              d = pd.read_parquet(f); print(f"\n--- {f}: {len(d)} rows, columns {list(d.columns)}")
+              print(d.tail(4).to_string(max_colwidth=60))
+          PY

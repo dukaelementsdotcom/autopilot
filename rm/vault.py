@@ -6,7 +6,7 @@ usage: python -m rm.vault <state_dir> <vault_dir>"""
 import os, sys, glob, shutil, datetime as dt
 import pandas as pd
 
-PARQUETS = ("rec_depth", "rec_funding", "rec_liq", "hl_whales", "deribit_opt")
+PARQUETS = ("rec_depth", "rec_funding", "rec_liq", "hl_whales", "deribit_opt", "mk_dominance", "ex_bybit", "ex_okx", "poly")
 
 def day_of(t):
     t = pd.to_numeric(t, errors="coerce"); t = t / 1000 if t.max() > 1e11 else t
