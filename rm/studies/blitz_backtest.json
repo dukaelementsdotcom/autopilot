@@ -1,0 +1,202 @@
+{
+ "at": "2026-11-23 20:17",
+ "design": "35% margin x 20x, Arbiter volatility stop, +1.125% price full exit, 12h cap, 0.1% cost, one trade at a time, compounding",
+ "folds": [
+  {
+   "window": "2026-07-24 to 2026-11-21",
+   "btcChange%": -6.1,
+   "live": {
+    "trades": 230,
+    "perWeek": 13.4,
+    "win%": 64.3,
+    "stop%": 12.2,
+    "monthly%": -15.4,
+    "endEquityX": 0.517,
+    "maxDrawdown%": 88.7,
+    "worstStopStreak": 3,
+    "avgHours": 6.0,
+    "longCandidates": 31,
+    "shortCandidates": 2247
+   },
+   "loose": {
+    "trades": 265,
+    "perWeek": 15.5,
+    "win%": 57.0,
+    "stop%": 10.9,
+    "monthly%": -4.0,
+    "endEquityX": 0.853,
+    "maxDrawdown%": 91.0,
+    "worstStopStreak": 2,
+    "avgHours": 6.8,
+    "longCandidates": 113,
+    "shortCandidates": 5701
+   }
+  },
+  {
+   "window": "2026-03-26 to 2026-07-24",
+   "btcChange%": -6.8,
+   "live": {
+    "trades": 369,
+    "perWeek": 21.5,
+    "win%": 67.2,
+    "stop%": 15.2,
+    "monthly%": -63.6,
+    "endEquityX": 0.019,
+    "maxDrawdown%": 99.3,
+    "worstStopStreak": 3,
+    "avgHours": 5.5,
+    "longCandidates": 15,
+    "shortCandidates": 4022
+   },
+   "loose": {
+    "trades": 363,
+    "perWeek": 21.2,
+    "win%": 60.6,
+    "stop%": 14.0,
+    "monthly%": -40.5,
+    "endEquityX": 0.129,
+    "maxDrawdown%": 95.5,
+    "worstStopStreak": 3,
+    "avgHours": 6.2,
+    "longCandidates": 154,
+    "shortCandidates": 9884
+   }
+  },
+  {
+   "window": "2025-11-26 to 2026-03-26",
+   "btcChange%": -23.9,
+   "live": {
+    "trades": 306,
+    "perWeek": 17.8,
+    "win%": 65.4,
+    "stop%": 19.9,
+    "monthly%": -87.4,
+    "endEquityX": 0.0,
+    "maxDrawdown%": 100.0,
+    "worstStopStreak": 2,
+    "avgHours": 5.2,
+    "longCandidates": 0,
+    "shortCandidates": 2806
+   },
+   "loose": {
+    "trades": 319,
+    "perWeek": 18.6,
+    "win%": 60.5,
+    "stop%": 20.1,
+    "monthly%": -82.7,
+    "endEquityX": 0.001,
+    "maxDrawdown%": 100.0,
+    "worstStopStreak": 3,
+    "avgHours": 5.8,
+    "longCandidates": 26,
+    "shortCandidates": 6672
+   }
+  },
+  {
+   "window": "2025-07-29 to 2025-11-26",
+   "btcChange%": -23.3,
+   "live": {
+    "trades": 124,
+    "perWeek": 7.2,
+    "win%": 66.9,
+    "stop%": 16.9,
+    "monthly%": -18.0,
+    "endEquityX": 0.456,
+    "maxDrawdown%": 86.2,
+    "worstStopStreak": 2,
+    "avgHours": 5.4,
+    "longCandidates": 7,
+    "shortCandidates": 587
+   },
+   "loose": {
+    "trades": 175,
+    "perWeek": 10.2,
+    "win%": 53.7,
+    "stop%": 11.4,
+    "monthly%": -13.5,
+    "endEquityX": 0.563,
+    "maxDrawdown%": 86.7,
+    "worstStopStreak": 2,
+    "avgHours": 6.9,
+    "longCandidates": 154,
+    "shortCandidates": 1481
+   }
+  },
+  {
+   "window": "2025-03-31 to 2025-07-29",
+   "btcChange%": 42.9,
+   "live": {
+    "trades": 64,
+    "perWeek": 3.7,
+    "win%": 68.8,
+    "stop%": 21.9,
+    "monthly%": -21.8,
+    "endEquityX": 0.379,
+    "maxDrawdown%": 86.9,
+    "worstStopStreak": 2,
+    "avgHours": 4.6,
+    "longCandidates": 8,
+    "shortCandidates": 146
+   },
+   "loose": {
+    "trades": 108,
+    "perWeek": 6.3,
+    "win%": 52.8,
+    "stop%": 15.7,
+    "monthly%": -8.0,
+    "endEquityX": 0.718,
+    "maxDrawdown%": 74.5,
+    "worstStopStreak": 2,
+    "avgHours": 7.0,
+    "longCandidates": 40,
+    "shortCandidates": 933
+   }
+  },
+  {
+   "window": "2024-12-01 to 2025-03-31",
+   "btcChange%": -15.2,
+   "live": {
+    "trades": 75,
+    "perWeek": 4.4,
+    "win%": 77.3,
+    "stop%": 18.7,
+    "monthly%": -19.6,
+    "endEquityX": 0.423,
+    "maxDrawdown%": 80.5,
+    "worstStopStreak": 2,
+    "avgHours": 2.5,
+    "longCandidates": 136,
+    "shortCandidates": 104
+   },
+   "loose": {
+    "trades": 131,
+    "perWeek": 7.6,
+    "win%": 69.5,
+    "stop%": 22.1,
+    "monthly%": -54.6,
+    "endEquityX": 0.044,
+    "maxDrawdown%": 97.5,
+    "worstStopStreak": 2,
+    "avgHours": 3.4,
+    "longCandidates": 278,
+    "shortCandidates": 520
+   }
+  }
+ ],
+ "summary_live": {
+  "foldsWithTrades": 6,
+  "foldsPositive": 0,
+  "avgMonthly%": -37.6,
+  "worstDrawdown%": 100.0,
+  "avgWin%": 68.3,
+  "totalTrades": 1168
+ },
+ "summary_loose": {
+  "foldsWithTrades": 6,
+  "foldsPositive": 0,
+  "avgMonthly%": -33.9,
+  "worstDrawdown%": 100.0,
+  "avgWin%": 59.0,
+  "totalTrades": 1361
+ }
+}
