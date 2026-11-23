@@ -17,7 +17,7 @@ from . import config as C
 from .longs import _daily, _row, _hist
 
 H = 3600; DAY = 86400
-KINDS = ("exhaust-short", "exhaust-short-wide", "sniper", "blitz")
+KINDS = ("exhaust-short", "exhaust-short-wide", "sniper", "blitz", "blitz-rotate")
 
 def _resistances(d):
     """key levels above: daily swing highs of the last 60 days, yesterday's high, the 20-day high"""
@@ -28,7 +28,7 @@ def _resistances(d):
     return sorted(set(lv))
 
 def trade(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx):
-    if kind == "blitz": return _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx)
+    if kind in ("blitz", "blitz-rotate"): return _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx, kind)
     if kind == "sniper": return _sniper(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx)
     return _exhaust(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
 
@@ -117,23 +117,45 @@ def _supports_below(d, px):
 
 BLITZ_MARGIN, BLITZ_LEV, BLITZ_ROE = 0.35, 20, 0.225          # owner's design (Nov 22): 35% of the account as margin, 20x, exit fully at +22.5% on the margin (= +1.125% price)
 
-def _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx):
+ROTATE_MIN_ROE = 5.0        # blitz-rotate only considers rotating once the open trade shows at least +5% on margin
+ROTATE_EDGE = 3.0           # ...and only if the new trade beats staying by at least 3 points of margin (a swap is not free)
+
+def _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx, kind="blitz"):
     """hardcoded: ONE trade at a time with 35% of the account as margin at 20x, the Arbiter's stop distance, a FULL exit at +22.5% on the margin
     (+1.125% price), no trailing, no add-on, no half exit; the moment it closes, look for the next one (no daily limit). Entry = the Arbiter's own
     best call among the sides it trusts right now. Only the 8% per-trade risk ceiling is lifted, and only for this paper shadow account."""
     from . import referee as RF
-    if A["open"]: return
+    held = A["open"][0] if A["open"] else None
+    if held and kind != "blitz-rotate": return
     reg = REG.get(newest) or ""; best = None
     for side in ("long", "short"):
         if side not in B["sides"] or not RF.side_live(R, side, B["sides"][side], reg): continue
         base = B["sides"][side]["base"]
         for pos in pos_new:
+            if held and str(J.coin[int(rows[pos])]) == held["coin"]: continue
             pr = float(S[side]["prob"][pos])
             if pr >= base and (best is None or pr - base > best[0]): best = (pr - base, side, pos, pr)
-    R.setdefault("shortsNow", {})["blitz"] = {"at": now_iso, "candidate": best[1] if best else None}
+    note = {"at": now_iso, "candidate": best[1] if best else None}
+    if held:
+        # ROTATION (owner's idea): stay for the rest of the 22.5%, or bank what we have and take the best trade the Arbiter offers now?
+        # both sides in points of margin, with the same stop-based loss; q = the exit model's continuation odds for the held trade, pn = the Arbiter's odds for the new one
+        # (its odds are for a +2% target, we aim for +1.125%, so pn is a little pessimistic). A swap must beat staying by ROTATE_EDGE points. No candidate -> stay.
+        roe = float(held.get("roe") or 0.0); q = held.get("cont"); tgt_roe = BLITZ_ROE * 100
+        note["held"] = {"coin": held["coin"], "roe": roe, "cont": q}
+        if best and q is not None and roe >= ROTATE_MIN_ROE:
+            i2 = int(rows[best[2]]); stp2 = float(RF.stop_pct(J.dvol[i2])); cost = C.FEE * BLITZ_LEV * 100
+            ev_stay = q * (tgt_roe - roe) - (1 - q) * (roe + held["stopPct"] * BLITZ_LEV * 100)
+            ev_new = best[3] * tgt_roe - (1 - best[3]) * stp2 * BLITZ_LEV * 100 - cost
+            note["evStay"], note["evNew"] = round(ev_stay, 1), round(ev_new, 1)
+            if ev_new - ev_stay >= ROTATE_EDGE:
+                px = float(ctx.get("live", {}).get(held["coin"]) or held.get("mark") or held["entry"])
+                RF._close(A, held, px, f"rotated: banked {roe:+.0f}% on margin, a better trade was available (new {ev_new:+.1f} vs staying {ev_stay:+.1f} points)", int(time.time()))
+                A.setdefault("rotations", []).append({"at": now_iso, "from": held["coin"], "roe": roe, "evStay": round(ev_stay, 1), "evNew": round(ev_new, 1)}); note["rotated"] = True; held = None
+        if held: R.setdefault("shortsNow", {})[kind] = note; return
+    R.setdefault("shortsNow", {})[kind] = note
     if not best: return
     _, side, pos, pr = best; i = int(rows[pos]); stp = float(RF.stop_pct(J.dvol[i])); T_ = BLITZ_ROE / BLITZ_LEV
     be = float((stp + C.FEE) / (T_ + stp))
-    RF._open(J, B, A, i, (side, "A", pr, 0.0), stp, be, S, pos, [], now_iso, R, {"spec": "blitz", "_risk": 10.0, "_nocap": True, "_lev": BLITZ_LEV, "_budget": BLITZ_MARGIN}, T=T_, Hz=48, ctx=ctx)
+    RF._open(J, B, A, i, (side, "A", pr, 0.0), stp, be, S, pos, [], now_iso, R, {"spec": kind, "_risk": 10.0, "_nocap": True, "_lev": BLITZ_LEV, "_budget": BLITZ_MARGIN}, T=T_, Hz=48, ctx=ctx)
     if A["open"] and A["open"][-1]["t"] == int(J.t[i]):
         A["open"][-1].update(why=f"blitz: {BLITZ_MARGIN:.0%} margin at {BLITZ_LEV}x, full exit at +{BLITZ_ROE:.1%} on the margin", fullExit=True, noadd=True, maxHold=12)
