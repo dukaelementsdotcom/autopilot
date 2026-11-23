@@ -673,7 +673,7 @@ def _manage(J, B, p, A, newest):
         if (sd > 0 and lo <= p["stop"]) or (sd < 0 and hi >= p["stop"]):
             _close(A, p, p["stop"], "stop" if not p["half"] else "break-even / trailing stop", t + H); return
         if not p["half"] and ((sd > 0 and hi >= p["target"]) or (sd < 0 and lo <= p["target"])):
-            if p.get("fullExit"): _close(A, p, p["target"], f"target +{p.get("tgtPct", TARGET)*100:.1f}% (full exit)", t + H); return
+            if p.get("fullExit"): _close(A, p, p["target"], f"target +{p.get('tgtPct', TARGET)*100:.1f}% (full exit)", t + H); return
             _close(A, p, p["target"], f"half at +{p.get('tgtPct', TARGET)*100:.0f}%", t + H, part=0.5); p["half"] = True
             p["stop"] = p["entry"] * (1 + sd * C.FEE * 2)                          # rest is now risk-free (break-even)
         if p.get("steps") and p["half"]:          # three-step exit (lab test Nov 16): 25% more at +3% (stop to +1%), the last 25% at +4.5%
