@@ -34,31 +34,31 @@
   {
    "name": "CFTC Commitments of Traders (weekly)",
    "cost": "free",
-   "status": "planned",
+   "status": "collecting",
    "why": "How big institutions are positioned in futures; slow but a different kind of evidence."
   },
   {
    "name": "Bybit and OKX own funding and open-interest history",
    "cost": "free",
-   "status": "planned",
+   "status": "collecting (OKX only; Bybit refuses GitHub's machines, its numbers arrive via Coinalyze)",
    "why": "Crowding outside Binance; free public endpoints."
   },
   {
    "name": "DefiLlama: TVL, DEX volume, stablecoin chains",
    "cost": "free",
-   "status": "planned",
+   "status": "collecting",
    "why": "Real money moving on-chain, per sector."
   },
   {
    "name": "Spot ETF flows (daily)",
    "cost": "free page; terms of use to check",
-   "status": "planned",
+   "status": "collecting",
    "why": "Large, slow money in and out of Bitcoin and Ether."
   },
   {
    "name": "Prediction-market odds (Polymarket)",
    "cost": "free",
-   "status": "planned",
+   "status": "collecting",
    "why": "The crowd's odds on rate decisions and elections, a macro read."
   },
   {
@@ -78,6 +78,12 @@
    "cost": "paid: price to check",
    "status": "needs owner decision",
    "why": "Crowd mood; noisy, so it would enter only as a contestant."
+  },
+  {
+   "name": "BTC / ETH dominance and total market cap (hourly)",
+   "cost": "free",
+   "status": "collecting",
+   "why": "Market-wide risk-on / risk-off and alt-season context, recorded hourly because it cannot be downloaded later."
   }
  ]
 }
