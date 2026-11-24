@@ -1,7 +1,7 @@
 """MORE COLLECTORS (owner, Nov 24): the free sources from the data wish-list. Nothing here changes a decision; it only builds history.
 Every source is real (public endpoints, no keys), time-boxed and failure-contained: if a source refuses us, the error is recorded in the run's collector report
 and NOTHING is invented in its place.
-  hourly snapshots (cannot be re-downloaded later)    BTC/ETH dominance, Bybit and OKX funding + open interest per coin, Polymarket odds on macro/crypto questions
+  hourly snapshots (cannot be re-downloaded later)    BTC/ETH dominance, OKX funding + open interest per coin, Polymarket odds on macro/crypto questions
   daily, history downloaded on the first run           DefiLlama stablecoin supply, chain TVL, DEX volume
   weekly, history downloaded on the first run          CFTC Commitments of Traders (Bitcoin and Ether futures, who holds what), with the date it became public
   daily, best effort                                   Spot ETF flows (Farside page; may refuse automated readers: then it simply records the refusal)
@@ -42,12 +42,7 @@ def dominance(log=print):
 
 def venues(log=print):
     t = int(time.time()) // H * H; info = {}
-    try:                                                                       # Bybit: one call, every USDT perpetual
-        L = get("https://api.bybit.com/v5/market/tickers", {"category": "linear"}).json()["result"]["list"]
-        df = pd.DataFrame([{"t": t, "coin": x["symbol"][:-4], "fr": _num(x.get("fundingRate")), "oi_usd": _num(x.get("openInterestValue")), "turn24h": _num(x.get("turnover24h")), "px": _num(x.get("lastPrice"))}
-                           for x in L if x["symbol"].endswith("USDT") and "-" not in x["symbol"]]).sort_values("turn24h", ascending=False).head(150)
-        path = KEEP("ex_bybit.parquet"); out = _merge(path, df, ["coin", "t"]); _save(out, path); info["bybit"] = {"coins": int(len(df)), "rows": int(len(out))}
-    except Exception as e: info["bybit"] = {"error": f"{type(e).__name__}: {str(e)[:120]}"}
+    # Bybit is NOT collected: its API answers 403 to GitHub's machines (tested Nov 24). Bybit funding / open interest still arrive through Coinalyze (xoi).
     try:                                                                       # OKX: open interest for every swap, funding for every swap
         oi = get("https://www.okx.com/api/v5/public/open-interest", {"instType": "SWAP"}).json()["data"]
         fr = get("https://www.okx.com/api/v5/public/funding-rate", {"instId": "ANY"}).json().get("data") or []
