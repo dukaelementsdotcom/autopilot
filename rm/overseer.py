@@ -66,7 +66,7 @@ def promises(mem, J):
         else: out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN", "detail": f"should be racing but is not after {hrs:.0f}h ({s or 'no status'})"})
     for name, w in LIVE + [(v["what"].split(":")[0], k) for k, v in LW.AUTO.items()]:
         s = st.get(w) or {}; left = LW.warm_left(w); lt = LW.last_t(w)
-        stale = lt is None or time.time() - lt > (4 if w != "news" else 6) * H
+        stale = lt is None or time.time() - lt > (LW.stale_after(w) if w in LW.AUTO else (4 if w != "news" else 6) * H)
         ok, txt = racing(w)
         if stale: out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN", "detail": f"the recording stopped (newest entry {_ago(lt)}); its warm-up cannot finish"})
         elif ok: out.append({"source": name, "user": f"witness-{w}", "status": "in use", "detail": txt})

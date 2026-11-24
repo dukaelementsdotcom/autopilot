@@ -101,12 +101,13 @@ def cftc(log=print):
     if not j: return {"error": "empty answer"}
     d = pd.DataFrame(j); miss = [c for c in CFTC_COLS if c not in d.columns]
     day = pd.to_datetime(d["report_date_as_yyyy_mm_dd"]).dt.tz_localize("UTC")
-    out = pd.DataFrame({"t": (day - pd.Timestamp("1970-01-01", tz="UTC")) // pd.Timedelta("1s"), "market": d["market_and_exchange_names"].str.slice(0, 60)})
-    out["t_public"] = out["t"] + 3 * DAY + 20 * H + 1800             # reports describe Tuesday and come out Friday 3:30pm ET (~20:30 UTC): never use a row before this time
+    rep = (day - pd.Timestamp("1970-01-01", tz="UTC")) // pd.Timedelta("1s")
+    out = pd.DataFrame({"t": rep + 3 * DAY + 20 * H + 1800, "market": d["market_and_exchange_names"].str.slice(0, 60)})
+    # reports describe Tuesday but come out Friday ~3:30pm ET (~20:30 UTC): 't' IS the moment it became public, so nothing can use a row early (the evidence engine adds another day on top)
     for c in CFTC_COLS:
         if c in d.columns: out[c] = _num(d[c])
-    path = KEEP("cftc.parquet"); res = _merge(path, out, ["t", "market"]); _save(res, path)
-    log(f"cftc: {len(out)} rows, markets {sorted(out.market.unique())[:4]}"); return {"rows": int(len(res)), "markets": int(res.market.nunique()), "newest": str(pd.to_datetime(int(res.t.max()), unit="s").date()), **({"missingColumns": miss} if miss else {})}
+    path = KEEP("cftc.parquet"); res = out.drop_duplicates(["t", "market"]).sort_values(["t", "market"]); _save(res, path)   # full history every time: replaces the older file stamped by report date
+    log(f"cftc: {len(out)} rows, markets {sorted(out.market.unique())[:4]}"); return {"rows": int(len(res)), "markets": int(res.market.nunique()), "newestPublic": str(pd.to_datetime(int(res.t.max()), unit="s"))[:16], **({"missingColumns": miss} if miss else {})}
 
 def etf(log=print):
     hdr = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}; allrows = []

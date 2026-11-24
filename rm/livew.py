@@ -236,6 +236,7 @@ def auto_features(P, name, spec):
     if d.t.max() > 1e11: d["t"] = d.t // 1000
     step = float(np.median(np.diff(np.sort(d.t.unique())))) if d.t.nunique() > 3 else H
     daily = step >= 20 * H; lag = DAY + H if daily else H; win = 30 if daily else 168
+    hold = 24 if step <= 1.5 * DAY else int(min(step, 14 * DAY) // H) + 24      # weekly tables (CFTC) are held for the whole following week, not one day
     d["t"] = (d.t // (DAY if daily else H)) * (DAY if daily else H)
     out = {}; cols = iter(spec["cols"])
     if spec["perCoin"]:
@@ -247,7 +248,7 @@ def auto_features(P, name, spec):
             for col in (v, z):
                 s = d[["coin", "t", col]].copy(); s["t"] = s.t + lag
                 if daily:                                      # a daily value is held for the whole next day
-                    s = pd.concat([s.assign(t=s.t + k * H) for k in range(24)])
+                    s = pd.concat([s.assign(t=s.t + k * H) for k in range(hold)])
                 idx = pd.MultiIndex.from_arrays([P.coin.values, P.t.values])
                 out[col] = s.drop_duplicates(["coin", "t"]).set_index(["coin", "t"])[col].reindex(idx).astype("float32").values
     else:
@@ -257,9 +258,17 @@ def auto_features(P, name, spec):
             s = d[c].astype(float); zz = (s - s.rolling(win, min_periods=win // 3).mean()) / (s.rolling(win, min_periods=win // 3).std() + 1e-9)
             for col, ser in ((v, s), (z, zz)):
                 ser = ser.copy(); ser.index = ser.index + lag
-                grid = np.sort(P.t.unique()); ser = ser.reindex(np.union1d(ser.index, grid)).ffill(limit=24 if daily else 2).reindex(grid)
+                grid = np.sort(P.t.unique()); ser = ser.reindex(np.union1d(ser.index, grid)).ffill(limit=hold if daily else 2).reindex(grid)
                 out[col] = pd.Series(ser.values, index=grid).reindex(P.t.values).astype("float32").values
     return out
+
+def stale_after(name):
+    """seconds after which a table has 'stopped': 4h for hourly tables, 2.5x the update step for daily / weekly ones (so weekly CFTC is fine for 17 days)"""
+    try:
+        t = np.sort(pd.read_parquet(AUTO[name]["path"], columns=["t"]).t.unique()); t = t // (1000 if t.max() > 1e11 else 1)
+        step = float(np.median(np.diff(t))) if len(t) > 3 else H
+    except Exception: step = H
+    return max(4 * H, 2.5 * step) if step >= 20 * H else 4 * H
 
 _first_t, _last_t = first_t, last_t
 def first_t(name):
