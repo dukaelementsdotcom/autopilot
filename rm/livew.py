@@ -294,7 +294,7 @@ def features(P, log=print):
 # ── orphan check: every saved data file must belong to something that uses it ────────────────────────────────────────────
 RAW_PATTERNS = [r"^[0-9A-Z]+_(k|m|s|f|hl)\.parquet$", r"^book_[0-9A-Z]+\.parquet$", r"^(book_|spot_)?manifest\.json$", r"^version(_\w+)?\.txt$",
                 r"^cz_(liq_d|liq_h|oifr_d|markets)\.(parquet|json)$", r"^(macro|onchain)\.parquet$", r"^compass_\w+\.parquet$", r"^ext$"]
-COLLECT_KNOWN = KNOWN_COLLECT | {"digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "stamps.json", "news", "deribit"}
+COLLECT_KNOWN = KNOWN_COLLECT | {"digest.jsonl", "calendar.json", "ipos.json", "hl_top.json", "stamps.json", "growth.jsonl", "news", "deribit"}
 
 def orphans(recent_days=14):
     """files that nothing reads, written in the last two weeks (a collector whose data is never used). Old leftovers are listed by

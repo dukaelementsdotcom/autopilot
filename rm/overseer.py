@@ -72,7 +72,7 @@ def promises(mem, J):
         elif ok: out.append({"source": name, "user": f"witness-{w}", "status": "in use", "detail": txt})
         elif left > 0: out.append({"source": name, "user": f"witness-{w}", "status": "on track", "detail": s.get("state", f"recording; {left:.0f} days left")})
         elif "not admitted" in s.get("state", ""):
-            late = left == 0 and LW.days(w) - LW.LIVE[w]["warm"] > 14
+            late = left == 0 and LW.days(w) - LW.LIVE[w]["warm"] > 14 and "not enough for an honest exam" not in s["state"]    # slow weekly tables wait for exam samples: waiting, not broken
             out.append({"source": name, "user": f"witness-{w}", "status": "BROKEN" if late else "on track", "detail": s["state"] + (" (for over 2 weeks: its evidence may simply carry no edge)" if late else "")})
         else:
             late = LW.days(w) - LW.LIVE[w]["warm"] > 1.5
