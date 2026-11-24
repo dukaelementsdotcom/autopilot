@@ -18,7 +18,7 @@ H = 3600
 MIN_BETS = 40
 HEADS_PATH = lambda: f"{C.DATA_DIR}/models/heads.joblib"
 
-CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "tide": False, "noregime": False, "onlySide": None}
+CHAMP = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "tide": False, "noregime": False, "onlySide": None, "active": False}
 
 def registry(B=None):
     """name -> (the one change, plain-English description, kind)"""
@@ -62,6 +62,7 @@ def registry(B=None):
     reg["curious-side"] = ({"curiousSide": True}, "Curious, coarse: unfamiliar calls grouped only by side and market state; a group becomes tradable once it is right well above break-even over 20+ separate 6-hour market moves (live Nov 16: unfamiliar shorts 82/89 right, but only 15 moves in one falling week)", "policy")
     reg["alloc"] = ({"alloc": True}, "Daily-goal allocator: one budget per opportunity (up to 30% margin, 6% risk), all-in on one strong setup or split across 2-4 coins that are NOT the same bet; judged on account growth", "policy")
     reg["noregime"] = ({"noregime": True}, "Trades through every market state: ignores the per-state on/off switch (e.g. shorts off in falling-and-wild) and uses only the side's exams and overall live record; tests whether that switch is too strict (live Nov 20: shorts off in falling-and-wild on 10 calls, 63% vs 68% needed; no trades for 5 days)", "policy")
+    reg["active"] = ({"active": True}, "The active Arbiter (owner, Nov 25): the same brain and exits, but no one-trade-a-day cap: total margin in use stays within 30% of the account, split over trades of up to 10% each; trades both sides in every market state (the state is recorded on each trade); grade B allowed all day. Judged on live results by market state; the cautious Arbiter keeps running as the reference", "policy")
     reg["shorts-only"] = ({"onlySide": "short"}, "Shorts only (owner, Nov 22): the Arbiter's own decisions but it never takes a long; tests whether specialising on shorts beats trading both sides, through a market turn", "policy")
     from . import shorts as SH
     for k_ in SH.KINDS:
@@ -130,7 +131,7 @@ def sync(R, B, log=print, Hd=None):
         full = dict(change) if kind == "full" else {**champ, **change}
         if full == champ: chal.pop(n, None); continue
         if n in chal: chal[n].update(what=what, kind=("policy" if any(k != "odds" for k in change if change.get(k) != champ.get(k)) else "odds"))
-        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 44 or kind == "odds":       # room for every idea (owner, Nov 17: all ideas race)
+        elif sum(1 for c in chal.values() if c.get("kind") == "policy") < 52 or kind == "odds":       # room for every idea (owner, Nov 17: all ideas race)
             chal[n] = {"change": change if kind != "full" else {k: v for k, v in change.items() if champ.get(k) != v}, "what": what,
                        "kind": "policy" if kind in ("policy", "full") and any(k != "odds" for k in change) else "odds", "born": time.strftime("%Y-%m-%d %H:%M", time.gmtime())}
     for n in [n for n in chal if n not in reg]: chal.pop(n)

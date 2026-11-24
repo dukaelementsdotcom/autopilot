@@ -455,11 +455,17 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
     if cfg.get("weekpace"):                                    # weekly goal with carry-over: a quiet day's unused trade can be used later in the same week (up to 3 in a day)
         wk0 = (newest // 86400 - ((newest // 86400 + 3) % 7)) * 86400; done_w = sum(1 for x in A["open"] + A["closed"][-40:] if x["t"] >= wk0)
         cap_day = int(max(1, min(3, (newest - wk0) // 86400 + 1 - done_w)))
+    active = bool(cfg.get("active"))
+    if active: cap_day = 99
     for pos in np.argsort(J.t[rows], kind="stable"):
         i = int(rows[pos]); day = int(J.t[i] // 86400)
         if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
         if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
         today = [x for x in A["open"] + A["closed"][-20:] if int(x["t"] // 86400) == day]
+        room = 0.0
+        if active:                                            # margin budget instead of a trade count: total margin in use stays within 30% of the account
+            room = ACTIVE_MARGIN - sum(x.get("margin", 0) for x in A["open"]) / max(1e-9, A.get("equity", A["cash"]))
+            if room < 0.04: break
         best = None
         for name, sd in B["sides"].items():
             if cfg.get("onlySide") and name != cfg["onlySide"]: continue            # side specialist (shorts-only)
@@ -472,9 +478,9 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
                         if (name == "short" and x_["macro"] == 1) or (name == "long" and x_["tide"] != 1): continue
                     elif x_["tide"] != (1 if name == "long" else -1): continue
                 except Exception: continue                     # a reader failure only stops the contestant, never the Arbiter
-            elif not (cfg.get("statebar") or fast or side_live(({**R, "regimeOverride": {}} if cfg.get("noregime") else R), name, sd, None if cfg.get("noregime") else REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
+            elif not (cfg.get("statebar") or cfg.get("active") or fast or side_live(({**R, "regimeOverride": {}} if cfg.get("noregime") else R), name, sd, None if cfg.get("noregime") else REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
-            if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
+            if g == "B" and int(J.t[i] % 86400 // H) < 18 and not active: g = None
             if not g: continue
             if len(today) >= cap_day and not (fluid and g == "S"): continue   # the champion keeps one trade a day; only the fluid-pace challenger lets Grade S through
             if fluid and len(A["open"]) >= 3 and g != "S": continue
@@ -482,7 +488,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
             if best is None or score_ > best[3]: best = (name, g, float(K[name]["pt"][pos]), float(score_))
         if not best: continue
         if guard and not _guard_ok(A, best[0], str(J.coin[i]), K[best[0]]["stop"][pos], ctx): continue
-        _open(J, B, A, i, best, float(K[best[0]]["stop"][pos]), float(K[best[0]]["be"][pos]), S, pos, V.get(i, []), now_iso, R, cfg,
+        _open(J, B, A, i, best, float(K[best[0]]["stop"][pos]), float(K[best[0]]["be"][pos]), S, pos, V.get(i, []), now_iso, R, ({**cfg, "_budget": min(ACTIVE_TRADE, room)} if active else cfg),
               T=float(K[best[0]]["T"][pos]), Hz=int(K[best[0]]["Hz"][pos]), ctx=ctx)
         if A["open"] and A["open"][-1]["t"] == int(J.t[i]) and A["open"][-1]["coin"] == str(J.coin[i]): A["open"][-1]["regime"] = REG.get(int(J.t[i]))
 
@@ -496,6 +502,7 @@ def _guard_ok(A, side, coin, stp, ctx):
     now = time.time(); dayP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 86400); wkP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 7 * 86400)
     return dayP > -0.05 * eq and wkP > -0.10 * eq
 
+ACTIVE_MARGIN, ACTIVE_TRADE = 0.30, 0.10      # the 'active' Arbiter (owner, Nov 25): at most 30% of the account as margin at any time, split over trades of at most 10% each; no trade-a-day cap
 MAX_LEV = 20
 def lev_for(stp):
     """leverage per trade: as high as 20x, but the liquidation price always stays at least 2.5x the stop distance away"""
@@ -549,7 +556,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False, "noregime": False, "onlySide": None}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False, "noregime": False, "onlySide": None, "active": False}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
