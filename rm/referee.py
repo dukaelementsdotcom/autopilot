@@ -213,6 +213,11 @@ def step(mem, J, now_iso, log=print, problems=None):
     newest = int(J.t.max())
     chal = CH.sync(R, B, Hd=Hd) if B is not None else {}
     champ_cfg = CH.cfg_of(R, "champion")
+    for n in RESET_ONCE:                                                # owner, Nov 25: the old loose-entry blitz is parked (record kept in R['parked']) and restarts clean on the new design
+        c = chal.get(n); done = R.setdefault("resetDone", [])
+        if c and c.get("acct") and n not in done:
+            a = c["acct"]; R.setdefault("parked", {})[n + "-v1 (loose entries)"] = {"parkedAt": now_iso, "start": a.get("start"), "equity": a.get("equity", a.get("cash")), "closed": a.get("closed", [])[-60:], "rotations": a.get("rotations", [])[-30:]}
+            c.pop("acct"); done.append(n); log(f"challengers: {n} parked and reset (owner, Nov 25)")
     for n, c in chal.items():
         if c["kind"] == "policy" and "acct" not in c:
             c["acct"] = new_acct(J, now_iso); c["acct"].update(champAtBirth=A.get("equity", A["cash"]), bornT=newest)
@@ -502,6 +507,7 @@ def _guard_ok(A, side, coin, stp, ctx):
     now = time.time(); dayP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 86400); wkP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 7 * 86400)
     return dayP > -0.05 * eq and wkP > -0.10 * eq
 
+RESET_ONCE = ("blitz", "blitz-rotate")
 ACTIVE_MARGIN, ACTIVE_TRADE = 0.30, 0.10      # the 'active' Arbiter (owner, Nov 25): at most 30% of the account as margin at any time, split over trades of at most 10% each; no trade-a-day cap
 MAX_LEV = 20
 def lev_for(stp):

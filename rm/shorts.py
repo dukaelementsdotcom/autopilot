@@ -115,26 +115,33 @@ def _supports_below(d, px):
         if L[k] <= L[k - 3:k + 4].min(): lv.append(float(L[k]))
     return sorted(set(lv))
 
-BLITZ_MARGIN, BLITZ_LEV, BLITZ_ROE = 0.35, 20, 0.225          # owner's design (Nov 22): 35% of the account as margin, 20x, exit fully at +22.5% on the margin (= +1.125% price)
+BLITZ_MARGIN, BLITZ_LEV, BLITZ_ROE = 0.30, 20, 0.225          # owner's design (Nov 22, margin cap 30% from Nov 25): 30% of the account as margin, 20x, exit fully at +22.5% on the margin (= +1.125% price)
 
 ROTATE_MIN_ROE = 5.0        # blitz-rotate only considers rotating once the open trade shows at least +5% on margin
 ROTATE_EDGE = 3.0           # ...and only if the new trade beats staying by at least 3 points of margin (a swap is not free)
 
+def _session_cap(t):
+    """hold limit in hours, tied to the market sessions (UTC): a trade may run until the next session change (Asia 00, London 07, New York 13, late 21), never less than 4h, never more than 12h.
+    A hypothesis from the owner (Nov 25), raced live - not proven."""
+    hr = (t // 3600) % 24; nxt = next(b for b in (7, 13, 21, 24) if b > hr)
+    return int(min(12, max(4, nxt - hr)))
+
 def _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx, kind="blitz"):
-    """hardcoded: ONE trade at a time with 35% of the account as margin at 20x, the Arbiter's stop distance, a FULL exit at +22.5% on the margin
+    """hardcoded: ONE trade at a time with 30% of the account as margin at 20x, the Arbiter's stop distance, a FULL exit at +22.5% on the margin
     (+1.125% price), no trailing, no add-on, no half exit; the moment it closes, look for the next one (no daily limit). Entry = the Arbiter's own
     best call among the sides it trusts right now. Only the 8% per-trade risk ceiling is lifted, and only for this paper shadow account."""
     from . import referee as RF
     held = A["open"][0] if A["open"] else None
     if held and kind != "blitz-rotate": return
     reg = REG.get(newest) or ""; best = None
+    K = RF._cands(J, B, R, None, {**RF.CHAMP_DEFAULT, "active": True}, rows, S, REG)       # v2 (Nov 25): entries are the ACTIVE Arbiter's graded calls (A/B/S), best expected value first - no more "any call above break-even"
     for side in ("long", "short"):
-        if side not in B["sides"] or not RF.side_live(R, side, B["sides"][side], reg): continue
-        base = B["sides"][side]["base"]
+        if side not in K: continue
         for pos in pos_new:
             if held and str(J.coin[int(rows[pos])]) == held["coin"]: continue
-            pr = float(S[side]["prob"][pos])
-            if pr >= base and (best is None or pr - base > best[0]): best = (pr - base, side, pos, pr)
+            if not K[side]["grade"][pos]: continue
+            ev = float(K[side]["ev"][pos]); pr = float(K[side]["pt"][pos])
+            if best is None or ev > best[0]: best = (ev, side, pos, pr)
     note = {"at": now_iso, "candidate": best[1] if best else None}
     if held:
         # ROTATION (owner's idea): stay for the rest of the 22.5%, or bank what we have and take the best trade the Arbiter offers now?
@@ -158,4 +165,4 @@ def _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx, kind="blitz"
     be = float((stp + C.FEE) / (T_ + stp))
     RF._open(J, B, A, i, (side, "A", pr, 0.0), stp, be, S, pos, [], now_iso, R, {"spec": kind, "_risk": 10.0, "_nocap": True, "_lev": BLITZ_LEV, "_budget": BLITZ_MARGIN}, T=T_, Hz=48, ctx=ctx)
     if A["open"] and A["open"][-1]["t"] == int(J.t[i]):
-        A["open"][-1].update(why=f"blitz: {BLITZ_MARGIN:.0%} margin at {BLITZ_LEV}x, full exit at +{BLITZ_ROE:.1%} on the margin", fullExit=True, noadd=True, maxHold=12)
+        A["open"][-1].update(why=f"blitz: {BLITZ_MARGIN:.0%} margin at {BLITZ_LEV}x, full exit at +{BLITZ_ROE:.1%} on the margin", fullExit=True, noadd=True, maxHold=_session_cap(int(J.t[i])))
