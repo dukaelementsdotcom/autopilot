@@ -171,7 +171,7 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 const D=__DATA__;const $=id=>document.getElementById(id);const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const st=s=>s&&s.n?`${s.n} trades · avg ${s.mean>0?"+":""}${s.mean}% · win ${s.hit}% · t ${s.t}${s.avgWin!=null?` · avg win +${s.avgWin}% / avg loss ${s.avgLoss}% (payoff ${s.payoff})`:""}${s.levMean!=null?` · <b>as traded (${s.lev}x): ${s.levMean>0?"+":""}${s.levMean}% of margin per trade${s.liq?`, ${s.liq} liquidations`:""}</b>`:""}`:"no trades yet";
 $("sub").textContent=(()=>{const de=D.runs[0]?.dataEnd;if(!de)return`Paper trading · running since ${D.born} UTC`;const a=new Date(de.replace(" ","T")+"Z"),b=new Date(a.getTime()+36e5),f=d=>d.toISOString().slice(11,16);
- return `Paper trading · running since ${D.born} UTC · newest complete hour: ${de.slice(0,10)} ${f(a)}–${f(b)} UTC (each hourly run uses the hour that just closed)`})();
+ return `Paper trading · running since ${D.born} UTC · newest complete hour: ${de.slice(0,10)} ${f(a)}–${f(b)} UTC (each hourly run uses the hour that just closed) · page built ${D.built||"?"} UTC`})();
 const A1=D.referee&&D.referee.demoAcct,A2=D.referee&&D.referee.acct,fmtUsd=x=>"$"+(x??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct=A=>A?100*(A.equity/A.start-1):0, sgn=x=>(x>=0?"+":"")+x.toFixed(1)+"%";
 const SS=(D.referee&&D.referee.shadow&&D.referee.shadow.short)||{},CR=(D.referee&&D.referee.callRate)||{};
@@ -483,7 +483,7 @@ function demoLive(){const box=document.getElementById("demolive");if(!box)return
  <h3>Closest challengers</h3>${raceH}
  <div class="mute" style="font-size:12.5px;margin-top:10px">Updated every hour (this page refreshes itself). Details: <a href="#accounts" data-go="accounts" style="color:var(--acc)">Accounts → Upgrades under test</a>. The Drosophila research engine and its best-rule testing ground are summarised below.</div></div>`})();
 // refresh by itself when a newer run is published
-setInterval(()=>{fetch("summary.json?"+Date.now()).then(r=>r.json()).then(x=>{if(x.built&&x.built!==D.built)location.reload()}).catch(()=>{})},300000);
+setInterval(()=>{fetch("summary.json?"+Date.now()).then(r=>r.json()).then(x=>{if(x.built&&x.built!==D.built)location.replace(location.pathname+"?b="+String(x.built).replace(/\W/g,"")+location.hash)}).catch(()=>{})},300000);
 
 // ── upgrades under test + honest odds ───────────────────────────────
 (()=>{const O=(D.referee||{}).chalOpen||{},ks=Object.keys(O);if(!ks.length||!$("chalpos"))return;          // contestants' open positions (shadow accounts), with each one's real exit plan
