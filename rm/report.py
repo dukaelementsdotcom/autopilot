@@ -381,17 +381,17 @@ const renderAcct=(A,box,isTeam)=>{if(!A){$(box).innerHTML='<p class="mute">The a
  const gap=(DA.closed||[]).filter(r=>r.paperUsd!=null);const gapTxt=gap.length?`<p class="mute" style="font-size:13px">Real vs paper on ${gap.length} finished trade${gap.length==1?"":"s"}: Binance ${(x=>(x>=0?"+$":"−$")+Math.abs(x).toFixed(2))(gap.reduce((a,r)=>a+r.usd,0))}, Arbiter ${(x=>(x>=0?"+$":"−$")+Math.abs(x).toFixed(2))(gap.reduce((a,r)=>a+r.paperUsd,0))}.</p>`:"";
  $("box").innerHTML=syn+gapTxt+exPanel(DA,10,"box")})();
 // live prices for open positions, straight from Binance in YOUR browser, every 5 seconds (display only; the books update hourly)
-(()=>{const cards=[...document.querySelectorAll(".pos")];if(!cards.length)return;
+(()=>{const gc=()=>[...document.querySelectorAll(".pos")];     // looked up fresh each time: cards drawn later (new accounts, contestants) get live prices too
  const note=document.createElement("div");note.className="mute";note.style.fontSize="12px";note.textContent="Live prices: connecting to Binance…";
  const anchor=$("rbox")||$("box");anchor.parentNode.insertBefore(note,anchor);
  async function prices(){for(const url of["https://fapi.binance.com/fapi/v1/ticker/price","https://data-api.binance.vision/api/v3/ticker/price"]){
    try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)continue;const j=await r.json();const m={};j.forEach(x=>m[x.symbol]=+x.price);return [m,url.includes("fapi")?"Binance futures":"Binance spot"]}catch(e){}}return [null,null]}
  const pick=(m,c)=>m[c+"USDT"]||(c.startsWith("1000")&&m[c.slice(4)+"USDT"]?m[c.slice(4)+"USDT"]*1000:null);
  const T0=(D.newest||0)*1000+36e5,ext={};          // each coin's high and low, minute by minute, since the hour the last run booked
- async function kl(){for(const c of [...new Set(cards.map(el=>el.dataset.coin))]){try{const r=await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${c}USDT&interval=1m&limit=240`,{cache:"no-store"});if(!r.ok)continue;const j=(await r.json()).filter(k=>k[0]>=T0);if(j.length)ext[c]={hi:Math.max(...j.map(k=>+k[2])),lo:Math.min(...j.map(k=>+k[3]))}}catch(e){}}}
+ async function kl(){for(const c of [...new Set(gc().map(el=>el.dataset.coin))]){try{const r=await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${c}USDT&interval=1m&limit=240`,{cache:"no-store"});if(!r.ok)continue;const j=(await r.json()).filter(k=>k[0]>=T0);if(j.length)ext[c]={hi:Math.max(...j.map(k=>+k[2])),lo:Math.min(...j.map(k=>+k[3]))}}catch(e){}}}
  kl();setInterval(kl,60000);
  async function tick(){const [m,src]=await prices();if(!m){note.textContent="Live prices unavailable right now (values below are from the last hourly run).";return}
-  const tot={};cards.forEach(el=>{const px=pick(m,el.dataset.coin);if(!px)return;const q={sd:+el.dataset.sd,avg:+el.dataset.avg,notional:+el.dataset.notional,margin:+el.dataset.margin,tp:+el.dataset.tp||null,sl:+el.dataset.sl||null,lo:+el.dataset.lo||null,hi:+el.dataset.hi||null};
+  const tot={};gc().forEach(el=>{const px=pick(m,el.dataset.coin);if(!px)return;const q={sd:+el.dataset.sd,avg:+el.dataset.avg,notional:+el.dataset.notional,margin:+el.dataset.margin,tp:+el.dataset.tp||null,sl:+el.dataset.sl||null,lo:+el.dataset.lo||null,hi:+el.dataset.hi||null};
    const pn=pnlOf(q,px),roe=pn/q.margin*100,c=`var(--${pn>=0?"good":"bad"})`;tot[el.dataset.acct]=(tot[el.dataset.acct]||0)+pn;
    const u=el.querySelector(".upnl"),r=el.querySelector(".roe"),mk=el.querySelector(".mark"),dot=el.querySelector(".mk");
    u.textContent=(pn>=0?"+":"")+usd(pn);u.style.color=c;r.textContent=`ROE ${roe>=0?"+":""}${roe.toFixed(2)}%`;r.style.color=c;mk.textContent=fx(px);
