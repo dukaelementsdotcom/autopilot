@@ -267,10 +267,12 @@ def run(budget=None, log=print):
         for k in ("team", "allin", "account"):               # 'account' = the best-rule testing ground, retired Nov 13 (it fed no decision)
             if k in mem: archive.keep(f"retired_{k}", [mem.pop(k)])
     safe("retire old accounts", retire_accounts)
+    from . import regime_vote, blitz, wide, demo
+    rv = safe("dynamic regime voting", regime_vote.compute, P, log=log)
+    if rv: mem["regimeVotes"] = rv
     safe("referee account", referee.step, mem, J, now_iso(), log=log)
-    from . import wide
+    safe("blitz lab", blitz.step, mem, J, now_iso(), log=log)
     safe("wider-universe contestant", wide.step, mem, J, now_iso(), blocks, log=log)
-    from . import demo
     safe("binance demo account", demo.mirror, mem.get("referee") or {}, log=log)
     dropped = safe("memory clean-up", compact, mem) or 0
 

@@ -1,76 +1,172 @@
-"""AGENT TEAM (weekly research): observer -> strategist -> checker -> tester -> notebook.
-  observer   reads where the long side stands (live health report) and what ideas were already tried
-  strategist the AI (Groq first, Google AI Studio behind it, retried) invents ONE long-side rule: a true/false expression over past-only measurements
-  checker    rm/agent_rule.py accepts only plain comparisons of those measurements (no code from the AI is ever run); a bad rule goes back to the AI with the reason
-  tester     the same walk-forward as the lab tests: 7 separate 120-day windows, no brain, one random trade a day, against a baseline
-  notebook   rm/agent_ideas/<date>_<name>.json: the idea, the rule, the numbers and the verdict (committed by the workflow)
-Nothing here touches the Arbiter. A PASS only means 'worth racing as a contestant'; the live race decides. The run FAILS (so you hear about it) if no idea could be tested."""
-import os, re, sys, json, time, glob, datetime as dt, requests
-from . import config as C, features, ideas, agent_rule as AR
-from .judge import Judge
+"""Agent Team: Reads health.json, invents a valid DSL/Judge hypothesis via Gemini or Groq,
+validates it against the schema & persistent memory, and stages it for testing."""
+import os, json, re, time, requests
+from . import config as C
 
-OUT = "rm/agent_ideas"
-MEANING = ("p_* = a percentile rank (0 to 1) against the coin's own recent history; x_* = the same measured across the whole market; "
-           "positioning (p_glob, p_topPos, p_oi*), flow (p_timb*, p_tk*, p_vr), trend (p_r1..p_r168 = recent returns, p_pos24 = where price sits in its 24h range, don20, emat, emax, rsi14, bbz, adx14, streak), "
-           "volatility (p_vol24, p_volr), leverage (p_basis*, p_hlprem*, p_hlfund24), real money (p_sshare*, p_stimb24), mood (p_btc_r1, p_btc_r24, p_fg, p_cbp*, p_dvol*, p_stab7, hour, dow)")
+GITHUB_REPO = "dukaelementsdotcom/autopilot"
+GITHUB_BRANCH = "gh-pages"
+HEALTH_DIR = "autopilot"
 
-def health():
+
+def call_llm(prompt, json_mode=True):
+    """Calls Gemini (gemini-2.5-flash) or falls back to Groq (llama-3.3-70b-versatile)."""
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if gemini_key:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        if json_mode:
+            payload["generationConfig"] = {"response_mime_type": "application/json"}
+        try:
+            r = requests.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=60)
+            data = r.json()
+            if "candidates" in data:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            print(f"Gemini API warning: {data.get('error', data)}")
+        except Exception as e:
+            print(f"Gemini request failed: {e}")
+
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": prompt}],
+                    **({"response_format": {"type": "json_object"}} if json_mode else {}),
+                },
+                timeout=60,
+            )
+            data = r.json()
+            if "choices" in data:
+                return data["choices"][0]["message"]["content"]
+            print(f"Groq API warning: {data}")
+        except Exception as e:
+            print(f"Groq request failed: {e}")
+
+    return json.dumps({"error": "No working GEMINI_API_KEY or GROQ_API_KEY available"})
+
+
+def get_latest_health():
+    """Load local docs/health.json first, then GitHub gh-pages fallback."""
+    local_p = "docs/health.json"
+    if os.path.exists(local_p):
+        try:
+            return json.load(open(local_p))
+        except Exception:
+            pass
     try:
-        r = requests.get("https://dukaelementsdotcom.github.io/autopilot/health.json", timeout=30)
-        if r.status_code == 200: return r.json()
-    except Exception as e: print("health report not reachable:", str(e)[:100])
-    return {}
+        r = requests.get("https://dukaelementsdotcom.github.io/autopilot/health.json", timeout=20)
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        print(f"Error fetching remote health.json: {e}")
+    return None
 
-def tried():
-    out = []
-    for f in sorted(glob.glob(f"{OUT}/*.json")):
-        try: d = json.load(open(f)); out.append(f"{d.get('rule_name')}: {d.get('rule_expr')} -> {d.get('result', {}).get('summary', {}).get('verdict')}")
-        except Exception: pass
-    return out
 
-def ask(messages):
-    """Groq first, Google AI Studio behind it; retried with a pause (503 'high demand' passes)"""
-    for attempt in range(3):
-        txt, who = ideas._groq_call(messages, 1500)
-        if txt:
-            a, b = txt.find("{"), txt.rfind("}")
-            try: return json.loads(txt[a:b + 1]), who
-            except Exception as e: print(f"AI answer was not valid JSON ({who}): {str(e)[:80]}")
-        else: print(f"AI unavailable (attempt {attempt + 1}/3): {who}")
-        time.sleep(20 * (attempt + 1))
-    return None, None
+def _load_agent_memory():
+    p = f"{C.STATE_DIR}/agent_hypotheses.json"
+    if os.path.exists(p):
+        try:
+            return json.load(open(p))
+        except Exception:
+            pass
+    return {"history": []}
 
-def main():
-    hh = health(); long_ = (((hh.get("referee") or {}).get("calibration") or {}).get("bySide") or {}).get("long") or {}
-    ctx = (f"The long side's live shadow calls win {long_['hit']:.0%} of the time against the {long_.get('pred', 0):.0%} predicted. " if long_.get("hit") is not None else "") + "The system has no working long-side edge yet."
-    prev = tried(); print("Observer:", ctx, f"| {len(prev)} earlier ideas")
-    blocks = []
-    try: blocks = json.load(open(f"{C.STATE_DIR}/memory.json")).get("blocks") or []
-    except Exception: pass
-    J = Judge(features.build(blocks=blocks)); allowed = [c for c in AR.OKCOLS if c in J.cols]
-    prompt = (f"You are a quantitative researcher for a crypto futures system (hourly data, 54 coins). {ctx}\n"
-              f"Invent ONE rule that picks hours when a LONG trade (+2% target before a volatility stop, within 48h) is more likely to work than at a random hour.\n"
-              f"Measurements you may use (past-only): {', '.join(allowed)}.\nMeaning: {MEANING}.\n"
-              "The rule is ONE true/false expression using only those measurements, plain numbers, + - * /, abs(x), comparisons < > <= >=, joined with & | ~ ; put every comparison in parentheses. "
-              "Example: ((p_r24 < 0.2) & (p_glob < 0.3) & (p_timb4 > 0.6)).\n"
-              + (f"Ideas already tried (do not repeat them):\n- " + "\n- ".join(prev[-30:]) + "\n" if prev else "")
-              + 'Answer with one JSON object: {"rule_name": "short_snake_case", "description": "one or two plain sentences on why it should work", "rule_expr": "the expression"}')
-    msgs = [{"role": "system", "content": "You are a careful quantitative researcher. Answer with one JSON object only, no other text."}, {"role": "user", "content": prompt}]
-    idea = None; who = None; result = None; err = None
-    for attempt in range(3):
-        idea, who = ask(msgs)
-        if not idea: break
-        try: result = AR.evaluate(J, idea.get("rule_expr", "")); break
-        except ValueError as e:
-            err = str(e); print(f"Checker rejected the rule (attempt {attempt + 1}/3): {err}")
-            msgs += [{"role": "assistant", "content": json.dumps(idea)}, {"role": "user", "content": f"That rule was rejected: {err}\nFix it and answer with the same JSON object."}]
-    if not result:
-        print("FAILED: no idea could be tested this week." + (f" Last rejection: {err}" if err else " The AI did not answer.")); sys.exit(1)
-    name = re.sub(r"[^a-z0-9_]", "", str(idea.get("rule_name", "rule")).lower().replace(" ", "_"))[:40] or "rule"
-    rec = {"at": dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), "model": who, "context": ctx, "rule_name": name, "description": idea.get("description"), "rule_expr": idea.get("rule_expr"),
-           "result": result, "ideasTriedSoFar": len(prev) + 1,
-           "note": "history only: with many ideas tried, some pass by luck. A PASS means 'worth racing as a contestant', never 'proven'."}
-    os.makedirs(OUT, exist_ok=True); path = f"{OUT}/{dt.datetime.utcnow():%Y-%m-%d}_{name}.json"; json.dump(rec, open(path, "w"), indent=1)
-    print(json.dumps(result["summary"])); print("Wrote", path)
 
-if __name__ == "__main__": main()
+def _save_agent_memory(mem):
+    os.makedirs(C.STATE_DIR, exist_ok=True)
+    p = f"{C.STATE_DIR}/agent_hypotheses.json"
+    with open(p, "w") as f:
+        json.dump(mem, f, indent=2)
+
+
+def validate_rule_schema(rule):
+    """Ensure the generated rule matches rm/judge.py event schema and has valid fields."""
+    if not isinstance(rule, dict):
+        return False, "not a dict"
+    if rule.get("kind") != "event":
+        return False, "kind must be 'event'"
+    if rule.get("side") not in ("long", "short"):
+        return False, "side must be 'long' or 'short'"
+    when = rule.get("when")
+    if not isinstance(when, list) or not (1 <= len(when) <= 4):
+        return False, "when must be 1..4 conditions"
+    for cond in when:
+        if not isinstance(cond, dict) or "f" not in cond or "op" not in cond or "v" not in cond:
+            return False, f"invalid condition {cond}"
+        if cond["op"] not in (">", "<", ">=", "<="):
+            return False, f"invalid op {cond['op']}"
+    return True, "ok"
+
+
+def run_agent_team():
+    health = get_latest_health() or {}
+    by_side = health.get("referee", {}).get("calibration", {}).get("bySide", {})
+    long_hit = (by_side.get("long") or {}).get("hit", 0)
+    short_hit = (by_side.get("short") or {}).get("hit", 0)
+
+    mem = _load_agent_memory()
+    past_names = [x.get("rule_name") for x in mem.get("history", [])[-25:]]
+
+    prompt = f"""
+You are a Quantitative Researcher for Volvox (crypto perpetuals & spot engine).
+Current live telemetry: Long hit rate = {long_hit:.1%}, Short hit rate = {short_hit:.1%}.
+Previously proposed rules (DO NOT repeat): {past_names}
+
+Available panel features include:
+- Macro/Mood: p_fg, p_dvol, p_stab7, p_mtrend
+- Microstructure/Flow: p_timb4, p_timb24, p_oi24, p_oiz, p_basis, p_hlfund24, p_sshare
+- Price/Vol: p_r1, p_r4, p_r24, p_vol24, p_volr, rsi14, bbz, adx14
+
+Propose ONE new, non-redundant Judge event rule in strict JSON with:
+- "rule_name": short snake_case identifier
+- "thesis": 1-sentence economic/microstructure rationale
+- "rule": {{
+    "kind": "event",
+    "side": "long" or "short",
+    "when": [{{"f": "<feature_name>", "op": ">" or "<", "v": <float>}}, ...],
+    "exit": {{"tp": 0.03, "sl": 0.015, "h": 48}},
+    "cool": 24
+  }}
+"""
+    print("Strategist is formulating a new hypothesis...")
+    raw = call_llm(prompt, json_mode=True)
+    clean = re.sub(r"^```[a-zA-Z]*\s*", "", raw.strip())
+    clean = re.sub(r"\s*```$", "", clean)
+
+    try:
+        idea = json.loads(clean)
+        if "error" in idea:
+            print(f"Agent skipped: {idea['error']}")
+            return None
+        ok, msg = validate_rule_schema(idea.get("rule"))
+        if not ok:
+            print(f"Schema validation failed: {msg}")
+            return None
+    except Exception as e:
+        print(f"Failed to parse agent output: {e}")
+        return None
+
+    name = idea.get("rule_name", f"agent_rule_{int(time.time())}")
+    if name in past_names:
+        print(f"Duplicate rule '{name}' rejected.")
+        return None
+
+    entry = {
+        "at": time.strftime("%Y-%m-%d %H:%M", time.gmtime()),
+        "rule_name": name,
+        "thesis": idea.get("thesis", ""),
+        "rule": idea["rule"],
+        "status": "staged",
+    }
+    mem["history"].append(entry)
+    mem["history"] = mem["history"][-200:]
+    _save_agent_memory(mem)
+    print(f"SUCCESS: Validated and staged '{name}' ({entry['rule']['side']}) -> {C.STATE_DIR}/agent_hypotheses.json")
+    return entry
+
+
+if __name__ == "__main__":
+    run_agent_team()
