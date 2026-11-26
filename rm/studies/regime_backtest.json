@@ -1,0 +1,498 @@
+{
+ "at": "2026-11-26 21:51 UTC",
+ "hours": 52706,
+ "from": "2020-11-20",
+ "to": "2026-11-25",
+ "factorsUsable": 50,
+ "note": "Spearman on one sample per day; 'ci95Daily(+-)' is the noise band: a correlation inside it is indistinguishable from zero. Scores use only past information.",
+ "versions": {
+  "ic_weighted": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0271,
+    "spearmanDaily": -0.0174,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": -0.0252,
+    "spearmanDaily": -0.0276,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0449,
+    "spearmanDaily": -0.0427,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 11104,
+     "avgNext24hPct": 0.075,
+     "up%": 53.9
+    },
+    "Q2": {
+     "hours": 9918,
+     "avgNext24hPct": -0.049,
+     "up%": 50.2
+    },
+    "Q3": {
+     "hours": 9807,
+     "avgNext24hPct": 0.022,
+     "up%": 51.0
+    },
+    "Q4": {
+     "hours": 10347,
+     "avgNext24hPct": 0.012,
+     "up%": 49.8
+    },
+    "Q5 most bullish": {
+     "hours": 10762,
+     "avgNext24hPct": 0.142,
+     "up%": 51.1
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": 0.005,
+    "winDays%": 48.9,
+    "tStat": 0.08,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    -0.0052,
+    -0.0639,
+    0.0115,
+    -0.0129
+   ]
+  },
+  "ic_weighted_macroOnly": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.035,
+    "spearmanDaily": -0.0165,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": -0.0366,
+    "spearmanDaily": -0.0348,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0377,
+    "spearmanDaily": -0.0287,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 10859,
+     "avgNext24hPct": -0.011,
+     "up%": 51.8
+    },
+    "Q2": {
+     "hours": 9158,
+     "avgNext24hPct": 0.307,
+     "up%": 54.7
+    },
+    "Q3": {
+     "hours": 11157,
+     "avgNext24hPct": -0.062,
+     "up%": 50.8
+    },
+    "Q4": {
+     "hours": 10580,
+     "avgNext24hPct": -0.162,
+     "up%": 47.1
+    },
+    "Q5 most bullish": {
+     "hours": 10184,
+     "avgNext24hPct": 0.189,
+     "up%": 52.2
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": -0.038,
+    "winDays%": 49.3,
+    "tStat": -0.61,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    -0.0613,
+    0.0103,
+    0.0117,
+    -0.0246
+   ]
+  },
+  "ic_weighted_microOnly": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0096,
+    "spearmanDaily": -0.018,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": -0.0077,
+    "spearmanDaily": -0.0097,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0336,
+    "spearmanDaily": -0.0448,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 10395,
+     "avgNext24hPct": 0.006,
+     "up%": 51.6
+    },
+    "Q2": {
+     "hours": 10336,
+     "avgNext24hPct": 0.071,
+     "up%": 52.0
+    },
+    "Q3": {
+     "hours": 10435,
+     "avgNext24hPct": 0.034,
+     "up%": 52.0
+    },
+    "Q4": {
+     "hours": 10200,
+     "avgNext24hPct": 0.017,
+     "up%": 49.2
+    },
+    "Q5 most bullish": {
+     "hours": 10572,
+     "avgNext24hPct": 0.084,
+     "up%": 51.4
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": 0.03,
+    "winDays%": 49.3,
+    "tStat": 0.48,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    0.0343,
+    -0.1071,
+    0.0188,
+    -0.0205
+   ]
+  },
+  "equal": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0011,
+    "spearmanDaily": 0.0135,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": 0.0227,
+    "spearmanDaily": 0.0275,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": 0.0055,
+    "spearmanDaily": 0.0253,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 11825,
+     "avgNext24hPct": -0.071,
+     "up%": 51.6
+    },
+    "Q2": {
+     "hours": 9784,
+     "avgNext24hPct": -0.019,
+     "up%": 50.7
+    },
+    "Q3": {
+     "hours": 9442,
+     "avgNext24hPct": -0.025,
+     "up%": 51.3
+    },
+    "Q4": {
+     "hours": 9750,
+     "avgNext24hPct": 0.181,
+     "up%": 52.3
+    },
+    "Q5 most bullish": {
+     "hours": 11137,
+     "avgNext24hPct": 0.153,
+     "up%": 50.3
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": 0.008,
+    "winDays%": 49.3,
+    "tStat": 0.12,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    0.0427,
+    -0.0665,
+    0.0227,
+    0.0251
+   ]
+  },
+  "signed_ic": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0441,
+    "spearmanDaily": -0.0505,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": -0.0601,
+    "spearmanDaily": -0.0665,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": -0.0732,
+    "spearmanDaily": -0.0846,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 10324,
+     "avgNext24hPct": 0.168,
+     "up%": 53.2
+    },
+    "Q2": {
+     "hours": 10051,
+     "avgNext24hPct": 0.055,
+     "up%": 51.9
+    },
+    "Q3": {
+     "hours": 10153,
+     "avgNext24hPct": 0.125,
+     "up%": 52.9
+    },
+    "Q4": {
+     "hours": 10113,
+     "avgNext24hPct": 0.034,
+     "up%": 50.4
+    },
+    "Q5 most bullish": {
+     "hours": 11297,
+     "avgNext24hPct": -0.15,
+     "up%": 48.0
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": -0.087,
+    "winDays%": 47.7,
+    "tStat": -1.39,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    -0.0858,
+    -0.0371,
+    0.0096,
+    -0.0645
+   ]
+  },
+  "btc_50d": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": 0.0408,
+    "spearmanDaily": 0.0501,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": 0.0671,
+    "spearmanDaily": 0.0721,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": 0.0588,
+    "spearmanDaily": 0.0718,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 7224,
+     "avgNext24hPct": -0.199,
+     "up%": 49.8
+    },
+    "Q2": {
+     "hours": 13809,
+     "avgNext24hPct": -0.217,
+     "up%": 49.1
+    },
+    "Q3": {
+     "hours": 13892,
+     "avgNext24hPct": 0.25,
+     "up%": 52.7
+    },
+    "Q4": {
+     "hours": 9458,
+     "avgNext24hPct": 0.143,
+     "up%": 52.4
+    },
+    "Q5 most bullish": {
+     "hours": 7555,
+     "avgNext24hPct": 0.239,
+     "up%": 52.2
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": 0.182,
+    "winDays%": 51.1,
+    "tStat": 2.89,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    0.078,
+    0.0395,
+    0.0246,
+    0.0456
+   ]
+  },
+  "trend_7d": {
+   "vsBTCnext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": 0.004,
+    "spearmanDaily": -0.0017,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsBTCnext48h": {
+    "hours": 52608,
+    "days": 2192,
+    "spearmanHourly": 0.0117,
+    "spearmanDaily": 0.0158,
+    "ci95Daily(+-)": 0.042
+   },
+   "vsAvgCoinNext24h": {
+    "hours": 52657,
+    "days": 2195,
+    "spearmanHourly": 0.0213,
+    "spearmanDaily": 0.0247,
+    "ci95Daily(+-)": 0.042
+   },
+   "buckets": {
+    "Q1 most bearish": {
+     "hours": 6052,
+     "avgNext24hPct": 0.115,
+     "up%": 53.6
+    },
+    "Q2": {
+     "hours": 19008,
+     "avgNext24hPct": -0.099,
+     "up%": 51.8
+    },
+    "Q4": {
+     "hours": 23645,
+     "avgNext24hPct": 0.115,
+     "up%": 50.5
+    },
+    "Q5 most bullish": {
+     "hours": 3174,
+     "avgNext24hPct": 0.26,
+     "up%": 50.1
+    }
+   },
+   "directionRule(BTC next 24h)": {
+    "days": 2195,
+    "avgPerDayPct": 0.076,
+    "winDays%": 48.5,
+    "tStat": 1.2,
+    "buyAndHoldAvgPerDayPct": 0.053
+   },
+   "stabilityBy4slices(spearmanDaily)": [
+    0.0564,
+    -0.0444,
+    -0.0427,
+    0.0093
+   ]
+  }
+ },
+ "weightsNow(top10 by IC)": [
+  {
+   "factor": "VIX Fear Level",
+   "vote": -0.99,
+   "ic": -0.354
+  },
+  {
+   "factor": "DXY Momentum (5d)",
+   "vote": 0.07,
+   "ic": 0.284
+  },
+  {
+   "factor": "Spot-Perp CVD Div (72h)",
+   "vote": 0.019,
+   "ic": -0.278
+  },
+  {
+   "factor": "Nasdaq-100 (1d)",
+   "vote": -0.807,
+   "ic": -0.267
+  },
+  {
+   "factor": "BTC Deribit DVOL",
+   "vote": -1.0,
+   "ic": -0.249
+  },
+  {
+   "factor": "BTC Exchange Supply (7d)",
+   "vote": -0.096,
+   "ic": 0.249
+  },
+  {
+   "factor": "Global NDX (20d)",
+   "vote": -0.851,
+   "ic": -0.243
+  },
+  {
+   "factor": "Sector Rotation (7d)",
+   "vote": 0.262,
+   "ic": 0.241
+  },
+  {
+   "factor": "US 10Y Yield (5d)",
+   "vote": 0.658,
+   "ic": 0.205
+  },
+  {
+   "factor": "BTC Exchange Netflow",
+   "vote": -0.211,
+   "ic": 0.193
+  }
+ ]
+}
