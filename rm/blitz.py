@@ -211,8 +211,15 @@ def step(mem, J, now_iso, log=print):
                     signals.append({"arm": "contrarian_fade", "coin": row["coin"], "sd": 1, "prob": 0.58})
 
     # Slice recent 72h candles per coin for fast replay
-    recent_P = P[P.t >= t_now - 72 * HOUR]
-    candles_by_coin = {coin: df.sort_values("t") for coin, df in recent_P.groupby("coin")}
+    import pandas as pd                                    # hourly bars come from the same source as the rest of the system (columns t,o,h,l,c); the panel has no 'Cl' column
+    need = {s["coin"] for s in signals} | {p["coin"] for a in blitz["arms"].values() for p in a.get("open", [])}
+    candles_by_coin = {}
+    for coin in need:
+        try:
+            T, O, Hh, Ll, Cc = J._bars(coin); m = T >= t_now - 72 * HOUR
+            candles_by_coin[coin] = pd.DataFrame({"t": T[m], "O": O[m], "H": Hh[m], "L": Ll[m], "Cl": Cc[m]})
+        except Exception as e:
+            log(f"blitz lab: no bars for {coin}: {e}")
 
     summary = []
     for key, cfg in ARMS.items():

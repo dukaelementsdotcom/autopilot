@@ -213,6 +213,11 @@ def step(mem, J, now_iso, log=print, problems=None):
     newest = int(J.t.max())
     chal = CH.sync(R, B, Hd=Hd) if B is not None else {}
     champ_cfg = CH.cfg_of(R, "champion")
+    for n in RESET_ONCE:                                                # owner, Nov 25: the old loose-entry blitz is parked (record kept in R['parked']) and restarts clean on the new design
+        c = chal.get(n); done = R.setdefault("resetDone", [])
+        if c and c.get("acct") and n not in done:
+            a = c["acct"]; R.setdefault("parked", {})[n + "-v1 (loose entries)"] = {"parkedAt": now_iso, "start": a.get("start"), "equity": a.get("equity", a.get("cash")), "closed": a.get("closed", [])[-60:], "rotations": a.get("rotations", [])[-30:]}
+            c.pop("acct"); done.append(n); log(f"challengers: {n} parked and reset (owner, Nov 25)")
     for n, c in chal.items():
         if c["kind"] == "policy" and "acct" not in c:
             c["acct"] = new_acct(J, now_iso); c["acct"].update(champAtBirth=A.get("equity", A["cash"]), bornT=newest)
@@ -456,13 +461,20 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
     if cfg.get("weekpace"):                                    # weekly goal with carry-over: a quiet day's unused trade can be used later in the same week (up to 3 in a day)
         wk0 = (newest // 86400 - ((newest // 86400 + 3) % 7)) * 86400; done_w = sum(1 for x in A["open"] + A["closed"][-40:] if x["t"] >= wk0)
         cap_day = int(max(1, min(3, (newest - wk0) // 86400 + 1 - done_w)))
+    active = bool(cfg.get("active"))
+    if active: cap_day = 99
     for pos in np.argsort(J.t[rows], kind="stable"):
         i = int(rows[pos]); day = int(J.t[i] // 86400)
         if int(J.t[i]) < newest - H or newest < time.time() - 4 * H: continue   # never enter at a stale price (after a data outage, only the newest hour counts)
         if any(x["coin"] == str(J.coin[i]) for x in A["open"]): continue
         today = [x for x in A["open"] + A["closed"][-20:] if int(x["t"] // 86400) == day]
+        room = 0.0
+        if active:                                            # margin budget instead of a trade count: total margin in use stays within 30% of the account
+            room = ACTIVE_MARGIN - sum(x.get("margin", 0) for x in A["open"]) / max(1e-9, A.get("equity", A["cash"]))
+            if room < 0.04: break
         best = None
         for name, sd in B["sides"].items():
+            if cfg.get("onlySide") and name != cfg["onlySide"]: continue            # side specialist (shorts-only)
             fast = cfg.get("gate2") == "bocpd" and name == "long" and (R.get("bocpd") or {}).get("unlocked")      # changepoint fast-track (contestant only)
             if cfg.get("tide"):                                   # the tide contestant: a side trades only when the market-type reader says so (longs too)
                 try:
@@ -472,9 +484,9 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
                         if (name == "short" and x_["macro"] == 1) or (name == "long" and x_["tide"] != 1): continue
                     elif x_["tide"] != (1 if name == "long" else -1): continue
                 except Exception: continue                     # a reader failure only stops the contestant, never the Arbiter
-            elif not (cfg.get("statebar") or fast or side_live(R, name, sd, REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
+            elif not (cfg.get("statebar") or cfg.get("active") or fast or side_live(({**R, "regimeOverride": {}} if cfg.get("noregime") else R), name, sd, None if cfg.get("noregime") else REG.get(int(J.t[i])))): continue      # the state plan decides which side trades where
             g = K[name]["grade"][pos]
-            if g == "B" and int(J.t[i] % 86400 // H) < 18: g = None
+            if g == "B" and int(J.t[i] % 86400 // H) < 18 and not active: g = None
             if not g: continue
             if len(today) >= cap_day and not (fluid and g == "S"): continue   # the champion keeps one trade a day; only the fluid-pace challenger lets Grade S through
             if fluid and len(A["open"]) >= 3 and g != "S": continue
@@ -482,7 +494,7 @@ def _trade(J, B, R, Hd, A, cfg, rows, S, REG, V, now_iso, newest, ctx, log=print
             if best is None or score_ > best[3]: best = (name, g, float(K[name]["pt"][pos]), float(score_))
         if not best: continue
         if guard and not _guard_ok(A, best[0], str(J.coin[i]), K[best[0]]["stop"][pos], ctx): continue
-        _open(J, B, A, i, best, float(K[best[0]]["stop"][pos]), float(K[best[0]]["be"][pos]), S, pos, V.get(i, []), now_iso, R, cfg,
+        _open(J, B, A, i, best, float(K[best[0]]["stop"][pos]), float(K[best[0]]["be"][pos]), S, pos, V.get(i, []), now_iso, R, ({**cfg, "_budget": min(ACTIVE_TRADE, room)} if active else cfg),
               T=float(K[best[0]]["T"][pos]), Hz=int(K[best[0]]["Hz"][pos]), ctx=ctx)
         if A["open"] and A["open"][-1]["t"] == int(J.t[i]) and A["open"][-1]["coin"] == str(J.coin[i]): A["open"][-1]["regime"] = REG.get(int(J.t[i]))
 
@@ -496,6 +508,8 @@ def _guard_ok(A, side, coin, stp, ctx):
     now = time.time(); dayP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 86400); wkP = sum(x.get("usd", 0) for x in A["closed"] if x.get("exitT", 0) > now - 7 * 86400)
     return dayP > -0.05 * eq and wkP > -0.10 * eq
 
+RESET_ONCE = ("blitz", "blitz-rotate")
+ACTIVE_MARGIN, ACTIVE_TRADE = 0.30, 0.10      # the 'active' Arbiter (owner, Nov 25): at most 30% of the account as margin at any time, split over trades of at most 10% each; no trade-a-day cap
 MAX_LEV = 20
 def lev_for(stp):
     """leverage per trade: as high as 20x, but the liquidation price always stays at least 2.5x the stop distance away"""
@@ -515,6 +529,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
             ctx["live"] = live_prices(set(J.coin[np.flatnonzero(J.t == J.t[i])].tolist())) or {}
         lp = ctx["live"].get(str(J.coin[i]))
         if lp and abs(lp / e - 1) < 0.05: e, via = float(lp), "live price"
+    if cfg.get("_entry"): e, via = float(cfg["_entry"]), "limit order at a key level"      # sniper: a resting limit order filled at its level
     mult = ((R or {}).get("adapt") or {}).get(name, {}).get("riskMult", 1.0)
     risk = RISK["A" if g in ("A", "S") else "B"] * mult
     if cfg.get("size") == "kelly":                            # fractional (quarter) Kelly from the calibrated odds, kept within 0.5x-1.5x of plan
@@ -530,9 +545,9 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
         elif edge >= 0.03 and nfor >= 2: tier, risk = "standard", 0.01 + 0.01 * min(1.0, (edge - 0.03) / 0.05)
         elif edge > 0: tier, risk = "probe", 0.005
         else: return                                          # no calibrated edge: skip
-    lev = lev_for(stp); cap = (cfg.get("_budget") or margin_cap(A) * (2.0 if cfg.get("size") == "bold" else 1.0)) * eq * lev
+    lev = int(cfg.get("_lev") or lev_for(stp)); cap = (cfg.get("_budget") or margin_cap(A) * (2.0 if cfg.get("size") == "bold" else 1.0)) * eq * lev
     if cfg.get("_risk") is not None: risk = cfg["_risk"]
-    risk = min(risk, C.RISK_TRADE_MAX)                        # HARD CEILING (config, human-set): no path can size above it
+    if not cfg.get("_nocap"): risk = min(risk, C.RISK_TRADE_MAX)   # HARD CEILING (config, human-set): no path can size above it. ONLY the owner-ordered shadow contestant "blitz" (paper, never the Arbiter) sets _nocap
     notional = min(risk * eq / stp, cap); margin = notional / lev
     fams = {f: round(float(v[pos]), 3) for f, v in S[name]["fams"].items()}; base = B["sides"][name]["base"]
     card = {"for": sorted([f for f, p in fams.items() if p >= base + 0.03], key=lambda f: -fams[f]), "against": [f for f, p in fams.items() if p <= base - 0.03],
@@ -548,7 +563,7 @@ def _open(J, B, A, i, best, stp, be, S, pos, votes_, now_iso, R=None, cfg=None, 
     A["open"].append(p); A["decisions"].append({"at": now_iso, "t": p["t"], "coin": p["coin"], "side": p["side"], "grade": g, "prob": p["prob"], "card": card,
                                                 "target": T, "fill": via})
 
-CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False}
+CHAMP_DEFAULT = {"shape": "fixed", "pace": "daily1", "risk": "plain", "size": "fixed", "odds": "weekly", "shock": False, "doubt": False, "cointrust": False, "rules": False, "alloc": False, "lowbar": False, "lock": False, "curious": False, "curiousSide": False, "spec": None, "trend": "v1", "statebar": False, "gate": False, "bestofday": False, "timestop": False, "weekpace": False, "gate2": None, "steps": False, "sl3": None, "tide": False, "noregime": False, "onlySide": None, "active": False}
 
 def val_signs(J, B):
     """per side and measurement: its relationship with winning on the validation year (the 'expected' sign)"""
@@ -672,7 +687,7 @@ def _manage(J, B, p, A, newest):
         if (sd > 0 and lo <= p["stop"]) or (sd < 0 and hi >= p["stop"]):
             _close(A, p, p["stop"], "stop" if not p["half"] else "break-even / trailing stop", t + H); return
         if not p["half"] and ((sd > 0 and hi >= p["target"]) or (sd < 0 and lo <= p["target"])):
-            if p.get("fullExit"): _close(A, p, p["target"], f"target +{p.get('tgtPct', TARGET)*100:.0f}% (full exit)", t + H); return
+            if p.get("fullExit"): _close(A, p, p["target"], f"target +{p.get('tgtPct', TARGET)*100:.1f}% (full exit)", t + H); return
             _close(A, p, p["target"], f"half at +{p.get('tgtPct', TARGET)*100:.0f}%", t + H, part=0.5); p["half"] = True
             p["stop"] = p["entry"] * (1 + sd * C.FEE * 2)                          # rest is now risk-free (break-even)
         if p.get("steps") and p["half"]:          # three-step exit (lab test Nov 16): 25% more at +3% (stop to +1%), the last 25% at +4.5%
@@ -704,7 +719,7 @@ def _manage(J, B, p, A, newest):
                     trail = p["best"] * (1 - sd * (1.5 if cont >= 0.6 else 1.0) * dv)
                     if p.get("lock"): trail = p["entry"] * (1 + sd * 0.5 * peak) if sd * (trail / p["entry"] - 1) < 0.5 * peak else trail   # keep at least half of the best open profit
                     p["stop"] = max(p["stop"], trail) if sd > 0 else min(p["stop"], trail)
-                elif not p["added"] and gain >= 0.01 and cont >= 0.6:
+                elif not p["added"] and not p.get("noadd") and gain >= 0.01 and cont >= 0.6:
                     p["units"].append([px, _size(p) * 0.5]); p["added"] = True
                     p["stop"] = p["entry"] if sd > 0 else p["entry"]                    # whole position now stops at the first entry
                     p["margin"] = round(_size(p) / p.get("lev", LEV), 2)

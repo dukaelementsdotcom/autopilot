@@ -70,6 +70,7 @@ def polymarket(log=print):
     log(f"polymarket: {len(df)} markets"); return {"markets": int(len(df)), "rows": int(len(out))}
 
 # ── daily / weekly (full history downloaded on the first run) ─────────────────────
+DEFI_COLS = ["stable_total", "tvl_all", "tvl_Ethereum", "tvl_Solana", "tvl_Tron", "dex_vol_all", "dex_vol_ethereum", "dex_vol_solana"]
 def defillama(log=print):
     rows = []; errs = []
     def add(metric, pairs):
@@ -90,8 +91,11 @@ def defillama(log=print):
             add(f"dex_vol_{ch or 'all'}", [(d, v) for d, v in j.get("totalDataChart", [])])
         except Exception as e: errs.append(f"dex_{ch}: {str(e)[:60]}")
     if not rows: return {"error": "; ".join(errs) or "empty"}
-    path = KEEP("defi_daily.parquet"); out = _merge(path, pd.DataFrame(rows), ["t", "metric"]); _save(out, path)
-    log(f"defillama: {len(rows)} points, {out.metric.nunique()} series"); return {"rows": int(len(out)), "series": int(out.metric.nunique()), **({"partial": errs[:4]} if errs else {})}
+    # one COLUMN per series (the evidence engine reads each numeric column as its own measurement; one mixed 'value' column would average stablecoins with DEX volume = nonsense).
+    wide = pd.DataFrame(rows).pivot_table(index="t", columns="metric", values="value", aggfunc="last").reset_index()
+    keep = [c for c in DEFI_COLS if c in wide.columns]; wide = wide[["t"] + keep].sort_values("t")
+    path = KEEP("defi_daily.parquet"); _save(wide, path)                     # full history downloaded every time, so the file is simply replaced
+    log(f"defillama: {len(wide)} days, series {keep}"); return {"days": int(len(wide)), "series": keep, **({"partial": errs[:4]} if errs else {})}
 
 CFTC_COLS = ["open_interest_all", "dealer_positions_long_all", "dealer_positions_short_all", "asset_mgr_positions_long", "asset_mgr_positions_short", "lev_money_positions_long", "lev_money_positions_short",
              "other_rept_positions_long", "other_rept_positions_short", "nonrept_positions_long_all", "nonrept_positions_short_all"]
@@ -99,13 +103,16 @@ def cftc(log=print):
     where = "market_and_exchange_names like '%BITCOIN%' OR market_and_exchange_names like '%ETHER%'"
     j = get("https://publicreporting.cftc.gov/resource/gpe5-46if.json", {"$where": where, "$limit": 20000, "$order": "report_date_as_yyyy_mm_dd"}, timeout=90).json()
     if not j: return {"error": "empty answer"}
-    d = pd.DataFrame(j); miss = [c for c in CFTC_COLS if c not in d.columns]
+    d = pd.DataFrame(j)
+    d = d[d["market_and_exchange_names"].str.startswith("BITCOIN - CHICAGO MERCANTILE EXCHANGE")]      # ONE contract (the main CME Bitcoin future): mixing 10 different contracts would average unrelated positions
+    if d.empty: return {"error": "main CME Bitcoin contract not found in the answer"}
+    miss = [c for c in CFTC_COLS if c not in d.columns]
     day = pd.to_datetime(d["report_date_as_yyyy_mm_dd"]).dt.tz_localize("UTC")
     rep = (day - pd.Timestamp("1970-01-01", tz="UTC")) // pd.Timedelta("1s")
     out = pd.DataFrame({"t": rep + 3 * DAY + 20 * H + 1800, "market": d["market_and_exchange_names"].str.slice(0, 60)})
     # reports describe Tuesday but come out Friday ~3:30pm ET (~20:30 UTC): 't' IS the moment it became public, so nothing can use a row early (the evidence engine adds another day on top)
-    for c in CFTC_COLS:
-        if c in d.columns: out[c] = _num(d[c])
+    for c in CFTC_COLS[:8]:                                           # the 8 columns the evidence engine reads (it takes the first 8 numeric columns)
+        if c in d.columns: out[c] = _num(d[c].values)
     path = KEEP("cftc.parquet"); res = out.drop_duplicates(["t", "market"]).sort_values(["t", "market"]); _save(res, path)   # full history every time: replaces the older file stamped by report date
     log(f"cftc: {len(out)} rows, markets {sorted(out.market.unique())[:4]}"); return {"rows": int(len(res)), "markets": int(res.market.nunique()), "newestPublic": str(pd.to_datetime(int(res.t.max()), unit="s"))[:16], **({"missingColumns": miss} if miss else {})}
 
