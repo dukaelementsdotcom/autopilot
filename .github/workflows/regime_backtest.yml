@@ -1,0 +1,48 @@
+name: Regime composite backtest
+
+# By hand only: owner request Nov 27: does the macro-micro vote predict anything (see rm.regime_backtest.py). Reads history, changes nothing, saves rm/studies/regime_backtest.json.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: regime-backtest
+  cancel-in-progress: false
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      COINALYZE_KEY: ${{ secrets.COINALYZE_KEY }}
+      RM_RELAY_KEY: ${{ secrets.RM_RELAY_KEY }}
+      RM_OWN_RELAY: ${{ secrets.RM_OWN_RELAY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: rawdata-lab-${{ github.run_id }}
+          restore-keys: rawdata-
+      - name: restore memory (read only)
+        run: |
+          mkdir -p state
+          git fetch --depth 1 origin state && git --work-tree=state checkout FETCH_HEAD -- . && git reset -q || true
+      - name: Run the study
+        run: python -W ignore -m rm.regime_backtest
+      - name: Save the numbers
+        if: success()
+        run: |
+          git config user.name "Study"
+          git config user.email "study@volvox.local"
+          git add rm/studies/regime_backtest.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Regime composite backtest numbers (rm/studies)"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break || sleep 10; done
