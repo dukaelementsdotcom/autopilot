@@ -1,235 +1,108 @@
-"""BLITZ LAB: Aggressive Trial-and-Error & Dynamic Kelly Execution Engine.
-
-Runs multiple high-aggression experimental paper portfolios in parallel alongside
-the conservative referee account:
-  1. dynamic_kelly   : Scales margin dynamically (15% -> 85%) via Kelly f* = (p*b - q)/b
-  2. flash_scalp_5   : Rapid +5% target exits with tight -1.5% invalidation at 15x
-  3. high_conv_20x   : 20x isolated leverage on multi-tier Macro+Micro+Referee consensus
-  4. contrarian_fade : Fades extreme micro crowding/liquidation spikes
-
-All entries occur strictly at the open of new unseen hours; exits replay real hourly highs/lows
-with synthetic liquidation barriers (closing before exchange liquidation).
-"""
-import numpy as np
+"""BLITZ LAB v3 (owner's idea, rebuilt Nov 27): aggressive paper experiments, nothing off the table, but a FAIR comparison.
+Every arm sees the SAME entry stream: the active Arbiter's graded calls (A/B/S, best expected value first), published each hour by the blitz contestants as R['blitzStream'].
+The arms differ only in HOW MUCH they put in and HOW they exit, so the results say which sizing/exit works on identical entries:
+  grid arms   margin 20% / 50% / 90% of the account  x  exits scalp (+1.125%) / std (+2%) / wide (+5%, stop 1.5x)   one trade at a time (all-in style)   stop = the Arbiter's volatility stop for that coin
+  flash_scalp_5    the owner's original: +5% target, fixed -1.5% stop, 15x, 30% margin
+  contrarian_fade  the owner's original idea, fixed: SHORT a coin whose funding AND 4h run-up are both in the top 5% of its own history; LONG when both are in the bottom 5%
+Entries at the close of the newest completed hour; exits replay the next real hourly highs/lows (same bar: stop first); isolated margin, leverage never above what leaves a buffer before liquidation; 0.1% round-trip cost.
+v1 arms (percentile-unit bug, Kelly on the wrong probability, fixed stops) are parked in mem['blitz']['parked'], not deleted."""
+import numpy as np, pandas as pd
 from . import config as C
 
 START = 500.0
 HOUR = 3600
+MARGINS = (0.2, 0.5, 0.9)
+EXITS = {"scalp": {"tgt": 0.01125, "stopx": 1.0, "hold": 12}, "std": {"tgt": 0.02, "stopx": 1.0, "hold": 48}, "wide": {"tgt": 0.05, "stopx": 1.5, "hold": 48}}
+VERSION = 3
 
-ARMS = {
-    "dynamic_kelly": {"label": "Dynamic Kelly (15-85% Margin)", "lev": 10, "tp": 0.04, "sl": 0.015, "max_slots": 2, "hold": 48},
-    "flash_scalp_5": {"label": "Flash Scalp (+5% / -1.5% @ 15x)", "lev": 15, "tp": 0.05, "sl": 0.015, "max_slots": 3, "hold": 24},
-    "high_conv_20x": {"label": "High-Conviction Breakout (20x)", "lev": 20, "tp": 0.06, "sl": 0.018, "max_slots": 1, "hold": 48},
-    "contrarian_fade": {"label": "Liquidation/Funding Fade (12x)", "lev": 12, "tp": 0.035, "sl": 0.015, "max_slots": 2, "hold": 36},
-}
+def _arms():
+    A = {}
+    for m in MARGINS:
+        for ek, e in EXITS.items():
+            A[f"m{int(m*100)}_{ek}"] = {"label": f"{int(m*100)}% margin · +{e['tgt']*100:.3g}% target · stop {e['stopx']:.1f}x vol · {e['hold']}h cap", "kind": "grid", "margin": m, **e}
+    A["flash_scalp_5"] = {"label": "Flash Scalp (+5% / fixed -1.5% stop, 15x, 30% margin)", "kind": "fixed", "margin": 0.30, "lev": 15, "tgt": 0.05, "sl": 0.015, "hold": 24}
+    A["contrarian_fade"] = {"label": "Funding+run-up extreme fade (12x, 25% margin, +3.5% / -1.5%)", "kind": "fade", "margin": 0.25, "lev": 12, "tgt": 0.035, "sl": 0.015, "hold": 36}
+    return A
 
+ARMS = _arms()
 
-def _kelly_fraction(p, tp, sl):
-    """Dynamic Kelly sizing capped to [0.15, 0.85] for high-conviction aggressive compounding."""
-    b = max(0.5, tp / max(1e-4, sl))
-    q = 1.0 - p
-    f = (p * b - q) / b
-    return float(np.clip(f, 0.15, 0.85))
+def _mtm(pos, cl):
+    return pos["margin"] * (1.0 + pos["lev"] * (pos["sd"] * (cl / pos["entry"] - 1.0) - C.FEE))
 
-
-def _step_arm(arm_key, cfg, state, J, candles_by_coin, signals, t_now):
-    """Advance one experimental arm through unseen hours up to t_now."""
+def _step_arm(key, cfg, state, candles, signals, t_now):
     if state is None:
-        state = {
-            "label": cfg["label"],
-            "cash": START,
-            "start": START,
-            "equity": START,
-            "peak": START,
-            "maxDD": 0.0,
-            "open": [],
-            "closed": [],
-            "lastT": t_now,
-        }
-
-    lev = cfg["lev"]
-    tp_pct = cfg["tp"]
-    sl_pct = cfg["sl"]
-    # Synthetic liquidation shield: never let loss exceed 80% of margin (i.e. 0.80 / lev)
-    eff_sl = min(sl_pct, 0.80 / lev)
-
-    # 1. Mark and close existing open positions on bars since lastT
-    still_open = []
+        state = {"label": cfg["label"], "cash": START, "start": START, "equity": START, "peak": START, "maxDD": 0.0, "open": [], "closed": [], "lastT": t_now}
+    # 1. replay the bars since each open trade was last looked at
+    still = []
     for pos in state["open"]:
-        c_df = candles_by_coin.get(pos["coin"])
-        if c_df is None:
-            still_open.append(pos)
-            continue
-        bars = c_df[(c_df["t"] > pos["lastCheck"]) & (c_df["t"] <= t_now)]
-        closed = False
-        for _, bar in bars.iterrows():
-            sd = pos["sd"]
-            ent = pos["entry"]
-            hi, lo, cl, bt = float(bar["H"]), float(bar["L"]), float(bar["Cl"]), int(bar["t"])
-            pos["lastCheck"] = bt
-
-            # Check synthetic stop first (conservative execution)
-            sl_px = ent * (1.0 - sd * eff_sl)
-            tp_px = ent * (1.0 + sd * tp_pct)
-            hit_sl = (lo <= sl_px) if sd > 0 else (hi >= sl_px)
-            hit_tp = (hi >= tp_px) if sd > 0 else (lo <= tp_px)
-            timed_out = (bt - pos["t"]) >= cfg["hold"] * HOUR
-
-            if hit_sl or hit_tp or timed_out:
-                if hit_sl:
-                    raw_ret = -eff_sl
-                    why = "SL"
-                elif hit_tp:
-                    raw_ret = tp_pct
-                    why = "TP"
-                else:
-                    raw_ret = sd * (cl / ent - 1.0)
-                    why = "TIME"
-
-                net_ret = lev * (raw_ret - C.FEE)
-                net_ret = max(-1.0, net_ret)  # Isolated margin: cannot lose >100% of margin
-                pnl = pos["margin"] * net_ret
-                state["cash"] += pos["margin"] + pnl
-                state["closed"].append({
-                    "coin": pos["coin"],
-                    "side": "LONG" if sd > 0 else "SHORT",
-                    "t_in": pos["t"],
-                    "t_out": bt,
-                    "margin": round(pos["margin"], 2),
-                    "lev": lev,
-                    "ret_pct": round(net_ret * 100, 2),
-                    "pnl": round(pnl, 2),
-                    "why": why,
-                })
-                closed = True
-                break
-        if not closed:
-            still_open.append(pos)
-
-    state["open"] = still_open
-
-    # 2. Evaluate new signals at t_now if slots available and cash > $10
-    if len(state["open"]) < cfg["max_slots"] and state["cash"] > 10.0:
-        for sig in signals:
-            if len(state["open"]) >= cfg["max_slots"]:
-                break
-            if any(p["coin"] == sig["coin"] for p in state["open"]):
-                continue
-            if sig["arm"] != arm_key:
-                continue
-
-            if arm_key == "dynamic_kelly":
-                frac = _kelly_fraction(sig["prob"], tp_pct, eff_sl)
-            elif arm_key == "high_conv_20x":
-                frac = 0.45
-            elif arm_key == "flash_scalp_5":
-                frac = 0.30
-            else:
-                frac = 0.25
-
-            margin = min(state["cash"] * 0.95, state["cash"] * frac)
-            if margin < 5.0:
-                continue
-
-            c_df = candles_by_coin.get(sig["coin"])
-            if c_df is None or len(c_df) == 0:
-                continue
-            entry_px = float(c_df["Cl"].iloc[-1])
+        df = candles.get(pos["coin"]); closed = False
+        if df is None: still.append(pos); continue
+        for _, bar in df[(df["t"] > pos["lastCheck"]) & (df["t"] <= t_now)].iterrows():
+            sd, ent = pos["sd"], pos["entry"]; hi, lo, cl, bt = float(bar["H"]), float(bar["L"]), float(bar["Cl"]), int(bar["t"]); pos["lastCheck"] = bt
+            sl_px = ent * (1.0 - sd * pos["sl"]); tp_px = ent * (1.0 + sd * pos["tgt"])
+            hit_sl = (lo <= sl_px) if sd > 0 else (hi >= sl_px); hit_tp = (hi >= tp_px) if sd > 0 else (lo <= tp_px)
+            timed = (bt - pos["t"]) >= pos["hold"] * HOUR
+            if hit_sl or hit_tp or timed:
+                raw, why = (-pos["sl"], "SL") if hit_sl else ((pos["tgt"], "TP") if hit_tp else (sd * (cl / ent - 1.0), "TIME"))
+                net = max(-1.0, pos["lev"] * (raw - C.FEE)); pnl = pos["margin"] * net; state["cash"] += pos["margin"] + pnl
+                state["closed"].append({"coin": pos["coin"], "side": "LONG" if sd > 0 else "SHORT", "t_in": pos["t"], "t_out": bt, "margin": round(pos["margin"], 2), "lev": pos["lev"], "ret_pct": round(net * 100, 2), "pnl": round(pnl, 2), "why": why})
+                closed = True; break
+        if not closed: still.append(pos)
+    state["open"] = still
+    # 2. new entry from the shared stream (one trade at a time) - never the same coin twice
+    if not state["open"] and state["cash"] > 10.0:
+        for sg in signals:
+            df = candles.get(sg["coin"])
+            if df is None or len(df) == 0: continue
+            if cfg["kind"] == "grid": sl = float(np.clip(sg["stop"] * cfg["stopx"], 0.008, 0.08)); lev = int(max(1, min(20, 0.8 // sl)))
+            else: sl, lev = cfg["sl"], cfg["lev"]
+            margin = state["cash"] * cfg["margin"]
+            if margin < 5.0: continue
             state["cash"] -= margin
-            state["open"].append({
-                "coin": sig["coin"],
-                "sd": sig["sd"],
-                "t": t_now,
-                "lastCheck": t_now,
-                "entry": entry_px,
-                "margin": margin,
-                "prob": sig["prob"],
-            })
-
-    # 3. Update equity & drawdown stats
-    locked_margin = sum(p["margin"] for p in state["open"])
-    eq = state["cash"] + locked_margin
-    state["equity"] = round(eq, 2)
-    state["peak"] = round(max(state.get("peak", START), eq), 2)
-    dd = (1.0 - eq / state["peak"]) * 100.0 if state["peak"] > 0 else 0.0
-    state["maxDD"] = round(max(state.get("maxDD", 0.0), dd), 2)
-    state["closed"] = state["closed"][-200:]
-    state["lastT"] = t_now
+            state["open"].append({"coin": sg["coin"], "sd": sg["sd"], "t": t_now, "lastCheck": t_now, "entry": float(df["Cl"].iloc[-1]), "margin": margin, "prob": sg.get("prob"), "lev": lev, "tgt": cfg["tgt"], "sl": round(sl, 5), "hold": cfg["hold"]})
+            break
+    # 3. equity marked to the latest close (unrealised included), drawdown
+    eq = state["cash"]
+    for p in state["open"]:
+        df = candles.get(p["coin"]); eq += _mtm(p, float(df["Cl"].iloc[-1])) if df is not None and len(df) else p["margin"]
+    state["equity"] = round(eq, 2); state["peak"] = round(max(state.get("peak", START), eq), 2)
+    state["maxDD"] = round(max(state.get("maxDD", 0.0), (1.0 - eq / state["peak"]) * 100.0 if state["peak"] > 0 else 0.0), 2)
+    state["closed"] = state["closed"][-200:]; state["lastT"] = t_now; state["label"] = cfg["label"]
     return state
 
-
 def step(mem, J, now_iso, log=print):
-    """Run one Blitz Lab step across all aggressive experimental arms."""
     P = J.P
-    if P is None or len(P) == 0:
-        return
-
-    t_now = int(J.t.max())
-    blitz = mem.setdefault("blitz", {"arms": {}, "updatedAt": now_iso})
-
-    # Build lightweight candle lookup for top liquid coins
+    if P is None or len(P) == 0: return
+    t_now = int(J.t.max()); blitz = mem.setdefault("blitz", {"arms": {}, "updatedAt": now_iso})
+    if blitz.get("ver") != VERSION:                                        # park the v1 arms (record kept), start clean
+        old = blitz.get("arms") or {}
+        if old: blitz.setdefault("parked", {})["v1 arms (to Nov 26: percentile-unit bug, Kelly on the wrong probability, fixed stops)"] = {k: {"equity": a.get("equity"), "closed": (a.get("closed") or [])[-30:]} for k, a in old.items()}
+        blitz["arms"] = {}; blitz["ver"] = VERSION; log("blitz lab: v1 arms parked, v3 starts clean")
     latest = P[P.t == t_now]
-    if len(latest) == 0:
-        return
-
-    rv = mem.get("regimeVotes") or {}
-    comp_bull = rv.get("composite_bull_pct", 50.0) / 100.0
-    ref = mem.get("referee") or {}
-    cands = (ref.get("look") or {}).get("rows") or ref.get("candidates") or []
-
-    # Generate arm-specific signals from Referee candidates + Regime Votes + Microstructure extremes
+    if len(latest) == 0: return
+    st = (mem.get("referee") or {}).get("blitzStream") or {}
     signals = []
-    for c in cands:
-        coin = c.get("coin")
-        p_win = float(c.get("prob") or c.get("p") or 0.52)
-        sd = 1 if str(c.get("side", "")).lower() == "long" else -1
-        if not coin:
-            continue
-
-        # Arm 1: Dynamic Kelly takes any candidate with positive edge > 54%
-        if p_win >= 0.54:
-            signals.append({"arm": "dynamic_kelly", "coin": coin, "sd": sd, "prob": p_win})
-
-        # Arm 2: Flash scalp takes high-momentum candidates
-        if p_win >= 0.56:
-            signals.append({"arm": "flash_scalp_5", "coin": coin, "sd": sd, "prob": p_win})
-
-        # Arm 3: High-conviction 20x requires Macro+Micro regime alignment
-        aligned = (sd > 0 and comp_bull >= 0.60) or (sd < 0 and comp_bull <= 0.40)
-        if p_win >= 0.60 and aligned:
-            signals.append({"arm": "high_conv_20x", "coin": coin, "sd": sd, "prob": p_win})
-
-    # Arm 4: Contrarian fade looks at extreme funding / OI crowding in latest cross-section
-    if "p_hlfund24" in latest.columns and "p_r4" in latest.columns:
+    if st.get("t") == t_now:                                               # only a stream from THIS hour (never trade on a stale one)
+        for c in (st.get("calls") or [])[:8]: signals.append({"arm": "grid", "coin": c["coin"], "sd": 1 if c["side"] == "long" else -1, "prob": c.get("pt"), "stop": c["stop"]})
+    fade = []
+    if "p_hlfund24" in latest.columns and "p_r4" in latest.columns:        # p_* columns are percentile ranks (0-1) against the coin's own past 90 days
         for _, row in latest.iterrows():
-            fr = row.get("p_hlfund24")
-            r4 = row.get("p_r4")
+            fr, r4 = row.get("p_hlfund24"), row.get("p_r4")
             if np.isfinite(fr) and np.isfinite(r4):
-                if fr > 0.0008 and r4 > 0.03:
-                    signals.append({"arm": "contrarian_fade", "coin": row["coin"], "sd": -1, "prob": 0.58})
-                elif fr < -0.0008 and r4 < -0.03:
-                    signals.append({"arm": "contrarian_fade", "coin": row["coin"], "sd": 1, "prob": 0.58})
-
-    # Slice recent 72h candles per coin for fast replay
-    import pandas as pd                                    # hourly bars come from the same source as the rest of the system (columns t,o,h,l,c); the panel has no 'Cl' column
-    need = {s["coin"] for s in signals} | {p["coin"] for a in blitz["arms"].values() for p in a.get("open", [])}
-    candles_by_coin = {}
+                if fr >= 0.95 and r4 >= 0.95: fade.append({"arm": "fade", "coin": row["coin"], "sd": -1, "prob": None, "stop": 0.015})
+                elif fr <= 0.05 and r4 <= 0.05: fade.append({"arm": "fade", "coin": row["coin"], "sd": 1, "prob": None, "stop": 0.015})
+    need = {s["coin"] for s in signals + fade} | {p["coin"] for a in blitz["arms"].values() for p in a.get("open", [])}
+    candles = {}
     for coin in need:
         try:
             T, O, Hh, Ll, Cc = J._bars(coin); m = T >= t_now - 72 * HOUR
-            candles_by_coin[coin] = pd.DataFrame({"t": T[m], "O": O[m], "H": Hh[m], "L": Ll[m], "Cl": Cc[m]})
-        except Exception as e:
-            log(f"blitz lab: no bars for {coin}: {e}")
-
+            candles[coin] = pd.DataFrame({"t": T[m], "O": O[m], "H": Hh[m], "L": Ll[m], "Cl": Cc[m]})
+        except Exception as e: log(f"blitz lab: no bars for {coin}: {e}")
     summary = []
     for key, cfg in ARMS.items():
-        st = _step_arm(key, cfg, blitz["arms"].get(key), J, candles_by_coin, signals, t_now)
-        blitz["arms"][key] = st
-        n_cl = len(st["closed"])
-        wins = sum(1 for x in st["closed"] if x["pnl"] > 0)
-        wr = round(100.0 * wins / n_cl, 1) if n_cl else 0.0
-        ret_pct = round((st["equity"] / START - 1.0) * 100.0, 2)
-        summary.append(f"{key}: ${st['equity']} ({ret_pct:+.1f}%, {n_cl}t, WR {wr}%)")
-
-    blitz["updatedAt"] = now_iso
+        sg = signals[:3] if key == "flash_scalp_5" else (fade if cfg["kind"] == "fade" else signals)
+        blitz["arms"][key] = _step_arm(key, cfg, blitz["arms"].get(key), candles, sg, t_now)
+    for key, a in blitz["arms"].items():
+        n = len(a["closed"]); w = sum(1 for x in a["closed"] if x["pnl"] > 0); summary.append(f"{key} ${a['equity']:.0f} ({n}t/{w}w)")
+    blitz["updatedAt"] = now_iso; blitz["stream"] = {"t": st.get("t"), "n": len(st.get("calls") or [])}
     log("blitz lab: " + " | ".join(summary))

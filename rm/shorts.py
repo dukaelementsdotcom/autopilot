@@ -27,7 +27,26 @@ def _resistances(d):
         if Hh[k] >= Hh[k - 3:k + 4].max(): lv.append(float(Hh[k]))
     return sorted(set(lv))
 
+def _stream(J, B, R, rows, S, pos_new, newest, REG):
+    """once an hour: publish the active Arbiter's graded calls (A/B/S, best expected value first) as R['blitzStream'] - the single entry stream every Blitz Lab arm shares"""
+    from . import referee as RF
+    if (R.get("blitzStream") or {}).get("t") == int(newest): return
+    K = RF._cands(J, B, R, None, {**RF.CHAMP_DEFAULT, "active": True}, rows, S, REG); calls = []
+    for side in ("long", "short"):
+        if side not in K: continue
+        for pos in pos_new:
+            if not K[side]["grade"][pos]: continue
+            i = int(rows[pos]); calls.append({"coin": str(J.coin[i]), "side": side, "grade": str(K[side]["grade"][pos]), "ev": round(float(K[side]["ev"][pos]), 4), "pt": round(float(K[side]["pt"][pos]), 4), "stop": round(float(RF.stop_pct(J.dvol[i])), 5)})
+    calls.sort(key=lambda c: -c["ev"]); seen = set(); out = []
+    for c in calls:                                                        # one call per coin (its better side)
+        if c["coin"] in seen: continue
+        seen.add(c["coin"]); out.append(c)
+    R["blitzStream"] = {"t": int(newest), "regime": REG.get(newest), "calls": out[:15]}
+
 def trade(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx):
+    if kind in ("blitz", "blitz-rotate"):
+        try: _stream(J, B, R, rows, S, pos_new, newest, REG)
+        except Exception as e: R["blitzStream"] = {"t": int(newest), "calls": [], "error": f"{type(e).__name__}: {str(e)[:100]}"}
     if kind in ("blitz", "blitz-rotate"): return _blitz(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx, kind)
     if kind == "sniper": return _sniper(J, B, R, A, rows, S, pos_new, now_iso, newest, REG, ctx)
     return _exhaust(kind, J, B, R, A, rows, S, pos_new, now_iso, newest, ctx)
