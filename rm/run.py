@@ -141,7 +141,7 @@ def run(budget=None, log=print):
         t["signals"] = J.signals_now(t["h"])
         if L["n"] >= C.LIVE_REVIEW_TRADES:
             if L["mean"] < 0: t["status"] = "dead_live"; t["diedAt"] = now_iso(); events.append(("demoted", k))
-            elif L["t"] >= 2 and not t.get("proven"): t["proven"] = now_iso(); events.append(("proven", k))
+            elif L["t"] >= 2 and L.get("days", 0) >= C.MIN_EVIDENCE_DAYS and not t.get("proven"): t["proven"] = now_iso(); events.append(("proven", k))
         if t["status"] == "champion" and not t.get("certified"):     # the undeniable bar (checked weekly per champion)
             last = t.get("certCheckedAt", 0) if any("fading" in k for k in (t.get("certChecks") or {})) else 0   # re-check now if the checklist gained new items
             if J.t_end - last >= 7 * 86400:
@@ -153,14 +153,21 @@ def run(budget=None, log=print):
 
     def promote():
         champs = sum(1 for t in mem["tests"].values() if t["status"] == "champion")
-        for k, t in list(mem["tests"].items()):
+        # near-copies of an existing champion (same building blocks) are not promoted again: they become its twin
+        seen = [(J.fingerprint(t["h"]), t.get("no")) for t in mem["tests"].values() if t["status"] == "champion"]
+        for k, t in sorted(((k, t) for k, t in mem["tests"].items() if t["status"] == "validated"), key=lambda kt: -((kt[1].get("disc") or {}).get("t", 0) or 0)):
+            fp = J.fingerprint(t["h"])
+            twin = next((no for f, no in seen if len(fp & f) / max(1, min(len(fp), len(f))) > 0.6), None)
+            if twin is not None: t["status"] = "twin"; t["twinOf"] = twin; continue
             if t["status"] != "validated": continue
             hs = J.holdout(t["h"]); t["hold"] = hs
             min_h = {"event": C.MIN_HOLD_TRADES, "pair": 5, "carry": 20}.get(t["h"]["kind"], 12)
-            if hs["n"] >= min_h and hs["mean"] > 0 and champs < 30:
+            enough_days = hs.get("days", 0) >= C.MIN_EVIDENCE_DAYS and hs.get("t", 0) >= C.MIN_EVIDENCE_T       # separate days, not one move
+            if hs["n"] >= min_h and hs["mean"] > 0 and enough_days and champs < 30:
                 t["status"] = "champion"; t["promotedAt"] = J.t_end; t["promotedOn"] = now_iso(); champs += 1; events.append(("promoted", k))
                 mem["nextNo"] = mem.get("nextNo", 1); t["no"] = mem["nextNo"]; mem["nextNo"] += 1
-            elif hs["n"] < min_h: t["status"] = "validated"; t["waitHold"] = True       # not enough holdout trades yet — wait for more data
+                seen.append((fp, t["no"]))
+            elif hs["n"] < min_h or not enough_days: t["status"] = "validated"; t["waitHold"] = True       # not enough trades or separate days yet — wait for more data
             else: t["status"] = "dead_hold"
     # the referee's brain: retrained weekly, early in the run so the idea search (which stops at 35 min) cannot starve it
     if time.time() - t0 < 25 * 60: safe("referee training", referee.maybe_train, J, mem, log=log, time_left=50 * 60 - (time.time() - t0))
