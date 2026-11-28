@@ -148,6 +148,7 @@ def model(name, B):
 def _tried(name, B):
     m = _cached(name)
     if m and m.get("live") and m.get("failed") and B is not None and m.get("bundle") == B["trainedAt"]:
+        if "not in the panel" in (m.get("why") or ""): return False       # missing columns are a plumbing gap, not an exam result: retry on the next run
         try: return time.time() - time.mktime(time.strptime(m["fitAt"], "%Y-%m-%d %H:%M")) < LW.RETRY_DAYS * DAY   # a failed exam is retried with more data
         except Exception: return False
     return bool(m) and B is not None and m.get("bundle") == B["trainedAt"] and (m.get("want", m.get("cols")) == WITNESSES[name]["cols"] or (m.get("failed") and "want" not in m and name not in ("mood", "flows")))

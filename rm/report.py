@@ -99,8 +99,8 @@ section[data-tab]{display:none}section[data-tab].on{display:block}
 <h2>Dynamic Macro &amp; Micro Regime Matrix</h2>
 <p class="help">Every macro and microstructure factor is scored in real time with rolling Information Coefficient (IC) weighting and exponential time-decay.</p>
 <div id="regimePanel"></div>
-<h2>Blitz Lab (Aggressive Trial &amp; Error)</h2>
-<p class="help">Parallel high-aggression paper portfolios testing Dynamic Kelly sizing, Flash 5% scalps, 20x consensus breakouts, and contrarian fades.</p>
+<h2>Blitz Lab (sizing and exit experiments)</h2>
+<p class="help">Eleven paper accounts on identical entries. They differ only in margin (20, 50 or 90%) and exit, plus one flash-scalp and one fade experiment.</p>
 <div id="blitzPanel"></div>
 </section>
 
@@ -626,50 +626,101 @@ $("died").innerHTML=lst(D.died_live)||'<p class="mute">None.</p>';
 $("lessons").innerHTML=D.lessons.length?"<ul>"+D.lessons.map(l=>`<li>${esc(l)}</li>`).join("")+"</ul>":'<p class="mute">The AI researcher writes lessons once a week (needs the GROQ_API_KEY secret).</p>';
 $("fam").innerHTML="<tr><th>family</th><th>tests</th><th>best t</th><th>survivors</th></tr>"+D.families.map(f=>`<tr><td>${esc(f[0])}</td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td></tr>`).join("");
 $("runs").innerHTML="<tr><th>run (UTC)</th><th>tested</th><th>result</th><th>new validated</th><th>secs</th></tr>"+D.runs.map(r=>`<tr><td>${esc(r.at)}</td><td>${r.tested}</td><td>${esc(Object.entries(r.counts).map(([a,b])=>a+" "+b).join(", "))}</td><td>${r.validated}</td><td>${r.secs}</td></tr>`).join("");
-// Dynamic Regime Votes & Blitz Lab renderer
+// Regime & Blitz renderer (redesigned Nov 28: every number says what it is and whether it has been tested)
 (function(){
-  const rv = D.regimeVotes;
+  const esc2 = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const utc = t => t ? new Date(t*1000).toISOString().slice(5,16).replace("T"," ")+" UTC" : "–";
+  const bt = D.regimeBacktest;
+  const V = (bt && bt.versions) || {};
+  const corr = k => (V[k] && V[k].vsBTCnext24h) || null;
+  const band = (bt && bt.versions && V.ic_weighted && V.ic_weighted.vsBTCnext24h) ? V.ic_weighted.vsBTCnext24h["ci95Daily(+-)"] : null;
   const rp = $("regimePanel");
   if(rp){
+    const rv = D.regimeVotes;
+    const head = `<div class="card" style="border-left:4px solid var(--warn)">
+      <b>Unvalidated. Shown for transparency, not used to size or gate trades.</b>
+      <div class="nums" style="margin-top:4px">${bt
+        ? `Backtest ${esc2(bt.from)} to ${esc2(bt.to)} (${Number(bt.hours).toLocaleString()} hours). Correlation of the composite with BTC's next 24h move: <b>${corr("ic_weighted")?corr("ic_weighted").spearmanDaily:"–"}</b>, noise band ±${band!=null?band:"–"}, so it is indistinguishable from zero. A plain "BTC above its 50-day average" rule scored ${corr("btc_50d")?corr("btc_50d").spearmanDaily:"–"} over the same days.`
+        : "Backtest not published yet."}</div></div>`;
     if(!rv){
-      rp.innerHTML = `<div class="card mute">Waiting for first dynamic regime voting run...</div>`;
+      rp.innerHTML = head + `<div class="card mute" style="margin-top:10px">Waiting for the first regime vote run...</div>`;
     } else {
-      const col = v => v >= 60 ? "var(--good)" : v <= 40 ? "var(--bad)" : "var(--warn)";
-      const rows = (rv.factors||[]).map(f => {
-        const vc = f.vote > 0.1 ? "var(--good)" : f.vote < -0.1 ? "var(--bad)" : "var(--mute)";
-        const sc = f.status === "SURGING" ? "champion" : f.status === "DECAYING" ? "dead" : "validated";
-        return `<tr><td><b>${esc(f.name)}</b> <span class="mute">(${esc(f.cluster)})</span></td><td><span class="tag">${esc(f.category.toUpperCase())}</span></td><td style="color:${vc};font-weight:650">${f.vote>0?"+":""}${f.vote}</td><td><b>${f.weight_pct}%</b></td><td>${f.delta_24h>0?"+":""}${f.delta_24h}%</td><td>${f.ic}</td><td><span class="tag ${sc}">${esc(f.status)}</span></td></tr>`;
-      }).join("");
-      rp.innerHTML = `
-        <div class="grid">
-          <div class="card"><div class="mute">Composite Conviction</div><div class="big" style="color:${col(rv.composite_bull_pct)}">${rv.composite_bull_pct}% Bullish</div><div class="nums">${rv.factor_count} active factors · Shock Boost ${rv.shock_boost}x</div></div>
-          <div class="card"><div class="mute">Macro Trend Odds</div><div class="big" style="color:${col(rv.macro_bull_pct)}">${rv.macro_bull_pct}%</div><div class="nums">Global Liquidity, FX, Rates, Equities</div></div>
-          <div class="card"><div class="mute">Micro Catalyst Odds</div><div class="big" style="color:${col(rv.micro_bull_pct)}">${rv.micro_bull_pct}%</div><div class="nums">Orderbook, CVD, OI, Whales, Liqs</div></div>
-        </div>
+      const tile = (label, pct, key, note) => {
+        const bk = corr(key);
+        return `<div class="card"><div class="mute" style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap"><span>${label}</span><span class="tag dead">unvalidated</span></div>
+          <div class="big">${pct==null?"–":pct+"%"}</div>
+          <div class="nums">${note}${bk?` · backtest corr ${bk.spearmanDaily}`:""}</div></div>`;
+      };
+      const tiles = `<div class="grid" style="margin-top:10px">
+        ${tile("Composite (macro 45% + micro 55%)", rv.composite_bull_pct, "ic_weighted", "Bullish share of the weighted vote. 50% is neutral.")}
+        ${tile("Macro half", rv.macro_bull_pct, "ic_weighted_macroOnly", "Liquidity, FX, rates, equities, sectors.")}
+        ${tile("Micro half", rv.micro_bull_pct, "ic_weighted_microOnly", "Orderbook, CVD, OI, whales, liquidations.")}</div>`;
+      const allF = rv.factors||[];
+      const mainF = allF.filter(f => (f.weight_pct||0) >= 0.1), zeroF = allF.filter(f => (f.weight_pct||0) < 0.1);
+      const SL = {SURGING:"weight up", DECAYING:"weight down", ACTIVE:"steady"};
+      const rowOf = f => {
+        const v = Number(f.vote)||0, w = Math.min(50, Math.abs(v)*50);
+        const bar = `<div style="position:relative;height:10px;background:var(--line,#eee);border-radius:5px;min-width:120px">
+          <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--mute,#999)"></div>
+          <div style="position:absolute;top:0;bottom:0;${v>=0?"left":"right"}:50%;width:${w}%;background:${v>=0?"var(--good)":"var(--bad)"};border-radius:5px"></div></div>
+          <div class="mute" style="font-size:12px">${v>0?"+":""}${v.toFixed(2)}</div>`;
+        const ic = f.ic==null ? "–" : Number(f.ic).toFixed(2);
+        const stateTitle = {SURGING:"its share of the vote rose more than 0.25 points in 24h","DECAYING":"its share of the vote fell more than 0.25 points in 24h",ACTIVE:"its share barely moved"}[f.status]||"";
+        return `<tr><td><b>${esc2(f.name)}</b> <span class="mute">(${esc2(f.cluster)})</span></td><td><span class="tag">${esc2(String(f.category||"").toUpperCase())}</span></td><td>${bar}</td><td><b>${f.weight_pct}%</b></td><td>${f.delta_24h>0?"+":""}${f.delta_24h}%</td><td title="30-day correlation with the next 24h BTC return. In-sample: it is measured on the same recent window that sets the weight.">${ic}</td><td title="${esc2(stateTitle)}">${esc2(SL[f.status]||f.status)}</td></tr>`;
+      };
+      const rows = mainF.map(rowOf).join("");
+      const zrows = zeroF.map(rowOf).join("");
+      rp.innerHTML = head + tiles + `
         <details class="card" open style="margin-top:10px">
-          <summary><b>Live Factor Voting Matrix (${rv.factor_count} factors)</b></summary>
-          <div class="scroll" style="margin-top:8px">
-            <table><thead><tr><th>Factor</th><th>Tier</th><th>Vote</th><th>Weight</th><th>24h Δ</th><th>IC</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
-          </div>
+          <summary><b>${mainF.length} factors carry weight, largest first</b></summary>
+          <p class="mute" style="font-size:13px;margin:8px 0">Vote: −1 bearish to +1 bullish. Weight: share of the composite. IC: 30-day correlation with the next 24h BTC return, measured in-sample. SURGING / DECAYING only say the weight share moved in 24h; they do not say the factor works.</p>
+          <div class="scroll"><table><thead><tr><th>Factor</th><th>Tier</th><th>Vote</th><th>Weight</th><th>24h Δ weight</th><th>IC</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+          ${zeroF.length ? `<details style="margin-top:8px"><summary class="mute">${zeroF.length} factors with weight under 0.1% (effectively off)</summary><div class="scroll"><table><tbody>${zrows}</tbody></table></div></details>` : ""}
         </details>`;
     }
   }
   const bp = $("blitzPanel");
   const bl = D.blitz;
   if(bp){
-    if(!bl || !bl.arms){
-      bp.innerHTML = `<div class="card mute">Blitz Lab initializing on next run...</div>`;
-    } else {
-      const cards = Object.entries(bl.arms).map(([k, a]) => {
-        const ret = ((a.equity / (a.start||500) - 1) * 100).toFixed(2);
-        const ncl = (a.closed||[]).length;
-        const wins = (a.closed||[]).filter(x=>x.pnl>0).length;
-        const wr = ncl ? ((100*wins/ncl).toFixed(1)+"%") : "–";
-        const rc = ret >= 0 ? "var(--good)" : "var(--bad)";
-        return `<div class="card"><b>${esc(a.label||k)}</b><div class="big" style="color:${rc}">$${a.equity} <span style="font-size:14px">(${ret>=0?"+":""}${ret}%)</span></div><div class="nums">Closed: ${ncl} · Win Rate: ${wr} · Max DD: ${a.maxDD}% · Open: ${(a.open||[]).length}</div></div>`;
-      }).join("");
-      bp.innerHTML = `<div class="grid">${cards}</div>`;
-    }
+    if(!bl || !bl.arms){ bp.innerHTML = `<div class="card mute">Blitz Lab initializing on next run...</div>`; return; }
+    const entries = Object.entries(bl.arms).map(([k, a]) => {
+      const cl = a.closed||[], ncl = cl.length, wins = cl.filter(x=>x.pnl>0), losses = cl.filter(x=>x.pnl<=0);
+      const avg = xs => xs.length ? (xs.reduce((s,x)=>s+x.pnl,0)/xs.length) : null;
+      const ret = (a.equity/(a.start||500)-1)*100;
+      return {k, a, ncl, ret, win: ncl ? 100*wins.length/ncl : null, aw: avg(wins), al: avg(losses), sig: cl.map(x=>x.t_in+":"+x.coin+":"+x.side).join("|")};
+    });
+    entries.sort((x,y)=>y.ret-x.ret);
+    const firstBy = {};
+    const rowsHtml = entries.map(e => {
+      const dup = e.ncl && firstBy[e.sig] ? `same trades as ${esc2(firstBy[e.sig])}` : "";
+      if(e.ncl && !firstBy[e.sig]) firstBy[e.sig] = e.a.label||e.k;
+      const few = e.ncl < 10 ? `<span class="tag dead">${e.ncl} closed: too few to rank</span>` : "";
+      const rc = e.ret>=0 ? "var(--good)" : "var(--bad)";
+      const money = v => v==null ? "–" : `${v>=0?"+":""}$${v.toFixed(2)}`;
+      return `<tr style="${e.ncl<10?"opacity:.75":""}">
+        <td><b>${esc2(e.a.label||e.k)}</b><div class="mute" style="font-size:12px">${few} ${dup}</div></td>
+        <td>$${Number(e.a.equity).toFixed(2)}</td>
+        <td style="color:${rc};font-weight:650">${e.ret>=0?"+":""}${e.ret.toFixed(2)}%</td>
+        <td>${e.ncl}</td>
+        <td>${e.win==null?"–":e.win.toFixed(0)+"%"}</td>
+        <td>${money(e.aw)}</td><td>${money(e.al)}</td>
+        <td>${e.a.maxDD}%</td><td>${(e.a.open||[]).length}</td></tr>`;
+    }).join("");
+    const openRows = entries.flatMap(e => (e.a.open||[]).map(p => `<tr><td>${esc2(e.a.label||e.k)}</td><td>${esc2(p.coin)} ${p.sd>0?"LONG":"SHORT"} ${p.lev}x</td><td>${p.entry}</td><td>$${Number(p.margin).toFixed(2)}</td><td>${utc(p.t)}</td><td>${p.tgt!=null?"+"+(p.tgt*100).toFixed(2)+"% price":"–"} / stop ${p.sl!=null?"−"+(p.sl*100).toFixed(2)+"%":"–"}</td></tr>`)).join("");
+    const closed = entries.flatMap(e => (e.a.closed||[]).map(c => ({...c, arm: e.a.label||e.k}))).sort((x,y)=>(y.t_out||0)-(x.t_out||0)).slice(0,40);
+    const closedRows = closed.map(c => `<tr><td>${utc(c.t_out)}</td><td>${esc2(c.arm)}</td><td>${esc2(c.coin)} ${esc2(c.side)} ${c.lev}x</td><td>$${Number(c.margin).toFixed(2)}</td><td style="color:${c.pnl>=0?"var(--good)":"var(--bad)"}">${c.pnl>=0?"+":""}$${Number(c.pnl).toFixed(2)} (${c.ret_pct}%)</td><td>${esc2(c.why)}</td></tr>`).join("");
+    bp.innerHTML = `
+      <div class="card" style="border-left:4px solid var(--warn)">
+        <b>Eleven paper accounts, one shared stream of entries.</b>
+        <div class="nums" style="margin-top:4px">Every arm takes the same entries (the active Arbiter's graded calls) and differs only in how much margin it risks and how it exits. Each account trades one position at a time. Ranking needs about 10 closed trades per arm, so most rows are not yet a result.</div>
+      </div>
+      <div class="scroll" style="margin-top:10px"><table>
+        <thead><tr><th>Arm</th><th>Equity</th><th>Return</th><th>Closed</th><th>Win rate</th><th>Avg win</th><th>Avg loss</th><th>Max DD</th><th>Open</th></tr></thead>
+        <tbody>${rowsHtml}</tbody></table></div>
+      <details class="card" style="margin-top:10px"><summary><b>Open positions (${openRows ? (entries.reduce((s,e)=>s+(e.a.open||[]).length,0)) : 0})</b></summary>
+        <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Arm</th><th>Position</th><th>Entry</th><th>Margin</th><th>Opened</th><th>Target / stop</th></tr></thead><tbody>${openRows || '<tr><td colspan="6" class="mute">Nothing open right now.</td></tr>'}</tbody></table></div></details>
+      <details class="card" style="margin-top:10px"><summary><b>Latest closed trades (up to 40, all arms)</b></summary>
+        <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Closed</th><th>Arm</th><th>Trade</th><th>Margin</th><th>Result</th><th>How it ended</th></tr></thead><tbody>${closedRows || '<tr><td colspan="6" class="mute">No closed trades yet.</td></tr>'}</tbody></table></div></details>`;
   }
 })();
 (()=>{try{const host=$("growth");if(!host)return;
@@ -874,6 +925,10 @@ def write(mem, J=None, log=print):
     d["twins"] = [{"text": t.get("plain") or t["text"], "of": t.get("twinOf")} for t in mem["tests"].values() if t["status"] == "twin"][:40]
     d["regimeVotes"] = mem.get("regimeVotes")
     d["blitz"] = mem.get("blitz")
+    try:                                                   # the regime composite's backtest (rm/regime_backtest.py): shown next to it, always
+        import json as _j, os as _o
+        d["regimeBacktest"] = _j.load(open(_o.path.join(_o.path.dirname(__file__), "studies", "regime_backtest.json")))
+    except Exception: d["regimeBacktest"] = None
     blob = json.dumps(d, separators=(",", ":")).replace("</", "<\\/")
     with open(f"{C.DOCS_DIR}/index.html", "w", encoding="utf-8") as f: f.write(_tokens(PAGE, mem).replace("__DATA__", blob))
     with open(f"{C.DOCS_DIR}/summary.json", "w", encoding="utf-8") as f: json.dump(d, f)
