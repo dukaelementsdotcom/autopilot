@@ -1,0 +1,964 @@
+{
+ "active": [
+  {
+   "id": "evo06f66727",
+   "genome": {
+    "sig": [
+     "mul",
+     [
+      "lag",
+      24,
+      [
+       "div",
+       [
+        "col",
+        "w_g_chips5"
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ],
+     [
+      "col",
+      "w_vix5"
+     ]
+    ],
+    "side": -1,
+    "tail": "lo",
+    "z": 1.0,
+    "flt": {
+     "node": [
+      "div",
+      [
+       "zs",
+       72,
+       [
+        "raw",
+        "c"
+       ]
+      ],
+      [
+       "diff",
+       720,
+       [
+        "resid",
+        168,
+        72
+       ]
+      ]
+     ],
+     "dir": "above",
+     "z": 1.0,
+     "veto": false
+    }
+   },
+   "what": "Evolved voter (short \u00b7 weekly \u00b7 8-20h \u00b7 BTC-ish): SHORT when z(mul(lag24(div(w_g_chips5, resid_btc(72h,1h))), w_vix5)) <= -1.0; only when z(div(zs72(c[t-1]), diff720(resid_btc(168h,72h)))) > 1.0",
+   "stagedAt": "2026-11-26 03:24",
+   "checks": {
+    "bar": 4.67,
+    "N": 78303,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.167,
+      "bandMilli": 0.261,
+      "aucBand": [
+       0.5764,
+       0.5787
+      ]
+     },
+     "short": {
+      "milli": -0.053,
+      "bandMilli": -0.246,
+      "aucBand": [
+       0.5632,
+       0.5627
+      ]
+     },
+     "t": 1.85,
+     "milli": 0.037,
+     "windows": 1460,
+     "grades": {
+      "before": 486,
+      "after": 721,
+      "profitBefore": 2.27,
+      "profitAfter": 4.88
+     },
+     "aucGain": 0.0009,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.308,
+      "bandMilli": 2.544,
+      "aucBand": [
+       0.6272,
+       0.6252
+      ]
+     },
+     "short": {
+      "milli": -0.025,
+      "bandMilli": 0.222,
+      "aucBand": [
+       0.5881,
+       0.5907
+      ]
+     },
+     "t": 1.47,
+     "milli": 0.11,
+     "windows": 472,
+     "grades": {
+      "before": 207,
+      "after": 319,
+      "profitBefore": 6.3,
+      "profitAfter": 6.95
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 11.58
+  },
+  {
+   "id": "evo69be3c12",
+   "genome": {
+    "sig": [
+     "mul",
+     [
+      "lag",
+      24,
+      [
+       "div",
+       [
+        "col",
+        "w_g_chips5"
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ],
+     [
+      "col",
+      "w_vix5"
+     ]
+    ],
+    "side": -1,
+    "tail": "lo",
+    "z": 2.5,
+    "flt": {
+     "node": [
+      "div",
+      [
+       "zs",
+       72,
+       [
+        "raw",
+        "c"
+       ]
+      ],
+      [
+       "diff",
+       720,
+       [
+        "resid",
+        168,
+        72
+       ]
+      ]
+     ],
+     "dir": "above",
+     "z": 1.0,
+     "veto": false
+    }
+   },
+   "what": "Evolved voter (short \u00b7 rare \u00b7 8-20h \u00b7 BTC-beta): SHORT when z(mul(lag24(div(w_g_chips5, resid_btc(72h,1h))), w_vix5)) <= -2.5; only when z(div(zs72(c[t-1]), diff720(resid_btc(168h,72h)))) > 1.0",
+   "stagedAt": "2026-11-26 03:24",
+   "checks": {
+    "bar": 4.67,
+    "N": 78303,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.167,
+      "bandMilli": 0.261,
+      "aucBand": [
+       0.5764,
+       0.5787
+      ]
+     },
+     "short": {
+      "milli": -0.053,
+      "bandMilli": -0.246,
+      "aucBand": [
+       0.5632,
+       0.5627
+      ]
+     },
+     "t": 1.85,
+     "milli": 0.037,
+     "windows": 1460,
+     "grades": {
+      "before": 486,
+      "after": 721,
+      "profitBefore": 2.27,
+      "profitAfter": 4.88
+     },
+     "aucGain": 0.0009,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.308,
+      "bandMilli": 2.544,
+      "aucBand": [
+       0.6272,
+       0.6252
+      ]
+     },
+     "short": {
+      "milli": -0.025,
+      "bandMilli": 0.222,
+      "aucBand": [
+       0.5881,
+       0.5907
+      ]
+     },
+     "t": 1.47,
+     "milli": 0.11,
+     "windows": 472,
+     "grades": {
+      "before": 207,
+      "after": 319,
+      "profitBefore": 6.3,
+      "profitAfter": 6.95
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 11.58
+  },
+  {
+   "id": "evo7a91d02f",
+   "genome": {
+    "sig": [
+     "lag",
+     720,
+     [
+      "min",
+      [
+       "lag",
+       4,
+       [
+        "zs",
+        72,
+        [
+         "div",
+         [
+          "col",
+          "p_oi4"
+         ],
+         [
+          "resid",
+          24,
+          4
+         ]
+        ]
+       ]
+      ],
+      [
+       "div",
+       [
+        "sub",
+        [
+         "const",
+         -1.84
+        ],
+        [
+         "diff",
+         24,
+         [
+          "col",
+          "w_l_mnet1"
+         ]
+        ]
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ]
+    ],
+    "side": 1,
+    "tail": "hi",
+    "z": 2.0,
+    "flt": null
+   },
+   "what": "Evolved voter (long \u00b7 daily \u00b7 <8h \u00b7 BTC-ish): LONG when z(lag720(min(lag4(zs72(div(p_oi4, resid_btc(24h,4h)))), div(sub(-1.84, diff24(w_l_mnet1)), resid_btc(72h,1h))))) >=2.0",
+   "stagedAt": "2026-11-28 03:23",
+   "checks": {
+    "bar": 4.69,
+    "N": 87771,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.147,
+      "bandMilli": 0.329,
+      "aucBand": [
+       0.5794,
+       0.5804
+      ]
+     },
+     "short": {
+      "milli": 0.003,
+      "bandMilli": -0.196,
+      "aucBand": [
+       0.563,
+       0.5626
+      ]
+     },
+     "t": 3.21,
+     "milli": 0.062,
+     "windows": 1460,
+     "grades": {
+      "before": 528,
+      "after": 680,
+      "profitBefore": -1.27,
+      "profitAfter": 1.43
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.05,
+      "bandMilli": 1.116,
+      "aucBand": [
+       0.6677,
+       0.6682
+      ]
+     },
+     "short": {
+      "milli": 0.183,
+      "bandMilli": 0.219,
+      "aucBand": [
+       0.5972,
+       0.5989
+      ]
+     },
+     "t": 3.01,
+     "milli": 0.129,
+     "windows": 472,
+     "grades": {
+      "before": 204,
+      "after": 325,
+      "profitBefore": 6.54,
+      "profitAfter": 8.42
+     },
+     "aucGain": 0.0011,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 7.17
+  }
+ ],
+ "retired": [
+  {
+   "id": "evo47d9c47e",
+   "genome": {
+    "sig": [
+     "div",
+     [
+      "resid",
+      72,
+      1
+     ],
+     [
+      "resid",
+      168,
+      24
+     ]
+    ],
+    "side": 1,
+    "tail": "hi",
+    "z": 1.5,
+    "flt": null
+   },
+   "what": "Evolved voter (long \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish): LONG when z(div(resid_btc(72h,1h), resid_btc(168h,24h))) >=1.5",
+   "stagedAt": "2026-11-13 10:16",
+   "checks": {
+    "bar": 3.72,
+    "N": 1166,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.353,
+      "bandMilli": 0.258
+     },
+     "short": {
+      "milli": 0.03,
+      "bandMilli": -0.141
+     },
+     "t": 6.5,
+     "milli": 0.165,
+     "windows": 1460
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.428,
+      "bandMilli": 2.939
+     },
+     "short": {
+      "milli": -0.126,
+      "bandMilli": -0.275
+     },
+     "t": 2.45,
+     "milli": 0.102,
+     "windows": 472
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 11.38,
+   "retiredWhy": "failed the validation-year odds-error gate ({'long': {'milli': 0.352, 'bandMilli': 0.265, 'aucBand': [0.5871, 0.587]}, 'short': {'milli': 0.027, 'bandMilli': -0.138, 'aucBand': [0.5557, 0.5552]}, 't': 6.44, 'milli': 0.163, 'windows': 1460, 'grades': {'before': 610, 'after': 771, 'profitBefore': np.float64(-3.65), 'profitAfter': np.float64(6.36)}, 'aucGain': -0.0003, 'gates': {'ranking': False, 'profit': True, 'volume': True}, 'passesGates': False})"
+  },
+  {
+   "id": "evoafcc7993",
+   "genome": {
+    "sig": [
+     "lag",
+     72,
+     [
+      "min",
+      [
+       "zs",
+       72,
+       [
+        "div",
+        [
+         "col",
+         "p_oi4"
+        ],
+        [
+         "resid",
+         24,
+         4
+        ]
+       ]
+      ],
+      [
+       "div",
+       [
+        "resid",
+        168,
+        72
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ]
+    ],
+    "side": 1,
+    "tail": "lo",
+    "z": 1.5,
+    "flt": null
+   },
+   "what": "Evolved voter (long \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish): LONG when z(lag72(min(zs72(div(p_oi4, resid_btc(24h,4h))), div(resid_btc(168h,72h), resid_btc(72h,1h))))) <= -1.5",
+   "stagedAt": "2026-11-26 03:24",
+   "checks": {
+    "bar": 4.67,
+    "N": 78303,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.229,
+      "bandMilli": 0.156,
+      "aucBand": [
+       0.5764,
+       0.5771
+      ]
+     },
+     "short": {
+      "milli": 0.019,
+      "bandMilli": -0.163,
+      "aucBand": [
+       0.5632,
+       0.5631
+      ]
+     },
+     "t": 3.83,
+     "milli": 0.104,
+     "windows": 1460,
+     "grades": {
+      "before": 486,
+      "after": 719,
+      "profitBefore": 2.27,
+      "profitAfter": 3.68
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.141,
+      "bandMilli": 1.783,
+      "aucBand": [
+       0.6272,
+       0.6243
+      ]
+     },
+     "short": {
+      "milli": 0.09,
+      "bandMilli": 0.054,
+      "aucBand": [
+       0.5881,
+       0.5872
+      ]
+     },
+     "t": 1.51,
+     "milli": 0.111,
+     "windows": 472,
+     "grades": {
+      "before": 207,
+      "after": 326,
+      "profitBefore": 6.3,
+      "profitAfter": 8.9
+     },
+     "aucGain": -0.0019,
+     "gates": {
+      "ranking": false,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 12.8
+  },
+  {
+   "id": "evoc599c869",
+   "genome": {
+    "sig": [
+     "lag",
+     72,
+     [
+      "min",
+      [
+       "zs",
+       72,
+       [
+        "div",
+        [
+         "col",
+         "p_oi4"
+        ],
+        [
+         "resid",
+         24,
+         4
+        ]
+       ]
+      ],
+      [
+       "div",
+       [
+        "resid",
+        168,
+        72
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ]
+    ],
+    "side": 1,
+    "tail": "hi",
+    "z": 1.5,
+    "flt": null
+   },
+   "what": "Evolved voter (long \u00b7 busy \u00b7 <8h \u00b7 own): LONG when z(lag72(min(zs72(div(p_oi4, resid_btc(24h,4h))), div(resid_btc(168h,72h), resid_btc(72h,1h))))) >=1.5",
+   "stagedAt": "2026-11-26 03:24",
+   "checks": {
+    "bar": 4.67,
+    "N": 78303,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.229,
+      "bandMilli": 0.156,
+      "aucBand": [
+       0.5764,
+       0.5771
+      ]
+     },
+     "short": {
+      "milli": 0.019,
+      "bandMilli": -0.163,
+      "aucBand": [
+       0.5632,
+       0.5631
+      ]
+     },
+     "t": 3.83,
+     "milli": 0.104,
+     "windows": 1460,
+     "grades": {
+      "before": 486,
+      "after": 719,
+      "profitBefore": 2.27,
+      "profitAfter": 3.68
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.141,
+      "bandMilli": 1.783,
+      "aucBand": [
+       0.6272,
+       0.6243
+      ]
+     },
+     "short": {
+      "milli": 0.09,
+      "bandMilli": 0.054,
+      "aucBand": [
+       0.5881,
+       0.5872
+      ]
+     },
+     "t": 1.51,
+     "milli": 0.111,
+     "windows": 472,
+     "grades": {
+      "before": 207,
+      "after": 326,
+      "profitBefore": 6.3,
+      "profitAfter": 8.9
+     },
+     "aucGain": -0.0019,
+     "gates": {
+      "ranking": false,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": false
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 12.8
+  },
+  {
+   "id": "evodcfcd758",
+   "genome": {
+    "sig": [
+     "mul",
+     [
+      "lag",
+      24,
+      [
+       "div",
+       [
+        "col",
+        "w_g_chips5"
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ],
+     [
+      "col",
+      "w_vix5"
+     ]
+    ],
+    "side": -1,
+    "tail": "hi",
+    "z": 2.5,
+    "flt": null
+   },
+   "what": "Evolved voter (short \u00b7 busy \u00b7 8-20h \u00b7 BTC-ish): SHORT when z(mul(lag24(div(w_g_chips5, resid_btc(72h,1h))), w_vix5)) >=2.5",
+   "stagedAt": "2026-11-26 03:24",
+   "checks": {
+    "bar": 4.67,
+    "N": 78303,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.172,
+      "bandMilli": 0.315,
+      "aucBand": [
+       0.5764,
+       0.5787
+      ]
+     },
+     "short": {
+      "milli": -0.049,
+      "bandMilli": -0.242,
+      "aucBand": [
+       0.5632,
+       0.5628
+      ]
+     },
+     "t": 1.96,
+     "milli": 0.041,
+     "windows": 1460,
+     "grades": {
+      "before": 486,
+      "after": 718,
+      "profitBefore": 2.27,
+      "profitAfter": 4.34
+     },
+     "aucGain": 0.0009,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.343,
+      "bandMilli": 2.686,
+      "aucBand": [
+       0.6272,
+       0.6252
+      ]
+     },
+     "short": {
+      "milli": -0.029,
+      "bandMilli": 0.225,
+      "aucBand": [
+       0.5881,
+       0.5907
+      ]
+     },
+     "t": 1.58,
+     "milli": 0.122,
+     "windows": 472,
+     "grades": {
+      "before": 207,
+      "after": 317,
+      "profitBefore": 6.3,
+      "profitAfter": 7.86
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 12.23
+  },
+  {
+   "id": "evo51dc5e0e",
+   "genome": {
+    "sig": [
+     "mul",
+     [
+      "lag",
+      24,
+      [
+       "div",
+       [
+        "col",
+        "w_g_chips5"
+       ],
+       [
+        "resid",
+        72,
+        1
+       ]
+      ]
+     ],
+     [
+      "col",
+      "w_vix5"
+     ]
+    ],
+    "side": 1,
+    "tail": "lo",
+    "z": 2.0,
+    "flt": {
+     "node": [
+      "lag",
+      72,
+      [
+       "col",
+       "w_a_poly_vol24_z"
+      ]
+     ],
+     "dir": "above",
+     "z": 0.0,
+     "veto": false
+    }
+   },
+   "what": "Evolved voter (long \u00b7 rare \u00b7 20-36h \u00b7 own): LONG when z(mul(lag24(div(w_g_chips5, resid_btc(72h,1h))), w_vix5)) <= -2.0; only when z(lag72(w_a_poly_vol24_z)) > 0.0",
+   "stagedAt": "2026-11-26 03:24",
+   "checks": {
+    "bar": 4.67,
+    "N": 78303,
+    "pLuck": 0.0,
+    "valGain": {
+     "long": {
+      "milli": 0.172,
+      "bandMilli": 0.315,
+      "aucBand": [
+       0.5764,
+       0.5787
+      ]
+     },
+     "short": {
+      "milli": -0.049,
+      "bandMilli": -0.242,
+      "aucBand": [
+       0.5632,
+       0.5628
+      ]
+     },
+     "t": 1.96,
+     "milli": 0.041,
+     "windows": 1460,
+     "grades": {
+      "before": 486,
+      "after": 718,
+      "profitBefore": 2.27,
+      "profitAfter": 4.34
+     },
+     "aucGain": 0.0009,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "examGain": {
+     "long": {
+      "milli": 0.343,
+      "bandMilli": 2.686,
+      "aucBand": [
+       0.6272,
+       0.6252
+      ]
+     },
+     "short": {
+      "milli": -0.029,
+      "bandMilli": 0.225,
+      "aucBand": [
+       0.5881,
+       0.5907
+      ]
+     },
+     "t": 1.58,
+     "milli": 0.122,
+     "windows": 472,
+     "grades": {
+      "before": 207,
+      "after": 317,
+      "profitBefore": 6.3,
+      "profitAfter": 7.86
+     },
+     "aucGain": 0.0003,
+     "gates": {
+      "ranking": true,
+      "profit": true,
+      "volume": true
+     },
+     "passesGates": true
+    },
+    "causal": true,
+    "noLeak": true,
+    "leaky": null,
+    "passed": true
+   },
+   "fit": 12.23
+  }
+ ]
+}
